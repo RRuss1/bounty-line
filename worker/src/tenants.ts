@@ -14,7 +14,22 @@ export const DEFAULT_CONFIG = {
   allow_stacking: true,
   weekly_recap: true,
   branding_color: "#B8860B",
+  /** Forum tag IDs on #bounty-board, by status key. Filled in by /bl setup. */
+  forum_tags: {} as Partial<Record<ForumTagKey, string>>,
+  /** The pinned how-to message in #bounty-line. */
+  howto_message_id: "",
 };
+
+/** Forum tags (spec Section 8.1), keyed by bounty status. */
+export const FORUM_TAGS = {
+  open: "Open",
+  review: "Claimed – Review",
+  awaiting_payment: "Awaiting Payment",
+  paid: "Paid",
+  expired: "Expired",
+  cancelled: "Cancelled",
+} as const;
+export type ForumTagKey = keyof typeof FORUM_TAGS;
 export type TenantConfig = typeof DEFAULT_CONFIG;
 
 export interface TenantRow {
@@ -98,6 +113,11 @@ export async function upsertTenant(db: D1Database, input: SetupInput, now: numbe
     }
   }
   throw new Error("could not allocate a unique board tag");
+}
+
+/** Merges settings into config_json (RFC 7396 merge, so nested maps merge too). */
+export async function patchConfig(db: D1Database, id: string, patch: Partial<TenantConfig>): Promise<void> {
+  await db.prepare("UPDATE tenants SET config_json = json_patch(config_json, ?2) WHERE id = ?1").bind(id, JSON.stringify(patch)).run();
 }
 
 export async function audit(db: D1Database, tenantId: string, actor: string, action: string, detail: unknown, now: number): Promise<void> {
