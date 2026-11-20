@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.1.0 (2026-11-20): Phase 1, Worker skeleton
+
+- Bounty Board Worker: `GET /health` and the Discord `/interactions` endpoint, with Ed25519 signature checks. The server allowlist is checked first, so other servers never cause database, storage or AI work.
+- Slash commands: `/bl ping`, `/bl version`, `/bl setup` (admins; issues a unique 4-character board tag, safe to re-run), `/bl status` (admins).
+- D1 schema (`worker/migrations/0001_init.sql`); every table is keyed by Discord server.
+- Deployment config is rendered from `worker/wrangler.template.jsonc`; no deployment values live in the repo.
+- `Deploy Worker` workflow: migrations, deploy, slash command registration. It skips in forks that haven't configured Variables and Secrets.
+
+### Deployer notes
+
+- **GitHub Variables:** `WORKER_NAME`, `D1_NAME`, `D1_ID`, `R2_BUCKET`, `ALLOWED_GUILD_IDS`. **Secrets:** `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `DISCORD_TOKEN`, `DISCORD_APP_ID`.
+- **API token permissions:** Workers Edit, Workers Scripts Edit, D1 Edit, Workers R2 Storage Edit, scoped to your account, with no zone policy.
+- **Before the first deploy,** run `npx wrangler secret put` for `DISCORD_PUBLIC_KEY`, `DISCORD_APP_ID` and `DISCORD_TOKEN` (with `--name <WORKER_NAME>`). This creates the Worker; the API token can update Workers but not create them.
+- **Order:** set the Interactions Endpoint URL, then invite the bot (scopes `bot` + `applications.commands`, permissions `2252126231317568`), then re-run the deploy so commands register in your server.
+
 ## v0.0.0 (2026-11-20): Phase 0, repo and codec
 
 - BL1 code format ([Compendium 02](docs/compendium/02-Code-Format-Spec.md)): bounty (`B`), kill (`K`), link (`L`) and pack (`P`) codes, with compact GUIDs, zlib-compressed multi-part packs and CRC-16 checks.
