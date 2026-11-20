@@ -161,3 +161,7 @@ vite.config.ts.timestamp-*
 .dev.vars.*
 !.dev.vars.example
 .wrangler/
+
+# Per-deployment config (Compendium 01): rendered from the template, never committed
+worker/wrangler.jsonc
+worker/.deploy.env
