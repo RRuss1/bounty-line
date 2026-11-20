@@ -80,9 +80,13 @@ describe("posting a bounty from #bounty-line", () => {
     const [thread] = threads();
     expect(thread!.path).toBe(`/channels/${ids.forum}/threads`);
     const openTag = JSON.parse((db.sqlite.prepare("SELECT config_json FROM tenants").get() as { config_json: string }).config_json).forum_tags.open;
-    expect(thread!.body).toMatchObject({ name: "☠ Grimlok Ashveil · 500g", applied_tags: [openTag] });
-    const embed = (thread!.body!.message as { embeds: { title: string; description: string }[] }).embeds[0]!;
-    expect(embed.title).toBe("☠ WANTED: GRIMLOK ASHVEIL");
+    expect(thread!.body).toMatchObject({ name: "☠️ Grimlok Ashveil · 500g", applied_tags: [openTag] });
+    const message = thread!.body!.message as { content: string; embeds: { title: string; description: string }[] };
+    const embed = message.embeds[0]!;
+    expect(embed.title).toBe("☠️ WANTED: GRIMLOK ASHVEIL");
+    // Forum cards only preview the text, so the key facts must be in it.
+    expect(message.content).toContain("**Reward: 500g** · Orc Warrior 42 · Horde");
+    expect(message.content).toContain(`Bounty #${row!.id}`);
     expect(embed.description).toContain("Orc Warrior · Level 42 · Horde");
     expect(embed.description).toContain("Reward: 500g");
     expect(row!.thread_id).toBeTruthy();
