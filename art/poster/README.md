@@ -8,16 +8,17 @@ parchment it draws on.
 
 | File | What it is |
 |---|---|
-| `parchment.png` | **The blank poster the bot uses.** You make this one. |
-| `layout-guide.svg` / `layout-guide.png` | Where the bot puts its text. Draw over it, then hide it. |
-| `source/` (optional) | Layered source files (`.psd`, `.kra`, `.xcf`, `.afphoto`…), if you want them versioned |
+| `parchment.png` | **The blank poster the bot uses** (1376 × 768, 700 KB, optimized 256-colour PNG). |
+| `source/parchment-original.jpg` | Full-quality original of `parchment.png`. Re-export from this, not from the PNG |
+| `layout-guide.svg` / `layout-guide.png` | Where the bot puts its text. Drawn for the first 1500 × 1000 draft; will be redrawn for the current parchment |
+| `source/` | Originals and layered source files (`.psd`, `.kra`, `.xcf`, `.afphoto`…) |
 
 ## `parchment.png` spec
 
 | | |
 |---|---|
 | Format | **PNG**, 8-bit RGB or RGBA, sRGB |
-| Size | **1500 × 1000 px** (3:2 landscape) |
+| Size | **About 16:9 landscape** (current art: 1376 × 768). The bot lays its text out relative to the image size |
 | File size | **Under 1 MB** (it ships inside the Worker). Run it through a PNG optimizer if it's bigger |
 | Transparency | Allowed in the outer 60 px edge band only (torn or burnt edges). Discord shows transparent areas on its dark card background |
 
@@ -48,4 +49,4 @@ test post in `#bounty-board` and check what the card shows.
 
 ## Credits
 
-_None yet._
+- `parchment.png`: supplied by Rich Russell. _Source and licence: TODO._
