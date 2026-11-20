@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: Bounty Line
+## Notes: Guild PvP bounties: mark targets, hunt them, prove the kill on your Discord Bounty Board.
+## Author: Rich Russell
+## Version: @project-version@
+## SavedVariables: BountyLineDB
+## SavedVariablesPerCharacter: BountyLineCharDB
+
+Codec.lua
