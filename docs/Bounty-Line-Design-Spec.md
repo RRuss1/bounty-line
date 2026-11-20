@@ -1071,6 +1071,7 @@ The same packager can upload to **Wago** (`-a <wago-id>`) and **WoWInterface** (
 7. **Character linking UX:** first-claim prompt that links a Discord user to a WoW character (`/bl link` code from the addon is the cleanest Tier 1 option).
 8. **Battleground/arena kills:** count or not? (Default proposal: open-world only.)
 9. **Duplicate posters:** stacking UX when two members mark the same GUID.
+10. **Player GUID shape on Forever:** confirm `UnitGUID` returns `Player-<serverID>-<8 hex>` with an unpadded decimal server ID ≤ 65535 (print a few with `/bl debug`). Codes use the 7-byte compact form for that shape; anything else still works through the raw fallback, just ~25 characters longer per GUID (Compendium 02 Section 2).
 
 ---
 
