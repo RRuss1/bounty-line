@@ -1,0 +1,96 @@
+name: Deploy Worker
+
+# Deployment-neutral (Compendium 01 Section 4): reads this repo's Actions
+# Variables and Secrets. A fork with nothing configured skips instead of failing.
+
+on:
+  push:
+    branches: [main]
+    paths: ["worker/**", ".github/workflows/worker-deploy.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      WORKER_NAME: ${{ vars.WORKER_NAME }}
+      D1_NAME: ${{ vars.D1_NAME }}
+      D1_ID: ${{ vars.D1_ID }}
+      R2_BUCKET: ${{ vars.R2_BUCKET }}
+      ALLOWED_GUILD_IDS: ${{ vars.ALLOWED_GUILD_IDS }}
+      READ_CHAT: ${{ vars.READ_CHAT }}
+      AI_CHECK: ${{ vars.AI_CHECK }}
+      AI_DAILY_CAP: ${{ vars.AI_DAILY_CAP }}
+      PROOF_RETENTION_DAYS: ${{ vars.PROOF_RETENTION_DAYS }}
+      LOG_LEVEL: ${{ vars.LOG_LEVEL }}
+    steps:
+      - name: Check deployment config
+        id: cfg
+        env:
+          HAS_CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+          HAS_CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+          HAS_DISCORD: ${{ secrets.DISCORD_TOKEN != '' && secrets.DISCORD_APP_ID != '' }}
+        run: |
+          missing=""
+          for v in WORKER_NAME D1_NAME D1_ID R2_BUCKET ALLOWED_GUILD_IDS; do
+            [ -z "${!v}" ] && missing="$missing $v"
+          done
+          [ "$HAS_CF_TOKEN" = "true" ] || missing="$missing CLOUDFLARE_API_TOKEN"
+          [ "$HAS_CF_ACCOUNT" = "true" ] || missing="$missing CLOUDFLARE_ACCOUNT_ID"
+          if [ -n "$missing" ]; then
+            echo "::notice title=Deploy skipped::Not configured in this repo:$missing"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "register=$HAS_DISCORD" >> "$GITHUB_OUTPUT"
+
+      - if: steps.cfg.outputs.ready == 'true'
+        uses: actions/checkout@v5
+
+      - if: steps.cfg.outputs.ready == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+
+      # No Cloudflare credentials in these steps: install scripts never see them.
+      - if: steps.cfg.outputs.ready == 'true'
+        working-directory: worker
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+          npm run render-config
+
+      - name: Apply D1 migrations
+        if: steps.cfg.outputs.ready == 'true'
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler d1 migrations apply DB --remote
+
+      - name: Deploy
+        if: steps.cfg.outputs.ready == 'true'
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy
+
+      - name: Register slash commands
+        if: steps.cfg.outputs.ready == 'true' && steps.cfg.outputs.register == 'true'
+        working-directory: worker
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          DISCORD_APP_ID: ${{ secrets.DISCORD_APP_ID }}
+        run: npm run register-commands
