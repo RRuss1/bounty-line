@@ -165,3 +165,6 @@ vite.config.ts.timestamp-*
 # Per-deployment config (Compendium 01): rendered from the template, never committed
 worker/wrangler.jsonc
 worker/.deploy.env
+
+# Local packager output
+.release/
