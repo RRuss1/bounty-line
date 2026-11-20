@@ -57,7 +57,6 @@ export interface KillClaim {
   boardTag: string;
   bountyId: number;
   victimGUID: string;
-  victimName: string;
   killerGUID: string;
   killerName: string;
   killerFaction: number;
@@ -131,13 +130,13 @@ function fail(code: CodecError["code"], message: string, extra?: CodecError["ext
 // ---------------------------------------------------------------- schemas
 
 type Field =
-  | readonly [name: string, kind: "u8" | "u16" | "u32" | "tag" | "faction"]
+  | readonly [name: string, kind: "u8" | "u16" | "u32" | "tag" | "faction" | "guid"]
   | readonly [name: string, kind: "vstr", maxBytes: number]
   | readonly [name: string, kind: "list", fields: readonly Field[]];
 
 const PACK_ENTRY: readonly Field[] = [
   ["bountyId", "u32"],
-  ["targetGUID", "vstr", 255],
+  ["targetGUID", "guid"],
   ["targetName", "vstr", 255],
   ["targetClassID", "u8"],
   ["targetFaction", "faction"],
@@ -150,7 +149,7 @@ const PACK_ENTRY: readonly Field[] = [
 export const SCHEMAS: Readonly<Record<CodeType, readonly Field[]>> = {
   B: [
     ["boardTag", "tag"],
-    ["targetGUID", "vstr", 255],
+    ["targetGUID", "guid"],
     ["targetName", "vstr", 255],
     ["targetClassID", "u8"],
     ["targetRaceID", "u8"],
@@ -158,7 +157,7 @@ export const SCHEMAS: Readonly<Record<CodeType, readonly Field[]>> = {
     ["targetFaction", "faction"],
     ["posterFaction", "faction"],
     ["rewardGold", "u32"],
-    ["posterGUID", "vstr", 255],
+    ["posterGUID", "guid"],
     ["posterName", "vstr", 255],
     ["mapID", "u16"],
     ["createdAt", "u32"],
@@ -170,9 +169,8 @@ export const SCHEMAS: Readonly<Record<CodeType, readonly Field[]>> = {
   K: [
     ["boardTag", "tag"],
     ["bountyId", "u32"],
-    ["victimGUID", "vstr", 255],
-    ["victimName", "vstr", 255],
-    ["killerGUID", "vstr", 255],
+    ["victimGUID", "guid"],
+    ["killerGUID", "guid"],
     ["killerName", "vstr", 255],
     ["killerFaction", "faction"],
     ["killedAt", "u32"],
@@ -182,7 +180,7 @@ export const SCHEMAS: Readonly<Record<CodeType, readonly Field[]>> = {
   ],
   L: [
     ["boardTag", "tag"],
-    ["charGUID", "vstr", 255],
+    ["charGUID", "guid"],
     ["charName", "vstr", 255],
     ["faction", "faction"],
     ["guildName", "vstr", 255],
@@ -371,6 +369,21 @@ function truncateUtf8(b: number[], max: number): number[] {
   return b.slice(0, cut);
 }
 
+// ---------------------------------------------------------------- GUIDs
+
+const GUID_RE = /^Player-([0-9]+)-([0-9A-F]{8})$/;
+
+/** [serverId, low] when the GUID round-trips through the compact form exactly, else null. */
+function compactGuid(guid: string): [number, number] | null {
+  const m = GUID_RE.exec(guid);
+  if (!m || m[1]!.length > 5) return null;
+  const sid = Number(m[1]);
+  if (sid > 0xffff || String(sid) !== m[1]) return null;
+  return [sid, parseInt(m[2]!, 16)];
+}
+
+const hex8 = (n: number): string => n.toString(16).toUpperCase().padStart(8, "0");
+
 // ---------------------------------------------------------------- byte writer / reader
 
 class Writer {
@@ -437,6 +450,30 @@ function writeFields(w: Writer, fields: readonly Field[], obj: unknown, path: st
         if (!raw && v !== 1 && v !== 2) fail("INVALID", `${p} must be 1 (Alliance) or 2 (Horde)`);
         w.uint(checkUint(v, p, 0xff), 1);
         break;
+      case "guid": {
+        // raw mode: { form: n } writes a bare form byte; a byte array forces the raw form.
+        if (raw && typeof v === "object" && v !== null && !Array.isArray(v)) {
+          w.uint((v as { form: number }).form, 1);
+          break;
+        }
+        if (raw && Array.isArray(v)) {
+          w.raw([1, v.length, ...(v as number[])]);
+          break;
+        }
+        if (typeof v !== "string" || v === "") fail("INVALID", `${p} must be a non-empty string`);
+        const c = compactGuid(v);
+        if (c) {
+          w.uint(0, 1);
+          w.uint(c[0], 2);
+          w.uint(c[1], 4);
+        } else {
+          // Never truncate a GUID: a cut-off GUID would identify the wrong player.
+          const b = utf8Encode(v, p);
+          if (b.length > 255) fail("INVALID", `${p} is longer than 255 bytes`);
+          w.raw([1, b.length, ...b]);
+        }
+        break;
+      }
       case "vstr": {
         let b: number[];
         if (raw && Array.isArray(v)) b = v as number[];
@@ -476,6 +513,19 @@ function readFields(r: Reader, fields: readonly Field[]): Record<string, unknown
         const v = r.uint(1);
         if (v !== 1 && v !== 2) fail("FACTION", "invalid faction");
         out[f[0]] = v;
+        break;
+      }
+      case "guid": {
+        const form = r.uint(1);
+        if (form === 0) {
+          const sid = r.uint(2);
+          out[f[0]] = `Player-${sid}-${hex8(r.uint(4))}`;
+        } else if (form === 1) {
+          const s = utf8Decode(r.bytes(r.uint(1)));
+          if (s === null || s === "") fail("PAYLOAD", `${f[0]} is not a valid GUID`);
+          if (compactGuid(s as string)) fail("PAYLOAD", `${f[0]} uses a non-canonical GUID form`);
+          out[f[0]] = s;
+        } else fail("PAYLOAD", `${f[0]} has an unknown GUID form`);
         break;
       }
       case "vstr": {
