@@ -13,14 +13,16 @@ jobs:
     name: Addon (luacheck + codec vectors)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: leafo/gh-actions-lua@v10
-        with:
-          luaVersion: "luajit-2.1.0-beta3"
-      - uses: leafo/gh-actions-luarocks@v4
-      - run: luarocks install luacheck
+      - uses: actions/checkout@v5
+      - name: Install Lua 5.1, LuaJIT and luacheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lua5.1 luajit luarocks
+          sudo luarocks install luacheck
       - run: luacheck addon
-      - run: lua addon/tests/run.lua
+      # WoW runs Lua 5.1; test on both stock 5.1 and LuaJIT.
+      - run: lua5.1 addon/tests/run.lua
+      - run: luajit addon/tests/run.lua
 
   worker:
     name: Worker (typecheck + tests)
@@ -29,8 +31,8 @@ jobs:
       run:
         working-directory: worker
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: lts/*
           cache: npm
