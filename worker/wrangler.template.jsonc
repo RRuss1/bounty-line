@@ -8,6 +8,10 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-11-01",
   "observability": { "enabled": true },
+  // Serve on <name>.<subdomain>.workers.dev, but no per-version preview URLs:
+  // they would be extra public copies of the Worker.
+  "workers_dev": true,
+  "preview_urls": false,
   "d1_databases": [
     { "binding": "DB", "database_name": "${D1_NAME}", "database_id": "${D1_ID}", "migrations_dir": "migrations" }
   ],
