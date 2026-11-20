@@ -1,0 +1,49 @@
+/** Slash command definitions, shared by the router and scripts/register-commands.ts. */
+
+export const OptionType = { SUB_COMMAND: 1, STRING: 3, CHANNEL: 7, ROLE: 8 } as const;
+export const ChannelType = { GUILD_TEXT: 0, GUILD_FORUM: 15 } as const;
+
+export const COMMANDS = [
+  {
+    name: "bl",
+    description: "Bounty Board",
+    type: 1,
+    contexts: [0], // servers only, never DMs
+    integration_types: [0],
+    options: [
+      { type: OptionType.SUB_COMMAND, name: "ping", description: "Check that the Bounty Board is up" },
+      { type: OptionType.SUB_COMMAND, name: "version", description: "Show the Bounty Board and code format versions" },
+      {
+        type: OptionType.SUB_COMMAND,
+        name: "setup",
+        description: "Admin: connect this server's channels, officer role and in-game guild",
+        options: [
+          {
+            type: OptionType.CHANNEL,
+            name: "bounty_line",
+            description: "Text channel where players paste codes",
+            required: true,
+            channel_types: [ChannelType.GUILD_TEXT],
+          },
+          {
+            type: OptionType.CHANNEL,
+            name: "bounty_board",
+            description: "Forum channel for wanted posters",
+            required: true,
+            channel_types: [ChannelType.GUILD_FORUM],
+          },
+          { type: OptionType.ROLE, name: "officer_role", description: "Role that approves kill claims", required: true },
+          { type: OptionType.STRING, name: "wow_guild", description: "In-game guild name", required: true, max_length: 64 },
+          {
+            type: OptionType.STRING,
+            name: "display_name",
+            description: "Name shown in in-game banners (defaults to the guild name)",
+            required: false,
+            max_length: 64,
+          },
+        ],
+      },
+      { type: OptionType.SUB_COMMAND, name: "status", description: "Admin: deployment and board status" },
+    ],
+  },
+] as const;
