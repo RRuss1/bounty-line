@@ -49,4 +49,4 @@ test post in `#bounty-board` and check what the card shows.
 
 ## Credits
 
-- `parchment.png`: supplied by Rich Russell. _Source and licence: TODO._
+- `parchment.png`: original AI-generated art by Rich Russell (Google Gemini / Nano Banana), released under the repo's MIT licence.
