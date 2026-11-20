@@ -1,0 +1,7 @@
+package-as: BountyLine
+
+# Libraries (LibStub, CallbackHandler, AceComm, LibDataBroker, LibDBIcon) are
+# added as externals when the addon phase starts.
+
+ignore:
+  - "*.md"
