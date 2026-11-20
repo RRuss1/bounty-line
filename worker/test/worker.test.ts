@@ -1,113 +1,61 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { COMMANDS } from "../src/commands";
-import { isAllowedGuild, Permission } from "../src/discord";
-import type { Env } from "../src/env";
+import { isAllowedGuild } from "../src/discord";
 import worker from "../src/index";
 import { VERSION } from "../src/interactions";
-import { DEFAULT_CONFIG, newBoardTag } from "../src/tenants";
+import { DEFAULT_CONFIG, FORUM_TAGS, newBoardTag } from "../src/tenants";
 import { forbiddenDb, TestD1 } from "./helpers/d1";
+import { call, command, GUILD_A, GUILD_B, ids, makeEnv, MEMBER, setupOptions, STRANGER } from "./helpers/env";
+import { fakeCtx, FakeDiscord, fakeGateway } from "./helpers/fakes";
 
-const GUILD_A = "111111111111111111";
-const GUILD_B = "222222222222222222";
-const STRANGER = "999999999999999999";
-const ADMIN = String(Permission.MANAGE_GUILD);
-const MEMBER = "0";
-const ids = { line: "300000000000000001", forum: "300000000000000002", role: "300000000000000003" };
-
-let keys: CryptoKeyPair;
-let publicKeyHex: string;
-beforeAll(async () => {
-  keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
-  publicKeyHex = Buffer.from(await crypto.subtle.exportKey("raw", keys.publicKey)).toString("hex");
+let discord: FakeDiscord;
+beforeEach(() => {
+  discord = new FakeDiscord().install();
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
-function makeEnv(db: D1Database, overrides: Partial<Env> = {}): Env {
-  return {
-    DB: db,
-    PROOFS: {} as R2Bucket,
-    ALLOWED_GUILD_IDS: `${GUILD_A}, ${GUILD_B}`,
-    DISCORD_PUBLIC_KEY: publicKeyHex,
-    DISCORD_APP_ID: "400000000000000000",
-    DISCORD_TOKEN: "test-token",
-    LOG_LEVEL: "error",
-    ...overrides,
-  };
-}
-
-async function signedRequest(body: unknown, opts: { tamper?: boolean; noSig?: boolean; path?: string } = {}): Promise<Request> {
-  const text = JSON.stringify(body);
-  const ts = String(Math.floor(Date.now() / 1000));
-  const sig = Buffer.from(await crypto.subtle.sign("Ed25519", keys.privateKey, new TextEncoder().encode(ts + text))).toString("hex");
-  const headers: Record<string, string> = { "content-type": "application/json" };
-  if (!opts.noSig) {
-    headers["X-Signature-Ed25519"] = opts.tamper ? sig.replace(/^./, (c: string) => (c === "0" ? "1" : "0")) : sig;
-    headers["X-Signature-Timestamp"] = ts;
-  }
-  return new Request(`https://bounty.test${opts.path ?? "/interactions"}`, { method: "POST", headers, body: text });
-}
-
-const command = (guildId: string | undefined, sub: string, options: { name: string; type: number; value: string }[] = [], permissions = ADMIN) => ({
-  id: "1",
-  type: 2,
-  token: "t",
-  ...(guildId ? { guild_id: guildId } : {}),
-  member: { user: { id: "500000000000000001" }, permissions },
-  data: { name: "bl", options: [{ name: sub, type: 1, options }] },
-});
-
-const setupOptions = (wowGuild = "Knights of the Long Night", displayName?: string) => [
-  { name: "bounty_line", type: 7, value: ids.line },
-  { name: "bounty_board", type: 7, value: ids.forum },
-  { name: "officer_role", type: 8, value: ids.role },
-  { name: "wow_guild", type: 3, value: wowGuild },
-  ...(displayName ? [{ name: "display_name", type: 3, value: displayName }] : []),
-];
-
-async function call(env: Env, body: unknown, opts?: Parameters<typeof signedRequest>[1]) {
-  const res = await worker.fetch(await signedRequest(body, opts), env);
-  const text = await res.text();
-  let parsed: { type?: number; data?: { content?: string; flags?: number } } = {};
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    // non-JSON error bodies
-  }
-  return { status: res.status, body: parsed, content: parsed.data?.content ?? "" };
-}
+const DEFERRED = 5;
 
 describe("signature verification", () => {
   it("answers Discord's PING with PONG", async () => {
-    const r = await call(makeEnv(TestD1.migrated().asD1()), { type: 1 });
-    expect(r).toMatchObject({ status: 200, body: { type: 1 } });
+    expect(await call(await makeEnv(TestD1.migrated().asD1()), { type: 1 })).toMatchObject({ status: 200, body: { type: 1 } });
   });
   it("rejects a tampered signature with 401", async () => {
-    expect((await call(makeEnv(forbiddenDb()), { type: 1 }, { tamper: true })).status).toBe(401);
+    expect((await call(await makeEnv(forbiddenDb()), { type: 1 }, { tamper: true })).status).toBe(401);
   });
   it("rejects a missing signature with 401", async () => {
-    expect((await call(makeEnv(forbiddenDb()), { type: 1 }, { noSig: true })).status).toBe(401);
+    expect((await call(await makeEnv(forbiddenDb()), { type: 1 }, { noSig: true })).status).toBe(401);
   });
   it("rejects a valid signature from a different key", async () => {
     const other = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
     const otherHex = Buffer.from(await crypto.subtle.exportKey("raw", other.publicKey)).toString("hex");
-    expect((await call(makeEnv(forbiddenDb(), { DISCORD_PUBLIC_KEY: otherHex }), { type: 1 })).status).toBe(401);
+    expect((await call(await makeEnv(forbiddenDb(), { DISCORD_PUBLIC_KEY: otherHex }), { type: 1 })).status).toBe(401);
   });
   it("rejects a command with a bad signature before touching the database", async () => {
-    expect((await call(makeEnv(forbiddenDb()), command(GUILD_A, "status"), { tamper: true })).status).toBe(401);
+    expect((await call(await makeEnv(forbiddenDb()), command(GUILD_A, "status"), { tamper: true })).status).toBe(401);
+    expect(discord.calls).toEqual([]);
   });
 });
 
 describe("allowlist (checked before any database work)", () => {
-  it("refuses a server that isn't allowlisted without touching the database", async () => {
-    const r = await call(makeEnv(forbiddenDb()), command(STRANGER, "setup", setupOptions()));
+  it("refuses a server that isn't allowlisted without touching the database or Discord", async () => {
+    const r = await call(await makeEnv(forbiddenDb()), command(STRANGER, "setup", setupOptions()));
     expect(r.status).toBe(200);
     expect(r.content).toMatch(/private/);
     expect(r.body.data?.flags).toBe(64);
+    expect(discord.calls).toEqual([]);
   });
-  it("refuses DMs (no server) without touching the database", async () => {
-    expect((await call(makeEnv(forbiddenDb()), command(undefined, "ping"))).content).toMatch(/private/);
+  it("refuses /bl submit from a server that isn't allowlisted", async () => {
+    const r = await call(await makeEnv(forbiddenDb()), command(STRANGER, "submit", [{ name: "code", type: 3, value: "BL1-B-00-0000" }]));
+    expect(r.content).toMatch(/private/);
+  });
+  it("refuses DMs (no server)", async () => {
+    expect((await call(await makeEnv(forbiddenDb()), command(undefined, "ping"))).content).toMatch(/private/);
   });
   it("fails closed when ALLOWED_GUILD_IDS is empty", async () => {
-    expect((await call(makeEnv(forbiddenDb(), { ALLOWED_GUILD_IDS: "" }), command(GUILD_A, "ping"))).content).toMatch(/private/);
+    expect((await call(await makeEnv(forbiddenDb(), { ALLOWED_GUILD_IDS: "" }), command(GUILD_A, "ping"))).content).toMatch(/private/);
   });
   it("matches whole IDs only", () => {
     const env = { ALLOWED_GUILD_IDS: `${GUILD_A},${GUILD_B}` };
@@ -120,70 +68,100 @@ describe("allowlist (checked before any database work)", () => {
 
 describe("/bl ping and /bl version", () => {
   it("ping replies ephemerally without touching the database", async () => {
-    const r = await call(makeEnv(forbiddenDb()), command(GUILD_A, "ping", [], MEMBER));
+    const r = await call(await makeEnv(forbiddenDb()), command(GUILD_A, "ping", [], MEMBER));
     expect(r.content).toContain("Pong");
     expect(r.body.data?.flags).toBe(64);
   });
   it("version shows the Worker version and code format", async () => {
-    expect((await call(makeEnv(forbiddenDb()), command(GUILD_A, "version", [], MEMBER))).content).toContain(`v${VERSION}`);
-    expect((await call(makeEnv(forbiddenDb()), command(GUILD_A, "version", [], MEMBER))).content).toContain("BL1");
+    const r = await call(await makeEnv(forbiddenDb()), command(GUILD_A, "version", [], MEMBER));
+    expect(r.content).toContain(`v${VERSION}`);
+    expect(r.content).toContain("BL1");
   });
 });
 
 describe("/bl setup", () => {
-  it("is admin-only", async () => {
+  it("is admin-only and answers immediately", async () => {
     const db = TestD1.migrated();
-    const r = await call(makeEnv(db.asD1()), command(GUILD_A, "setup", setupOptions(), MEMBER));
+    const r = await call(await makeEnv(db.asD1()), command(GUILD_A, "setup", setupOptions(), MEMBER));
     expect(r.content).toMatch(/Only server admins/);
     expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM tenants").get()).toEqual({ n: 0 });
   });
 
-  it("stores the tenant, issues a board tag and writes an audit entry", async () => {
+  it("defers, stores the tenant, creates forum tags, pins the how-to and reports the board tag", async () => {
     const db = TestD1.migrated();
-    const r = await call(makeEnv(db.asD1()), command(GUILD_A, "setup", setupOptions()));
+    const r = await call(await makeEnv(db.asD1()), command(GUILD_A, "setup", setupOptions()));
+    expect(r.body).toEqual({ type: DEFERRED, data: { flags: 64 } });
+
     const row = db.sqlite.prepare("SELECT * FROM tenants WHERE id = ?").get(GUILD_A) as Record<string, string>;
     expect(row.board_tag).toMatch(/^[0-9A-HJKMNP-TV-Z]{4}$/);
-    expect(row.board_tag).not.toBe("0000");
-    expect(row).toMatchObject({ bounty_line_ch: ids.line, bounty_board_forum: ids.forum, officer_role_id: ids.role, wow_guild_name: "Knights of the Long Night" });
-    expect(JSON.parse(row.config_json!)).toEqual({ discord_display_name: "Knights of the Long Night" });
-    expect(r.content).toContain(`Board tag: **${row.board_tag}**`);
-    expect(r.content).toContain("set up");
+    expect(row).toMatchObject({ bounty_line_ch: ids.line, bounty_board_forum: ids.forum, officer_role_id: ids.role });
+    const config = JSON.parse(row.config_json!);
+    expect(Object.keys(config.forum_tags).sort()).toEqual(Object.keys(FORUM_TAGS).sort());
+    expect(discord.forumTags.map((t) => t.name)).toEqual(Object.values(FORUM_TAGS));
+
+    const howto = discord.find("POST", new RegExp(`/channels/${ids.line}/messages$`));
+    expect(howto).toHaveLength(1);
+    expect(String(howto[0]!.body!.content)).toContain(row.board_tag!);
+    expect(discord.find("PUT", /\/messages\/pins\//)).toHaveLength(1);
+    expect(config.howto_message_id).toBeTruthy();
+
+    const [followup] = discord.followups();
+    expect(followup).toContain(`Board tag: **${row.board_tag}**`);
+    expect(followup).toContain("Players can now paste");
     expect(db.sqlite.prepare("SELECT action FROM audit_log WHERE tenant_id = ?").all(GUILD_A)).toEqual([{ action: "setup.create" }]);
   });
 
-  it("is idempotent: re-running keeps the board tag and updates settings", async () => {
+  it("is idempotent: same tag, no duplicate forum tags or how-to posts", async () => {
     const db = TestD1.migrated();
-    const env = makeEnv(db.asD1());
+    const env = await makeEnv(db.asD1());
+    discord.forumTags = [{ id: "777", name: "Hardcore" }]; // an admin's own tag survives
     await call(env, command(GUILD_A, "setup", setupOptions()));
     const tag = (db.sqlite.prepare("SELECT board_tag FROM tenants").get() as { board_tag: string }).board_tag;
-    const r = await call(env, command(GUILD_A, "setup", setupOptions("New Name", "Night Watch")));
+    await call(env, command(GUILD_A, "setup", setupOptions("New Name", "Night Watch")));
+
     const row = db.sqlite.prepare("SELECT * FROM tenants").get() as Record<string, string>;
     expect(row.board_tag).toBe(tag);
     expect(row.wow_guild_name).toBe("New Name");
     expect(JSON.parse(row.config_json!).discord_display_name).toBe("Night Watch");
-    expect(r.content).toContain("updated");
-    expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM tenants").get()).toEqual({ n: 1 });
+    expect(discord.forumTags.map((t) => t.name)).toEqual(["Hardcore", ...Object.values(FORUM_TAGS)]);
+    expect(discord.find("PATCH", /^\/channels\/\d+$/)).toHaveLength(1); // tags created once
+    expect(discord.find("POST", new RegExp(`/channels/${ids.line}/messages$`))).toHaveLength(1); // how-to posted once...
+    expect(discord.find("PATCH", new RegExp(`/channels/${ids.line}/messages/\\d+$`))).toHaveLength(1); // ...then edited
+    expect(discord.followups()[1]).toContain("updated");
+  });
+
+  it("explains missing Manage Channels instead of failing", async () => {
+    const db = TestD1.migrated();
+    discord.fail.forumPatch = 403;
+    await call(await makeEnv(db.asD1()), command(GUILD_A, "setup", setupOptions()));
+    const [followup] = discord.followups();
+    expect(followup).toContain("Manage Channels");
+    expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM tenants").get()).toEqual({ n: 1 }); // settings still saved
+  });
+
+  it("explains a missing pin permission", async () => {
+    discord.fail.pin = 403;
+    await call(await makeEnv(TestD1.migrated().asD1()), command(GUILD_A, "setup", setupOptions()));
+    expect(discord.followups()[0]).toContain("Pin Messages");
   });
 
   it("gives each server its own tag and keeps their data apart", async () => {
     const db = TestD1.migrated();
-    const env = makeEnv(db.asD1());
+    const env = await makeEnv(db.asD1());
     await call(env, command(GUILD_A, "setup", setupOptions("Guild A")));
     await call(env, command(GUILD_B, "setup", setupOptions("Guild B")));
-    const rows = db.sqlite.prepare("SELECT id, board_tag, wow_guild_name FROM tenants ORDER BY id").all() as { board_tag: string }[];
+    const rows = db.sqlite.prepare("SELECT board_tag FROM tenants ORDER BY id").all() as { board_tag: string }[];
     expect(rows).toHaveLength(2);
     expect(rows[0]!.board_tag).not.toBe(rows[1]!.board_tag);
     db.sqlite.prepare("INSERT INTO bounties (tenant_id, target_guid, reward_gold, status) VALUES (?, 'Player-1-00000001', 5, 'open')").run(GUILD_A);
-    const a = await call(env, command(GUILD_A, "status"));
+    expect((await call(env, command(GUILD_A, "status"))).content).toContain("Open bounties: **1**");
     const b = await call(env, command(GUILD_B, "status"));
-    expect(a.content).toContain("Open bounties: **1**");
     expect(b.content).toContain("Open bounties: **0**");
     expect(b.content).toContain("Guild B");
   });
 
   it("draws a new tag when the random one is already taken", async () => {
     const db = TestD1.migrated();
-    // Fill every tag but one would be slow; instead force the first draw to collide.
     db.sqlite.prepare("INSERT INTO tenants (id, board_tag, created_at) VALUES ('x', 'AAAA', 0)").run();
     const real = crypto.getRandomValues.bind(crypto);
     let first = true;
@@ -196,7 +174,7 @@ describe("/bl setup", () => {
       return real(arr as never);
     }) as unknown as typeof crypto.getRandomValues;
     try {
-      await call(makeEnv(db.asD1()), command(GUILD_A, "setup", setupOptions()));
+      await call(await makeEnv(db.asD1()), command(GUILD_A, "setup", setupOptions()));
     } finally {
       crypto.getRandomValues = real;
     }
@@ -205,22 +183,27 @@ describe("/bl setup", () => {
   });
 
   it("rejects malformed options", async () => {
-    const db = TestD1.migrated();
     const bad = setupOptions().map((o) => (o.name === "bounty_line" ? { ...o, value: "not-a-snowflake" } : o));
-    expect((await call(makeEnv(db.asD1()), command(GUILD_A, "setup", bad))).content).toMatch(/Setup needs/);
+    expect((await call(await makeEnv(TestD1.migrated().asD1()), command(GUILD_A, "setup", bad))).content).toMatch(/Setup needs/);
   });
 });
 
 describe("/bl status", () => {
   it("is admin-only", async () => {
-    expect((await call(makeEnv(forbiddenDb()), command(GUILD_A, "status", [], MEMBER))).content).toMatch(/Only server admins/);
+    expect((await call(await makeEnv(forbiddenDb()), command(GUILD_A, "status", [], MEMBER))).content).toMatch(/Only server admins/);
   });
   it("asks for setup first", async () => {
-    expect((await call(makeEnv(TestD1.migrated().asD1()), command(GUILD_A, "status"))).content).toMatch(/Run `\/bl setup`/);
+    expect((await call(await makeEnv(TestD1.migrated().asD1()), command(GUILD_A, "status"))).content).toMatch(/Run `\/bl setup`/);
+  });
+  it("shows the gateway state", async () => {
+    const db = TestD1.migrated();
+    const env = await makeEnv(db.asD1());
+    await call(env, command(GUILD_A, "setup", setupOptions()));
+    expect((await call(env, command(GUILD_A, "status"))).content).toContain("Chat reading: connected");
   });
   it("reports budget mode and AI settings", async () => {
     const db = TestD1.migrated();
-    const env = makeEnv(db.asD1(), { READ_CHAT: "false", AI_CHECK: "false" });
+    const env = await makeEnv(db.asD1(), { READ_CHAT: "false", AI_CHECK: "false" });
     await call(env, command(GUILD_A, "setup", setupOptions()));
     const r = await call(env, command(GUILD_A, "status"));
     expect(r.content).toContain("budget mode");
@@ -231,39 +214,66 @@ describe("/bl status", () => {
 describe("errors", () => {
   it("turns a database failure into a friendly reply", async () => {
     const broken = { prepare: () => ({ bind: () => ({ first: () => Promise.reject(new Error("D1 down")) }) }) } as unknown as D1Database;
-    const r = await call(makeEnv(broken), command(GUILD_A, "status"));
+    const r = await call(await makeEnv(broken), command(GUILD_A, "status"));
     expect(r.status).toBe(200);
     expect(r.content).toMatch(/Something went wrong/);
   });
-  it("rejects oversized bodies", async () => {
-    const res = await worker.fetch(
-      new Request("https://bounty.test/interactions", { method: "POST", body: "x".repeat(70 * 1024) }),
-      makeEnv(forbiddenDb()),
-    );
-    expect(res.status).toBe(413);
+  it("turns a failure in deferred work into a friendly follow-up", async () => {
+    const broken = { prepare: () => ({ bind: () => ({ first: () => Promise.reject(new Error("D1 down")) }) }) } as unknown as D1Database;
+    await call(await makeEnv(broken), command(GUILD_A, "setup", setupOptions()));
+    expect(discord.followups()[0]).toMatch(/Something went wrong/);
   });
-  it("rejects malformed JSON", async () => {
-    const res = await worker.fetch(new Request("https://bounty.test/interactions", { method: "POST", body: "{nope" }), makeEnv(forbiddenDb()));
-    expect(res.status).toBe(400);
+  it("rejects oversized bodies and malformed JSON", async () => {
+    const env = await makeEnv(forbiddenDb());
+    const { ctx } = fakeCtx();
+    const big = new Request("https://bounty.test/interactions", { method: "POST", body: "x".repeat(70 * 1024) });
+    expect((await worker.fetch(big, env, ctx)).status).toBe(413);
+    const bad = new Request("https://bounty.test/interactions", { method: "POST", body: "{nope" });
+    expect((await worker.fetch(bad, env, ctx)).status).toBe(400);
   });
   it("404s unknown paths and 405s wrong methods", async () => {
-    const env = makeEnv(forbiddenDb());
-    expect((await worker.fetch(new Request("https://bounty.test/nope"), env)).status).toBe(404);
-    expect((await worker.fetch(new Request("https://bounty.test/interactions"), env)).status).toBe(405);
+    const env = await makeEnv(forbiddenDb());
+    const { ctx } = fakeCtx();
+    expect((await worker.fetch(new Request("https://bounty.test/nope"), env, ctx)).status).toBe(404);
+    expect((await worker.fetch(new Request("https://bounty.test/interactions"), env, ctx)).status).toBe(405);
   });
 });
 
 describe("/health", () => {
-  it("reports version and db ok", async () => {
-    const res = await worker.fetch(new Request("https://bounty.test/health"), makeEnv(TestD1.migrated().asD1()));
+  it("reports version, gateway and db", async () => {
+    const { ctx } = fakeCtx();
+    const res = await worker.fetch(new Request("https://bounty.test/health"), await makeEnv(TestD1.migrated().asD1()), ctx);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ version: VERSION, gateway: "disabled", db: "ok" });
+    expect(await res.json()).toEqual({ version: VERSION, gateway: "connected", db: "ok" });
+  });
+  it("reports the gateway as disabled in budget mode", async () => {
+    const { ctx } = fakeCtx();
+    const res = await worker.fetch(new Request("https://bounty.test/health"), await makeEnv(TestD1.migrated().asD1(), { READ_CHAT: "false" }), ctx);
+    expect(await res.json()).toMatchObject({ gateway: "disabled" });
   });
   it("reports db error with 503", async () => {
+    const { ctx } = fakeCtx();
     const broken = { prepare: () => ({ first: () => Promise.reject(new Error("down")) }) } as unknown as D1Database;
-    const res = await worker.fetch(new Request("https://bounty.test/health"), makeEnv(broken));
+    const res = await worker.fetch(new Request("https://bounty.test/health"), await makeEnv(broken), ctx);
     expect(res.status).toBe(503);
     expect(await res.json()).toMatchObject({ db: "error" });
+  });
+});
+
+describe("cron", () => {
+  it("keeps the gateway connected", async () => {
+    const gw = fakeGateway();
+    const { ctx, settle } = fakeCtx();
+    await worker.scheduled({} as ScheduledController, await makeEnv(forbiddenDb(), { GATEWAY: gw.ns }), ctx);
+    await settle();
+    expect(gw.calls).toEqual(["/ensure"]);
+  });
+  it("never starts the gateway in budget mode", async () => {
+    const gw = fakeGateway();
+    const { ctx, settle } = fakeCtx();
+    await worker.scheduled({} as ScheduledController, await makeEnv(forbiddenDb(), { GATEWAY: gw.ns, READ_CHAT: "false" }), ctx);
+    await settle();
+    expect(gw.calls).toEqual([]);
   });
 });
 

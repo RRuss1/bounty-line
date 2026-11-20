@@ -2,6 +2,7 @@
 export interface Env {
   DB: D1Database;
   PROOFS: R2Bucket;
+  GATEWAY: DurableObjectNamespace;
 
   // vars (rendered from deployment values)
   ALLOWED_GUILD_IDS: string;
