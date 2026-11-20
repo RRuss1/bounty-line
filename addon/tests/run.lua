@@ -11,8 +11,15 @@ local function loadLua(path)
 end
 
 local JSON = loadLua(here .. "/json.lua")
+
+-- Load in TOC order, like the client: LibStub, then LibDeflate registers with it,
+-- then the codec finds LibDeflate through LibStub (the in-game lookup path).
+strmatch = string.match -- WoW global used by LibStub
+loadLua(root .. "/addon/BountyLine/Libs/LibStub/LibStub.lua")
+loadLua(root .. "/addon/BountyLine/Libs/LibDeflate/LibDeflate.lua")
 local Codec = loadLua(root .. "/addon/BountyLine/Codec.lua")
-Codec.LibDeflate = loadLua(root .. "/addon/BountyLine/Libs/LibDeflate/LibDeflate.lua")
+assert(LibStub:GetLibrary("LibDeflate", true), "LibDeflate did not register with LibStub")
+assert(Codec.LibDeflate == nil, "the codec must find LibDeflate through LibStub")
 
 local fh = assert(io.open(root .. "/shared/test-vectors.json", "rb"))
 local vectors = JSON.decode(fh:read("*a"))
