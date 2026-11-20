@@ -28,6 +28,9 @@ Build compendiums (also binding):
 
 ## How to work
 - Build in the phases in spec Section 22. Finish and test one phase before starting the next.
-- Small commits with clear messages. Never push straight to `main` once branch protection is on.
+- Small commits with short, clean messages. **No `Co-Authored-By` or other AI attribution lines** in commits or PR descriptions.
+- Branch protection is ON: work on a branch, open a PR, wait for CI (both jobs), rebase-merge. Merging changes under `worker/` auto-deploys the live bot.
+- Track progress in `CHANGELOG.md` (one entry per phase, with Deployer notes). Tag each finished phase `v0.<phase>.0`.
+- Live deployment config lives only in this repo's GitHub Actions Variables/Secrets and Worker secrets, never in files. Read it with `gh variable list`, `gh secret list` and `npx wrangler secret list --name bounty-board`. Setting secrets/variables is done by Rich: hand him the exact commands.
 - When an API behavior on Forever is uncertain, add it to spec Section 23 instead of guessing, and add a `/bl debug` command to test it in game.
 - Write the codec tests first (Lua + TS against `shared/test-vectors.json`).
