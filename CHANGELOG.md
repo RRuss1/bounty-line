@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.2.0 (2026-11-20): Phase 2, bounty posting
+
+- The bot reads `#bounty-line` through a Discord Gateway connection (a Durable Object, kept alive by a once-a-minute cron). Pasted bounty codes become wanted posters in `#bounty-board` with the **Open** tag; the bot reacts ✅ or ❌, and error replies delete themselves after a minute.
+- Rules: board tag must match (or be blank), opposite faction, reward within the server's limits (1g to 10,000g by default), one code per bounty, one open bounty per target for now.
+- `/bl submit code:` does the same from a slash command, for when pasting doesn't work (and for budget mode).
+- `/bl setup` now also creates the forum tags and posts and pins a how-to in `#bounty-line`. It stays safe to re-run.
+- The bot leaves any server that isn't on the allowlist as soon as it joins.
+- `npm run test-code` prints valid bounty codes for testing before the addon exists.
+
+### Deployer notes
+
+- **Discord:** keep **Message Content Intent** on (Bot tab). Without it the gateway stops with close code 4014 and `/bl status` shows chat reading as `error`.
+- **Forum permission:** give the bot **Manage Channels on the `#bounty-board` forum only** (forum settings → Permissions → add the bot's role), then run `/bl setup` again to create the tags and the pinned how-to.
+- New config (automatic): a `GatewayDO` Durable Object and a `*/1 * * * *` cron. Budget mode (`READ_CHAT=false`) never starts the gateway.
+
 ## v0.1.0 (2026-11-20): Phase 1, Worker skeleton
 
 - Bounty Board Worker: `GET /health` and the Discord `/interactions` endpoint, with Ed25519 signature checks. The server allowlist is checked first, so other servers never cause database, storage or AI work.
