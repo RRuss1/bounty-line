@@ -1,397 +1,459 @@
 /**
- * Regenerates shared/test-vectors.json.
+ * Generates shared/test-vectors.json from the reference codec.
  *
  *   npm run vectors      (from worker/)
  *
- * The valid codes come from the TS encoder, so on their own they only prove TS
- * agrees with itself. The cross-check is the Lua suite (addon/tests/run.lua),
- * which encodes the same data independently and must produce identical codes.
- * The primitive vectors (CRC, base32, varint) are hand-checkable references.
- *
- * Once a code ships to players, never change its vector: old codes pasted from
- * old addon versions must keep decoding. Add new vectors instead.
+ * Vectors are FROZEN once committed (Compendium 02 Section 7): codes that
+ * players already have must keep decoding. Only add vectors; never change one.
+ * The script refuses to overwrite an existing vector with a different value.
  */
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
+  _unsafe,
+  adler32,
   ALPHABET,
   base32Decode,
   base32Encode,
   crc16,
   decode,
+  decodePack,
   encode,
-  encodePayload,
+  encodePack,
+  normalize,
   wrapPayload,
-  Writer,
   type BountyPack,
   type BountyPost,
+  type CharacterLink,
   type CodeType,
   type KillClaim,
 } from "../src/codec";
 
 const OUT = fileURLToPath(new URL("../../shared/test-vectors.json", import.meta.url));
+const assert = (cond: unknown, msg: string): void => {
+  if (!cond) throw new Error(msg);
+};
 
-// ---------------------------------------------------------------- valid data
+// ---------------------------------------------------------------- valid fields
 
-const bountyBasic: BountyPost = {
+const bBasic: BountyPost = {
+  schema: 1,
   boardTag: "K7QF",
-  targetGuid: "Player-4395-0A1B2C3D",
+  targetGUID: "Player-0000-0A1B2C3D",
   targetName: "Grimlok Ashveil",
-  classId: 1,
-  raceId: 2,
-  level: 42,
-  targetFaction: "Horde",
-  reward: 500,
-  posterGuid: "Player-4395-00F00BA4",
-  posterName: "Thalia Brightwind",
-  posterFaction: "Alliance",
-  zoneMapId: 1434,
-  timestamp: 1795190400,
+  targetClassID: 1,
+  targetRaceID: 2,
+  targetLevel: 42,
+  targetFaction: 2,
+  posterFaction: 1,
+  rewardGold: 500,
+  posterGUID: "Player-0000-00FFEE11",
+  posterName: "Slac Jaw",
+  mapID: 1434,
+  createdAt: 1795200000,
   nonce: 4242,
   note: "",
+  mode: 0,
+  existingBountyId: 0,
 };
 
-const bountyUnicode: BountyPost = {
-  boardTag: "",
-  targetGuid: "Player-1-FFFFFFFF",
+const bStack: BountyPost = {
+  ...bBasic,
+  boardTag: "0000",
+  targetGUID: "Player-4395-1B2C3D4E",
   targetName: "Zoë Brightblade",
-  classId: 8,
-  raceId: 7,
-  level: 60,
-  targetFaction: "Alliance",
-  reward: 1,
-  posterGuid: "Player-4294967295-00000000",
+  targetClassID: 8,
+  targetRaceID: 7,
+  targetLevel: 60,
+  targetFaction: 1,
+  posterFaction: 2,
+  rewardGold: 1,
+  posterGUID: "Player-4395-0F0F0F0F",
   posterName: "Ælfric Stormcrow",
-  posterFaction: "Horde",
-  zoneMapId: 1440,
-  timestamp: 1795276800,
+  mapID: 1440,
+  createdAt: 1795276800,
   nonce: 0,
   note: "Camped me at the flight master ☠ twice",
+  mode: 1,
+  existingBountyId: 12,
 };
 
-const bountyEdges: BountyPost = {
+const bMax: BountyPost = {
+  ...bBasic,
   boardTag: "ZZZZ",
-  targetGuid: "Player-4395-0a1b2c3d", // lowercase hex: not canonical, so stored raw
   targetName: "",
-  classId: 0,
-  raceId: 0,
-  level: 0,
-  targetFaction: "Horde",
-  reward: 4294967295,
-  posterGuid: "Player-0042-0A1B2C3D", // leading zero in server id: stored raw
-  posterName: "x".repeat(255),
-  posterFaction: "Alliance",
-  zoneMapId: 0,
-  timestamp: 4294967295,
+  targetClassID: 255,
+  targetRaceID: 255,
+  targetLevel: 255,
+  rewardGold: 4294967295,
+  mapID: 65535,
+  createdAt: 4294967295,
   nonce: 65535,
-  note: "😀",
+  mode: 1,
+  existingBountyId: 4294967295,
 };
 
-const killBasic: KillClaim = {
+// Writers truncate on a UTF-8 boundary: 254 ASCII + "é" (2 bytes) = 256 bytes -> cut to 254.
+const bTruncate: BountyPost = { ...bBasic, targetName: "x".repeat(254) + "é", note: "y".repeat(79) + "☠☠" };
+const bTruncateDecoded = { ...bTruncate, targetName: "x".repeat(254), note: "y".repeat(79) };
+
+const kBasic: KillClaim = {
+  schema: 1,
   boardTag: "K7QF",
   bountyId: 12,
-  victimGuid: "Player-4395-0A1B2C3D",
-  killerGuid: "Player-4395-01234567",
+  victimGUID: "Player-0000-0A1B2C3D",
+  victimName: "Grimlok Ashveil",
+  killerGUID: "Player-0000-01234567",
   killerName: "Hunter McHunterface",
-  timestamp: 1795295647,
-  zoneMapId: 1434,
-  honorCorroborated: true,
+  killerFaction: 1,
+  killedAt: 1795295647,
+  mapID: 1434,
+  flags: 1,
   nonce: 513,
 };
 
-const killNoHonor: KillClaim = {
-  boardTag: "",
+const kPet: KillClaim = {
+  ...kBasic,
+  boardTag: "0000",
   bountyId: 300,
-  victimGuid: "Creature-0-4395-0-12-448-0000ABCDEF", // not a player GUID: stored raw
-  killerGuid: "Player-77-89ABCDEF",
   killerName: "Ånund Ironside",
-  timestamp: 1795300000,
-  zoneMapId: 1429,
-  honorCorroborated: false,
+  killerFaction: 2,
+  victimGUID: "Player-77-89ABCDEF",
+  victimName: "Zoë Brightblade",
+  flags: 2,
   nonce: 65535,
 };
 
-const packEmpty: BountyPack = { boardTag: "K7QF", packVersion: 1795190400, discordName: "WoW Forever", bounties: [] };
+const lBasic: CharacterLink = {
+  schema: 1,
+  boardTag: "K7QF",
+  charGUID: "Player-0000-01234567",
+  charName: "Hunter McHunterface",
+  faction: 1,
+  guildName: "Knights of the Long Night",
+  createdAt: 1795190400,
+  nonce: 77,
+};
+
+const packEmpty: BountyPack = {
+  schema: 1,
+  boardTag: "K7QF",
+  packVersion: 1795190400,
+  minAddonVersion: 1000,
+  discordDisplayName: "WoW Forever",
+  rewardMin: 1,
+  rewardMax: 10000,
+  bounties: [],
+};
 
 const packThree: BountyPack = {
-  boardTag: "K7QF",
+  ...packEmpty,
   packVersion: 1795300123,
-  discordName: "Les Chasseurs de Primes ⚔",
+  minAddonVersion: 1002,
+  discordDisplayName: "Les Chasseurs de Primes ⚔",
   bounties: [
-    {
-      id: 12,
-      targetGuid: "Player-4395-0A1B2C3D",
-      targetName: "Grimlok Ashveil",
-      classId: 1,
-      targetFaction: "Horde",
-      reward: 500,
-      posterGuid: "Player-4395-00F00BA4",
-      posterName: "Thalia Brightwind",
-      expiresAt: 1796400000,
-    },
-    {
-      id: 13,
-      targetGuid: "Player-4395-1B2C3D4E",
-      targetName: "Mograth Skullsplitter",
-      classId: 9,
-      targetFaction: "Horde",
-      reward: 10000,
-      posterGuid: "Player-4395-01234567",
-      posterName: "Hunter McHunterface",
-      expiresAt: 1796486400,
-    },
-    {
-      id: 1000,
-      targetGuid: "Player-11-2C3D4E5F",
-      targetName: "Zoë Brightblade",
-      classId: 8,
-      targetFaction: "Alliance",
-      reward: 2500,
-      posterGuid: "Player-11-99999999",
-      posterName: "Ælfric Stormcrow",
-      expiresAt: 1796572800,
-    },
+    { bountyId: 12, targetGUID: "Player-0000-0A1B2C3D", targetName: "Grimlok Ashveil", targetClassID: 1, targetFaction: 2, rewardGold: 500, posterName: "Slac Jaw", expiresAt: 1796400000 },
+    { bountyId: 13, targetGUID: "Player-0000-1B2C3D4E", targetName: "Mograth Skullsplitter", targetClassID: 9, targetFaction: 2, rewardGold: 10000, posterName: "Hunter McHunterface", expiresAt: 1796486400 },
+    { bountyId: 1000, targetGUID: "Player-11-2C3D4E5F", targetName: "Zoë Brightblade", targetClassID: 8, targetFaction: 1, rewardGold: 2500, posterName: "Ælfric Stormcrow", expiresAt: 1796572800 },
   ],
 };
 
-const valid: { name: string; type: CodeType; data: unknown }[] = [
-  { name: "B basic", type: "B", data: bountyBasic },
-  { name: "B unicode, no board tag, note, 1g", type: "B", data: bountyUnicode },
-  { name: "B edge values, raw GUIDs, 255-byte name", type: "B", data: bountyEdges },
-  { name: "K basic, honor corroborated", type: "K", data: killBasic },
-  { name: "K no honor, non-player victim GUID", type: "K", data: killNoHonor },
-  { name: "P empty pack", type: "P", data: packEmpty },
-  { name: "P three bounties", type: "P", data: packThree },
-];
+// Big enough that Adler-32's running sums wrap past 65521.
+let seed = 12345;
+const rand = (n: number) => (seed = (seed * 48271) % 2147483647) % n; // MINSTD, exact in doubles
+const NAMES = ["Grim", "Zoë", "Mog", "Thal", "Vex", "Ælf", "Kor", "Ny", "Brann", "Sylv"];
+const packMany: BountyPack = {
+  ...packEmpty,
+  packVersion: 1795400000,
+  bounties: Array.from({ length: 25 }, (_, i) => ({
+    bountyId: 100 + i,
+    targetGUID: `Player-${rand(5000)}-${rand(0xffffffff).toString(16).toUpperCase().padStart(8, "0")}`,
+    targetName: `${NAMES[rand(10)]}${NAMES[rand(10)]!.toLowerCase()} ${NAMES[rand(10)]}bane`,
+    targetClassID: 1 + rand(13),
+    targetFaction: 1 + rand(2),
+    rewardGold: 1 + rand(10000),
+    posterName: `${NAMES[rand(10)]} ${NAMES[rand(10)]}son`,
+    expiresAt: 1796400000 + rand(1209600),
+  })),
+};
 
-const validOut = valid.map((v) => ({ ...v, code: encode(v.type, v.data) }));
+const codes = [
+  { name: "B basic", type: "B", fields: bBasic },
+  { name: "B add to existing, unicode, note, no board tag", type: "B", fields: bStack },
+  { name: "B max values", type: "B", fields: bMax },
+  { name: "B writer truncates name and note on a UTF-8 boundary", type: "B", fields: bTruncate, decoded: bTruncateDecoded },
+  { name: "K basic, honor corroborated", type: "K", fields: kBasic },
+  { name: "K pet kill, no honor", type: "K", fields: kPet },
+  { name: "L basic", type: "L", fields: lBasic },
+  { name: "P empty pack", type: "P", fields: packEmpty },
+  { name: "P three bounties", type: "P", fields: packThree },
+  { name: "P 25 bounties", type: "P", fields: packMany },
+].map((v) => {
+  const code = v.type === "P" ? encodePack(v.fields as BountyPack) : [encode(v.type as CodeType, v.fields)];
+  assert(code.length === 1, `${v.name} should be a single code`);
+  const r = decode(code[0]!);
+  assert(r.ok, `${v.name} does not decode`);
+  return { ...v, code: code[0]! };
+});
+const code = (name: string) => codes.find((c) => c.name === name)!.code;
+
+// ---------------------------------------------------------------- forward compatibility (newer schema)
+
+const futureK = _unsafe.wrapBytes("K", [..._unsafe.payload("K", { ...kBasic, schema: 2, flags: 7 }), 0xde, 0xad, 0xbe, 0xef]);
+const forwardCompat = [
+  {
+    name: "K schema 2 with appended fields and new flag bit: known fields read, rest ignored",
+    code: futureK,
+    type: "K",
+    fields: { ...kBasic, schema: 2, flags: 7 },
+  },
+];
 
 // ---------------------------------------------------------------- normalization
 
-const base = validOut[0]!.code;
-const kCode = validOut[3]!.code;
-const [, , kPayload, kCheck] = kCode.split("-") as [string, string, string, string];
-
-function crockfordTypos(code: string): string {
-  const [v, t, p, c] = code.split("-") as [string, string, string, string];
-  const swap = (s: string) => s.replace(/0/g, "O").replace(/1/, "I").replace(/1/, "l");
-  return [v, t, swap(p), swap(c)].join("-");
-}
-const typoInput = crockfordTypos(base);
-if (!/[OIl]/.test(typoInput.slice(7))) throw new Error("pick a base vector containing 0 or 1 in its payload");
-
-const normalize = [
-  { name: "lowercase", input: base.toLowerCase(), code: base },
-  { name: "surrounding whitespace", input: `  \t${base}\r\n`, code: base },
-  {
-    name: "whitespace and line breaks inside",
-    input: `${base.slice(0, 10)} ${base.slice(10, 30)}\n${base.slice(30, 50)}\r\n\t${base.slice(50)}`,
-    code: base,
-  },
-  { name: "Crockford typos O->0, I/l->1", input: typoInput, code: base },
-  { name: "mixed case K code", input: `bl1-k-${kPayload.toLowerCase()}-${kCheck}`, code: kCode },
+const base = code("B basic");
+const kCode = code("K basic, honor corroborated");
+const swapTypos = (c: string) => {
+  const [v, t, p, k] = c.split("-") as [string, string, string, string];
+  const sw = (s: string) => s.replace(/0/g, "O").replace(/1/, "I").replace(/1/, "l");
+  return [v, t, sw(p), sw(k)].join("-");
+};
+assert(/[OIl]/.test(swapTypos(base).slice(7)), "base vector has no 0/1 to alias");
+const normalization = [
+  { input: `  \`${kCode.toLowerCase()}\`  `, normalized: kCode },
+  { input: base.toLowerCase(), normalized: base },
+  { input: `\t${base}\r\n`, normalized: base },
+  { input: `${base.slice(0, 10)} ${base.slice(10, 40)}\n${base.slice(40, 70)}\r\n\t${base.slice(70)}`, normalized: base },
+  { input: swapTypos(base), normalized: base },
+  { input: "```\n" + kCode + "\n```", normalized: kCode },
 ];
-
-// ---------------------------------------------------------------- invalid inputs
-
-function replaceAt(s: string, i: number, ch: string): string {
-  return s.slice(0, i) + ch + s.slice(i + 1);
-}
-const otherChar = (ch: string) => (ch === "Q" ? "R" : "Q");
-const payloadStart = base.indexOf("-", 4) + 1;
-const checkStart = base.lastIndexOf("-") + 1;
-
-/** Wraps raw bytes in a code with a correct checksum, so only the payload is bad. */
-const wrapBytes = (type: CodeType, bytes: number[]) => wrapPayload(type, base32Encode(bytes));
-
-/** A K payload with overridable byte segments. */
-function kBytes(over: Partial<Record<"tag" | "bountyId" | "victim" | "name" | "bool", number[]>>): number[] {
-  const w = new Writer();
-  const push = (b: number[]) => w.bytes.push(...b);
-  const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
-  push(over.tag ?? [4, ...ascii("K7QF")]);
-  push(over.bountyId ?? [12]);
-  push(over.victim ?? [0, 0xab, 0x22, 0x0a, 0x1b, 0x2c, 0x3d]); // Player-4395-0A1B2C3D
-  push([0, 0xab, 0x22, 0x01, 0x23, 0x45, 0x67]); // killer Player-4395-01234567
-  push(over.name ?? [4, ...ascii("Rich")]);
-  w.varint(1795295647); // timestamp
-  w.varint(1434); // zone
-  push(over.bool ?? [1]);
-  push([0x02, 0x01]); // nonce
-  return w.bytes;
-}
-// Sanity: the unmodified builder must decode cleanly.
-{
-  const r = decode(wrapBytes("K", kBytes({})));
-  if (!r.ok) throw new Error(`kBytes baseline is broken: ${r.message}`);
+for (const n of normalization) {
+  const r = decode(n.input);
+  assert(r.ok && r.code === n.normalized, `normalization failed for ${JSON.stringify(n.input)}`);
 }
 
+// ---------------------------------------------------------------- invalid codes
+
+const replaceAt = (s: string, i: number, ch: string) => s.slice(0, i) + ch + s.slice(i + 1);
+const other = (ch: string) => (ch === "Q" ? "R" : "Q");
+const pStart = base.indexOf("-", 4) + 1;
+const cStart = base.lastIndexOf("-") + 1;
 const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
-const pBytesBadFaction = (() => {
-  const b = encodePayload("P", { ...packThree, bounties: [packThree.bounties[0]!] });
-  // Layout: tag(5) packVersion(5) discordName(len+bytes) count(1) id(1) guid(7) name(len+15) classId(1) faction
-  const nameLen = b[10]!;
-  const factionAt = 10 + 1 + nameLen + 1 + 1 + 7 + 1 + 15 + 1;
-  if (b[factionAt] !== 1) throw new Error("faction offset is wrong");
-  b[factionAt] = 2;
-  return b;
-})();
+const wrapB = (f: object) => _unsafe.wrapBytes("B", _unsafe.payload("B", { ...bBasic, ...f }));
+const wrapK = (f: object) => _unsafe.wrapBytes("K", _unsafe.payload("K", { ...kBasic, ...f }));
+const wrapPackBody = (bytes: number[]) => _unsafe.wrapBytes("P", bytes);
+const packBody = (f: object) => _unsafe.payload("P", { ...packThree, ...f });
 
-// Payload text with non-zero pad bits: find a vector whose last char carries pad bits and set the lowest one.
 const padBitsCode = (() => {
-  for (const v of validOut) {
-    const [, t, p] = v.code.split("-") as [string, CodeType, string];
-    const padBits = p.length * 5 - base32Decode(p).length * 8;
-    if (padBits > 0) {
-      const last = ALPHABET.indexOf(p[p.length - 1]!);
-      return wrapPayload(t, p.slice(0, -1) + ALPHABET[last + 1]);
-    }
+  for (const v of codes) {
+    const [, t, p] = v.code.split("-") as [string, string, string];
+    if (p.length * 5 - base32Decode(p).length * 8 > 0)
+      return wrapPayload(t, p.slice(0, -1) + ALPHABET[ALPHABET.indexOf(p.at(-1)!) + 1]);
   }
   throw new Error("no vector with pad bits");
 })();
 
-const invalid: { name: string; input: string; error: string }[] = [
-  { name: "empty", input: "", error: "format" },
-  { name: "whitespace only", input: " \n\t ", error: "format" },
-  { name: "chatter", input: "anyone up for BGs?", error: "format" },
-  { name: "missing version digits", input: "BL-B-00-0000", error: "format" },
-  { name: "only two parts", input: "BL1-B-0000", error: "format" },
-  { name: "four parts", input: "BL1-B-00-0000-0000", error: "format" },
-  { name: "empty payload", input: "BL1-B--0000", error: "format" },
-  { name: "check too short", input: "BL1-B-00-000", error: "format" },
-  { name: "check too long", input: "BL1-B-00-00000", error: "format" },
-  { name: "U is not in the alphabet", input: replaceAt(base, payloadStart + 2, "U"), error: "format" },
-  { name: "non-ASCII character", input: replaceAt(base, payloadStart + 2, "Ä"), error: "format" },
-  { name: "punctuation in payload", input: replaceAt(base, payloadStart + 2, "*"), error: "format" },
-  { name: "payload with impossible length (1 char)", input: wrapPayload("K", "0"), error: "format" },
-  { name: "payload with impossible length (3 chars)", input: wrapPayload("K", "000"), error: "format" },
-  { name: "non-zero pad bits", input: padBitsCode, error: "format" },
-  { name: "future version BL2", input: base.replace(/^BL1/, "BL2"), error: "version" },
-  { name: "version BL0", input: "BL0-K-00-0000", error: "version" },
-  { name: "version BL10", input: "BL10-K-00-0000", error: "version" },
-  { name: "version with leading zero BL01", input: base.replace(/^BL1/, "BL01"), error: "version" },
-  { name: "lowercase future version", input: "bl2-b-00-0000", error: "version" },
-  { name: "unknown type X", input: "BL1-X-00-0000", error: "type" },
-  { name: "two-letter type", input: "BL1-BK-00-0000", error: "type" },
-  { name: "empty type", input: "BL1--00-0000", error: "type" },
-  { name: "type check precedes alphabet check", input: "BL1-X-0U-0000", error: "type" },
-  { name: "one payload char changed", input: replaceAt(base, payloadStart + 5, otherChar(base[payloadStart + 5]!)), error: "checksum" },
-  { name: "one check char changed", input: replaceAt(base, checkStart, otherChar(base[checkStart]!)), error: "checksum" },
+const goodPack = _unsafe.packBytes(packBody({}));
+const invalid: { name: string; code: string; error: string }[] = [
+  // FORMAT
+  { name: "empty", code: "", error: "FORMAT" },
+  { name: "whitespace only", code: " \n\t ", error: "FORMAT" },
+  { name: "chatter", code: "anyone up for BGs?", error: "FORMAT" },
+  { name: "missing version digits", code: "BL-B-00-0000", error: "FORMAT" },
+  { name: "only two parts", code: "BL1-B-0000", error: "FORMAT" },
+  { name: "four parts on a B code", code: "BL1-B-00-00-0000", error: "FORMAT" },
+  { name: "empty payload", code: "BL1-B--0000", error: "FORMAT" },
+  { name: "check too short", code: "BL1-B-00-000", error: "FORMAT" },
+  { name: "check too long", code: "BL1-B-00-00000", error: "FORMAT" },
+  { name: "U is not in the alphabet", code: replaceAt(base, pStart + 2, "U"), error: "FORMAT" },
+  { name: "non-ASCII character", code: replaceAt(base, pStart + 2, "Ä"), error: "FORMAT" },
+  { name: "punctuation in payload", code: replaceAt(base, pStart + 2, "*"), error: "FORMAT" },
+  { name: "impossible payload length (1 char)", code: wrapPayload("K", "0"), error: "FORMAT" },
+  { name: "impossible payload length (3 chars)", code: wrapPayload("K", "000"), error: "FORMAT" },
+  { name: "non-zero pad bits", code: padBitsCode, error: "FORMAT" },
+  { name: "bad part marker", code: wrapPayload("P", "00", "1F3"), error: "FORMAT" },
+  { name: "part marker with leading zero", code: wrapPayload("P", "00", "01OF3"), error: "FORMAT" },
+  // VERSION
+  { name: "future version BL2", code: base.replace(/^BL1/, "BL2"), error: "VERSION" },
+  { name: "version BL0", code: "BL0-K-00-0000", error: "VERSION" },
+  { name: "version BL10", code: "BL10-K-00-0000", error: "VERSION" },
+  { name: "version with leading zero", code: base.replace(/^BL1/, "BL01"), error: "VERSION" },
+  { name: "lowercase future version", code: "bl2-b-00-0000", error: "VERSION" },
+  // TYPE
+  { name: "unknown type", code: "BL1-X-00-0000", error: "TYPE" },
+  { name: "two-letter type", code: "BL1-BK-00-0000", error: "TYPE" },
+  { name: "empty type", code: "BL1--00-0000", error: "TYPE" },
+  { name: "type is checked before the alphabet", code: "BL1-X-0U-0000", error: "TYPE" },
+  // CHECKSUM
+  { name: "bad checksum", code: replaceAt(base, base.length - 1, other(base.at(-1)!)), error: "CHECKSUM" },
+  { name: "one payload char changed", code: replaceAt(base, pStart + 5, other(base[pStart + 5]!)), error: "CHECKSUM" },
   {
     name: "adjacent chars transposed",
-    input: (() => {
-      for (let i = payloadStart; i < checkStart - 2; i++)
-        if (base[i] !== base[i + 1]) return base.slice(0, i) + base[i + 1] + base[i] + base.slice(i + 2);
-      throw new Error("no transposable pair");
+    code: (() => {
+      for (let i = pStart; i < cStart - 2; i++) if (base[i] !== base[i + 1]) return base.slice(0, i) + base[i + 1] + base[i] + base.slice(i + 2);
+      throw new Error("no pair");
     })(),
-    error: "checksum",
+    error: "CHECKSUM",
   },
-  { name: "truncated payload (last 3 chars dropped)", input: base.slice(0, checkStart - 4) + base.slice(checkStart - 1), error: "checksum" },
-  { name: "type letter changed B->K", input: base.replace(/^BL1-B-/, "BL1-K-"), error: "checksum" },
-  { name: "check out of range", input: base.slice(0, checkStart) + "ZZZZ", error: "checksum" },
-  { name: "trailing byte", input: wrapBytes("K", [...kBytes({}), 0]), error: "payload" },
-  { name: "truncated bytes (valid checksum)", input: wrapBytes("K", kBytes({}).slice(0, -1)), error: "payload" },
-  { name: "truncated mid-string", input: wrapBytes("K", [4, ...ascii("K7")]), error: "payload" },
-  { name: "B payload under a P type", input: wrapBytes("P", encodePayload("B", bountyBasic)), error: "payload" },
-  { name: "non-minimal varint", input: wrapBytes("K", kBytes({ bountyId: [0x8c, 0x00] })), error: "payload" },
-  { name: "varint over 32 bits", input: wrapBytes("K", kBytes({ bountyId: [0xff, 0xff, 0xff, 0xff, 0x1f] })), error: "payload" },
-  { name: "varint longer than 5 bytes", input: wrapBytes("K", kBytes({ bountyId: [0x80, 0x80, 0x80, 0x80, 0x80, 0x01] })), error: "payload" },
-  { name: "string over 255 bytes", input: wrapBytes("K", kBytes({ name: [0x80, 0x02, ...new Array(256).fill(0x61)] })), error: "payload" },
-  { name: "invalid UTF-8", input: wrapBytes("K", kBytes({ name: [2, 0xc3, 0x28] })), error: "payload" },
-  { name: "overlong UTF-8", input: wrapBytes("K", kBytes({ name: [2, 0xc0, 0xaf] })), error: "payload" },
-  { name: "UTF-8 surrogate", input: wrapBytes("K", kBytes({ name: [3, 0xed, 0xa0, 0x80] })), error: "payload" },
-  { name: "UTF-8 above U+10FFFF", input: wrapBytes("K", kBytes({ name: [4, 0xf4, 0x90, 0x80, 0x80] })), error: "payload" },
-  { name: "UTF-8 truncated sequence", input: wrapBytes("K", kBytes({ name: [2, 0xe2, 0x98] })), error: "payload" },
-  { name: "board tag with 3 chars", input: wrapBytes("K", kBytes({ tag: [3, ...ascii("K7Q")] })), error: "payload" },
-  { name: "board tag with U", input: wrapBytes("K", kBytes({ tag: [4, ...ascii("K7QU")] })), error: "payload" },
-  { name: "board tag lowercase", input: wrapBytes("K", kBytes({ tag: [4, ...ascii("k7qf")] })), error: "payload" },
-  { name: "unknown GUID tag", input: wrapBytes("K", kBytes({ victim: [2] })), error: "payload" },
-  { name: "raw GUID that should be compact", input: wrapBytes("K", kBytes({ victim: [1, 17, ...ascii("Player-1-00000001")] })), error: "payload" },
-  { name: "boolean value 2", input: wrapBytes("K", kBytes({ bool: [2] })), error: "payload" },
-  { name: "faction value 2", input: wrapBytes("P", pBytesBadFaction), error: "payload" },
-  { name: "pack count larger than contents", input: wrapBytes("P", [...encodePayload("P", packEmpty).slice(0, -1), 5]), error: "payload" },
+  { name: "truncated (5 middle chars missing)", code: base.slice(0, pStart + 10) + base.slice(pStart + 15), error: "CHECKSUM" },
+  { name: "type letter changed B->K", code: base.replace(/^BL1-B-/, "BL1-K-"), error: "CHECKSUM" },
+  { name: "check out of range", code: base.slice(0, cStart) + "ZZZZ", error: "CHECKSUM" },
+  // SCHEMA
+  { name: "schema 0", code: _unsafe.wrapBytes("K", [0, ..._unsafe.payload("K", kBasic).slice(1)]), error: "SCHEMA" },
+  // FACTION
+  { name: "same faction B", code: wrapB({ targetFaction: 1, posterFaction: 1 }), error: "FACTION" },
+  { name: "faction 0", code: wrapK({ killerFaction: 0 }), error: "FACTION" },
+  { name: "faction 3", code: wrapB({ targetFaction: 3 }), error: "FACTION" },
+  { name: "faction 3 in a pack entry", code: wrapPackBody(_unsafe.packBytes(packBody({ bounties: [{ ...packThree.bounties[0]!, targetFaction: 3 }] }))), error: "FACTION" },
+  // PAYLOAD
+  { name: "trailing byte at schema 1", code: _unsafe.wrapBytes("K", [..._unsafe.payload("K", kBasic), 0]), error: "PAYLOAD" },
+  { name: "truncated bytes (valid checksum)", code: _unsafe.wrapBytes("K", _unsafe.payload("K", kBasic).slice(0, -1)), error: "PAYLOAD" },
+  { name: "schema byte only", code: _unsafe.wrapBytes("L", [1]), error: "PAYLOAD" },
+  { name: "B payload under an L type", code: _unsafe.wrapBytes("L", _unsafe.payload("B", bBasic)), error: "PAYLOAD" },
+  { name: "B mode 2", code: wrapB({ mode: 2 }), error: "PAYLOAD" },
+  { name: "B new bounty with an existing id", code: wrapB({ mode: 0, existingBountyId: 5 }), error: "PAYLOAD" },
+  { name: "B add-to with no existing id", code: wrapB({ mode: 1, existingBountyId: 0 }), error: "PAYLOAD" },
+  { name: "K unknown flag bit at schema 1", code: wrapK({ flags: 4 }), error: "PAYLOAD" },
+  { name: "note over 80 bytes", code: wrapB({ note: "n".repeat(81) }), error: "PAYLOAD" },
+  { name: "board tag with U", code: wrapK({ boardTag: "K7QU" }), error: "PAYLOAD" },
+  { name: "board tag lowercase", code: wrapK({ boardTag: "k7qf" }), error: "PAYLOAD" },
+  { name: "invalid UTF-8", code: wrapK({ killerName: [0xc3, 0x28] }), error: "PAYLOAD" },
+  { name: "overlong UTF-8", code: wrapK({ killerName: [0xc0, 0xaf] }), error: "PAYLOAD" },
+  { name: "UTF-8 surrogate", code: wrapK({ killerName: [0xed, 0xa0, 0x80] }), error: "PAYLOAD" },
+  { name: "UTF-8 above U+10FFFF", code: wrapK({ killerName: [0xf4, 0x90, 0x80, 0x80] }), error: "PAYLOAD" },
+  { name: "UTF-8 truncated sequence", code: wrapK({ killerName: [0xe2, 0x98] }), error: "PAYLOAD" },
+  { name: "pack rewardMin above rewardMax", code: wrapPackBody(_unsafe.packBytes(packBody({ rewardMin: 500, rewardMax: 100 }))), error: "PAYLOAD" },
+  { name: "pack not compressed", code: wrapPackBody(packBody({})), error: "PAYLOAD" },
+  { name: "pack with a bad zlib header", code: wrapPackBody([0x78, 0x00, ...goodPack.slice(2)]), error: "PAYLOAD" },
+  { name: "pack with a bad Adler-32", code: wrapPackBody([...goodPack.slice(0, -1), goodPack.at(-1)! ^ 1]), error: "PAYLOAD" },
+  { name: "pack with corrupt deflate data", code: wrapPackBody([...goodPack.slice(0, 2), 0xff, 0xff, 0xff, 0xff, ...goodPack.slice(-4)]), error: "PAYLOAD" },
+  { name: "pack count larger than contents", code: wrapPackBody(_unsafe.packBytes([...packBody({ bounties: [] }).slice(0, -2), 0, 5])), error: "PAYLOAD" },
 ];
-
 for (const v of invalid) {
-  const r = decode(v.input);
-  if (r.ok || r.error !== v.error) throw new Error(`invalid vector "${v.name}" gives ${r.ok ? "ok" : r.error}, expected ${v.error}`);
+  const r = decode(v.code);
+  assert(!r.ok && r.error === v.error, `invalid "${v.name}" gives ${r.ok ? "ok" : r.error}, expected ${v.error}`);
 }
+
+// ---------------------------------------------------------------- multi-part packs
+
+const SMALL = 160; // force parts with a short max length
+const parts = encodePack(packThree, SMALL);
+assert(parts.length >= 3, "expected at least 3 parts");
+const otherParts = encodePack({ ...packThree, packVersion: packThree.packVersion + 1, bounties: packThree.bounties.slice(0, 2).concat(packThree.bounties.slice(0, 1)) }, SMALL);
+const join = (xs: string[]) => xs.join("\n");
+const reversed = [...parts].reverse();
+type PackCase = { name: string; input: string; fields?: BountyPack; error?: string; received?: number[]; total?: number };
+const packs: PackCase[] = [
+  { name: "single-part pack", input: code("P three bounties"), fields: packThree },
+  { name: "parts in order, one per line", input: join(parts), fields: packThree },
+  { name: "parts reversed, backticks, lowercase", input: reversed.map((p) => "`" + p.toLowerCase() + "`").join(" "), fields: packThree },
+  { name: "a part pasted twice", input: join([parts[0]!, ...parts]), fields: packThree },
+  { name: "missing a part", input: join([parts[0]!, parts[2]!]), error: "INCOMPLETE", received: [1, 3], total: parts.length },
+  { name: "one part only", input: parts[1]!, error: "INCOMPLETE", received: [2], total: parts.length },
+  { name: "parts with different totals", input: join([parts[0]!, wrapPayload("P", "00", "2OF9")]), error: "PARTS" },
+  { name: "whole pack mixed with parts", input: join([code("P empty pack"), parts[1]!]), error: "PARTS" },
+  { name: "two different versions of a part", input: join([parts[0]!, ...parts.slice(1), wrapPayload("P", "00", `1OF${parts.length}`)]), error: "PARTS" },
+  { name: "part number above total", input: wrapPayload("P", "00", "4OF3"), error: "PARTS" },
+  { name: "B code pasted as a pack", input: base, error: "TYPE" },
+  { name: "junk before the code", input: "pack: " + parts[0], error: "FORMAT" },
+  { name: "one corrupted part", input: join([parts[0]!, replaceAt(parts[1]!, 12, other(parts[1]![12]!)), parts[2]!]), error: "CHECKSUM" },
+];
+if (otherParts.length === parts.length) {
+  packs.push({ name: "parts from two different packs", input: join([parts[0]!, otherParts[1]!, ...parts.slice(2)]), error: "" });
+}
+for (const p of packs) {
+  const r = decodePack(p.input);
+  if (p.error === "") p.error = r.ok ? "" : r.error; // whatever the reference says; Lua must agree
+  if (p.fields) assert(r.ok && JSON.stringify(r.fields) === JSON.stringify(p.fields), `pack "${p.name}" should decode`);
+  else assert(!r.ok && r.error === p.error, `pack "${p.name}" gives ${r.ok ? "ok" : r.error}, expected ${p.error}`);
+}
+assert(packs.at(-1)!.error !== "", "mixed packs must be rejected");
+// A part code is not a standalone code.
+invalid.push({ name: "pack part passed to decode()", code: parts[0]!, error: "PARTS" });
+assert(!decode(parts[0]!).ok, "part should not decode alone");
 
 // ---------------------------------------------------------------- encode errors
 
-const encodeErrors: { name: string; type: string; data: unknown }[] = [
-  { name: "unknown type", type: "X", data: bountyBasic },
-  { name: "data is not an object", type: "B", data: "nope" },
-  { name: "missing field", type: "B", data: { ...bountyBasic, reward: undefined } },
-  { name: "negative reward", type: "B", data: { ...bountyBasic, reward: -1 } },
-  { name: "fractional reward", type: "B", data: { ...bountyBasic, reward: 1.5 } },
-  { name: "reward over 32 bits", type: "B", data: { ...bountyBasic, reward: 4294967296 } },
-  { name: "reward as string", type: "B", data: { ...bountyBasic, reward: "500" } },
-  { name: "nonce over 16 bits", type: "B", data: { ...bountyBasic, nonce: 65536 } },
-  { name: "neutral faction", type: "B", data: { ...bountyBasic, targetFaction: "Neutral" } },
-  { name: "name over 255 bytes", type: "B", data: { ...bountyBasic, targetName: "é".repeat(128) } },
-  { name: "board tag with 3 chars", type: "K", data: { ...killBasic, boardTag: "K7Q" } },
-  { name: "board tag lowercase", type: "K", data: { ...killBasic, boardTag: "k7qf" } },
-  { name: "board tag with I", type: "K", data: { ...killBasic, boardTag: "K7QI" } },
-  { name: "honor as number", type: "K", data: { ...killBasic, honorCorroborated: 1 } },
-  { name: "GUID as number", type: "K", data: { ...killBasic, victimGuid: 12345 } },
-  { name: "bounties not an array", type: "P", data: { ...packEmpty, bounties: "none" } },
-  { name: "bad pack entry", type: "P", data: { ...packEmpty, bounties: [{ ...packThree.bounties[0]!, reward: -5 }] } },
+const encodeErrors: { name: string; type: string; fields: unknown }[] = [
+  { name: "unknown type", type: "X", fields: bBasic },
+  { name: "P through encode()", type: "P", fields: packEmpty },
+  { name: "fields not an object", type: "B", fields: "nope" },
+  { name: "missing field", type: "B", fields: { ...bBasic, rewardGold: undefined } },
+  { name: "schema 2", type: "B", fields: { ...bBasic, schema: 2 } },
+  { name: "negative reward", type: "B", fields: { ...bBasic, rewardGold: -1 } },
+  { name: "fractional reward", type: "B", fields: { ...bBasic, rewardGold: 1.5 } },
+  { name: "reward over 32 bits", type: "B", fields: { ...bBasic, rewardGold: 4294967296 } },
+  { name: "reward as string", type: "B", fields: { ...bBasic, rewardGold: "500" } },
+  { name: "level over 255", type: "B", fields: { ...bBasic, targetLevel: 256 } },
+  { name: "mapID over 16 bits", type: "B", fields: { ...bBasic, mapID: 65536 } },
+  { name: "same faction", type: "B", fields: { ...bBasic, posterFaction: 2 } },
+  { name: "faction 3", type: "B", fields: { ...bBasic, targetFaction: 3 } },
+  { name: "mode 2", type: "B", fields: { ...bBasic, mode: 2 } },
+  { name: "add-to without id", type: "B", fields: { ...bBasic, mode: 1, existingBountyId: 0 } },
+  { name: "board tag with 3 chars", type: "K", fields: { ...kBasic, boardTag: "K7Q" } },
+  { name: "board tag lowercase", type: "K", fields: { ...kBasic, boardTag: "k7qf" } },
+  { name: "board tag empty", type: "K", fields: { ...kBasic, boardTag: "" } },
+  { name: "unknown flag bit", type: "K", fields: { ...kBasic, flags: 4 } },
+  { name: "name as number", type: "K", fields: { ...kBasic, killerName: 42 } },
+  { name: "L faction 0", type: "L", fields: { ...lBasic, faction: 0 } },
 ];
-
 for (const v of encodeErrors) {
   let threw = false;
   try {
-    encode(v.type as CodeType, v.data);
+    encode(v.type as CodeType, v.fields);
   } catch {
     threw = true;
   }
-  if (!threw) throw new Error(`encode error vector "${v.name}" did not throw`);
+  assert(threw, `encode error "${v.name}" did not throw`);
 }
 
-// ---------------------------------------------------------------- primitives (hand-checkable)
+// ---------------------------------------------------------------- primitives
 
-const primitives = {
-  crc16: [
-    { ascii: "", crc: 0xffff },
-    { ascii: "123456789", crc: 0x29b1 }, // standard CRC-16/CCITT-FALSE check value
-  ],
-  base32: [
-    { hex: "", text: "" },
-    { hex: "00", text: "00" },
-    { hex: "FF", text: "ZW" },
-    { hex: "48656C6C6F", text: "91JPRV3F" }, // "Hello"
-    { hex: "0000000000", text: "00000000" },
-    { hex: "FFFFFFFFFF", text: "ZZZZZZZZ" },
-    { hex: "0102030405060708", text: "041061050R3GG" },
-  ],
-  varint: [
-    { value: 0, hex: "00" },
-    { value: 1, hex: "01" },
-    { value: 127, hex: "7F" },
-    { value: 128, hex: "8001" },
-    { value: 300, hex: "AC02" },
-    { value: 16384, hex: "808001" },
-    { value: 4294967295, hex: "FFFFFFFF0F" },
-  ],
-};
-for (const b of primitives.base32) {
-  const bytes = (b.hex.match(/../g) ?? []).map((h) => parseInt(h, 16));
-  if (base32Encode(bytes) !== b.text) throw new Error(`base32 reference "${b.hex}" mismatch: ${base32Encode(bytes)}`);
-}
-if (crc16("123456789") !== 0x29b1) throw new Error("CRC reference mismatch");
+const crc = [
+  { input: "123456789", crc: "29B1" },
+  { input: "", crc: "FFFF" },
+];
+const base32 = [
+  { hex: "", b32: "" },
+  { hex: "00", b32: "00" },
+  { hex: "FF", b32: "ZW" },
+  { hex: "48656C6C6F", b32: "91JPRV3F" },
+  { hex: "0000000000", b32: "00000000" },
+  { hex: "FFFFFFFFFF", b32: "ZZZZZZZZ" },
+];
+const adler = [
+  { input: "Wikipedia", adler: "11E60398" }, // standard reference value
+  { input: "z".repeat(1000), adler: adler32([..."z".repeat(1000)].map((c) => c.charCodeAt(0))).toString(16).toUpperCase().padStart(8, "0") },
+];
+assert(adler32([..."Wikipedia"].map((c) => c.charCodeAt(0))) === 0x11e60398, "adler reference");
+for (const c of crc) assert(crc16(c.input).toString(16).toUpperCase().padStart(4, "0") === c.crc, `crc ${c.input}`);
+for (const b of base32) assert(base32Encode((b.hex.match(/../g) ?? []).map((h) => parseInt(h, 16))) === b.b32, `base32 ${b.hex}`);
+assert(normalize(" `a b` ") === "AB", "normalize");
 
-// ---------------------------------------------------------------- write
+// ---------------------------------------------------------------- write (frozen: never change an existing vector)
 
 const file = {
   $comment:
-    "Shared codec test vectors. Both addon/tests/run.lua and worker/test/codec.test.ts must pass every entry. Regenerate with `npm run vectors` in worker/. Format: shared/CODEC.md.",
-  format: "BL1",
-  primitives,
-  valid: validOut,
-  normalize,
+    "BL1 codec test vectors (docs/compendium/02-Code-Format-Spec.md). FROZEN: add vectors, never change them. Both worker (vitest) and addon (addon/tests/run.lua) must pass every entry. Regenerate with `npm run vectors` in worker/.",
+  crc16: crc,
+  adler32: adler,
+  base32,
+  codes,
+  forwardCompat,
+  normalization,
   invalid,
+  packs: { maxLength: SMALL, parts, cases: packs },
   encodeErrors,
 };
+
+if (existsSync(OUT) && !process.argv.includes("--force")) {
+  const old = JSON.parse(readFileSync(OUT, "utf8"));
+  if (Array.isArray(old.codes) && old.codes[0]?.fields?.schema !== undefined) {
+    for (const o of old.codes as { name: string; code: string }[]) {
+      const n = codes.find((c) => c.name === o.name);
+      assert(n && n.code === o.code, `frozen vector "${o.name}" changed or was removed (pass --force only if no code has shipped)`);
+    }
+  }
+}
 writeFileSync(OUT, JSON.stringify(file, null, 2) + "\n");
-console.log(`wrote ${OUT}: ${validOut.length} valid, ${normalize.length} normalize, ${invalid.length} invalid, ${encodeErrors.length} encode errors`);
+console.log(`wrote ${OUT}: ${codes.length} codes, ${forwardCompat.length} forward-compat, ${normalization.length} normalization, ${invalid.length} invalid, ${packs.length} pack cases, ${encodeErrors.length} encode errors`);

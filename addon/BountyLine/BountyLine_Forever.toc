@@ -6,4 +6,5 @@
 ## SavedVariables: BountyLineDB
 ## SavedVariablesPerCharacter: BountyLineCharDB
 
+Libs\LibDeflate\LibDeflate.lua
 Codec.lua
