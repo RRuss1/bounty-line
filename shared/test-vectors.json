@@ -1,0 +1,818 @@
+{
+  "$comment": "Shared codec test vectors. Both addon/tests/run.lua and worker/test/codec.test.ts must pass every entry. Regenerate with `npm run vectors` in worker/. Format: shared/CODEC.md.",
+  "format": "BL1",
+  "primitives": {
+    "crc16": [
+      {
+        "ascii": "",
+        "crc": 65535
+      },
+      {
+        "ascii": "123456789",
+        "crc": 10673
+      }
+    ],
+    "base32": [
+      {
+        "hex": "",
+        "text": ""
+      },
+      {
+        "hex": "00",
+        "text": "00"
+      },
+      {
+        "hex": "FF",
+        "text": "ZW"
+      },
+      {
+        "hex": "48656C6C6F",
+        "text": "91JPRV3F"
+      },
+      {
+        "hex": "0000000000",
+        "text": "00000000"
+      },
+      {
+        "hex": "FFFFFFFFFF",
+        "text": "ZZZZZZZZ"
+      },
+      {
+        "hex": "0102030405060708",
+        "text": "041061050R3GG"
+      }
+    ],
+    "varint": [
+      {
+        "value": 0,
+        "hex": "00"
+      },
+      {
+        "value": 1,
+        "hex": "01"
+      },
+      {
+        "value": 127,
+        "hex": "7F"
+      },
+      {
+        "value": 128,
+        "hex": "8001"
+      },
+      {
+        "value": 300,
+        "hex": "AC02"
+      },
+      {
+        "value": 16384,
+        "hex": "808001"
+      },
+      {
+        "value": 4294967295,
+        "hex": "FFFFFFFF0F"
+      }
+    ]
+  },
+  "valid": [
+    {
+      "name": "B basic",
+      "type": "B",
+      "data": {
+        "boardTag": "K7QF",
+        "targetGuid": "Player-4395-0A1B2C3D",
+        "targetName": "Grimlok Ashveil",
+        "classId": 1,
+        "raceId": 2,
+        "level": 42,
+        "targetFaction": "Horde",
+        "reward": 500,
+        "posterGuid": "Player-4395-00F00BA4",
+        "posterName": "Thalia Brightwind",
+        "posterFaction": "Alliance",
+        "zoneMapId": 1434,
+        "timestamp": 1795190400,
+        "nonce": 4242,
+        "note": ""
+      },
+      "code": "BL1-B-0H5KEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-19D0"
+    },
+    {
+      "name": "B unicode, no board tag, note, 1g",
+      "type": "B",
+      "data": {
+        "boardTag": "",
+        "targetGuid": "Player-1-FFFFFFFF",
+        "targetName": "Zoë Brightblade",
+        "classId": 8,
+        "raceId": 7,
+        "level": 60,
+        "targetFaction": "Alliance",
+        "reward": 1,
+        "posterGuid": "Player-4294967295-00000000",
+        "posterName": "Ælfric Stormcrow",
+        "posterFaction": "Horde",
+        "zoneMapId": 1440,
+        "timestamp": 1795276800,
+        "nonce": 0,
+        "note": "Camped me at the flight master ☠ twice"
+      },
+      "code": "BL1-B-00003ZZZZZZH0PKFRENJ0GKJD5KPGX32DHGP8S880WY00080ZZZZZZRF0000000HRE36RSKJD5HJ0MVMDXS6TRVJDXVG380BG208FP060002GGV1DNR6AS10DNJJ0RBM41T6GS90CSP6JSV8EGG6TRBKEHJQ4872K2G20X3QD5HPA-16HR"
+    },
+    {
+      "name": "B edge values, raw GUIDs, 255-byte name",
+      "type": "B",
+      "data": {
+        "boardTag": "ZZZZ",
+        "targetGuid": "Player-4395-0a1b2c3d",
+        "targetName": "",
+        "classId": 0,
+        "raceId": 0,
+        "level": 0,
+        "targetFaction": "Horde",
+        "reward": 4294967295,
+        "posterGuid": "Player-0042-0A1B2C3D",
+        "posterName": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "posterFaction": "Alliance",
+        "zoneMapId": 0,
+        "timestamp": 4294967295,
+        "nonce": 65535,
+        "note": "😀"
+      },
+      "code": "BL1-B-0HD5MPJT04A50V31F5JQ4B9M6CWKAB9GC4RP4CK36DJ00000000ZZZZZZW7G252GDHGQJSBJ5MR30D1J5MR42CA2691K6H7Z05W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF1W7GY3RF0001ZZZZZZGZZZZ0KR9Z640-0HP7"
+    },
+    {
+      "name": "K basic, honor corroborated",
+      "type": "K",
+      "data": {
+        "boardTag": "K7QF",
+        "bountyId": 12,
+        "victimGuid": "Player-4395-0A1B2C3D",
+        "killerGuid": "Player-4395-01234567",
+        "killerName": "Hunter McHunterface",
+        "timestamp": 1795295647,
+        "zoneMapId": 1434,
+        "honorCorroborated": true,
+        "nonce": 513
+      },
+      "code": "BL1-K-0H5KEMA61G0AP8GA3CP3T05B480J6HB72D47AVKMCNS20KB391TPWX35E9K62RV5KY9RHP06K85G20G1-1KMP"
+    },
+    {
+      "name": "K no honor, non-player victim GUID",
+      "type": "K",
+      "data": {
+        "boardTag": "",
+        "bountyId": 300,
+        "victimGuid": "Creature-0-4395-0-12-448-0000ABCDEF",
+        "killerGuid": "Player-77-89ABCDEF",
+        "killerName": "Ånund Ironside",
+        "timestamp": 1795300000,
+        "zoneMapId": 1429,
+        "honorCorroborated": false,
+        "nonce": 65535
+      },
+      "code": "BL1-K-02P040938DS6ARBMENS6AB9G5MT36E9N5MR2TC9J5MT38E1D60R30C21891M8HA6016RKAYDXW7W71BEENQ68829E9QPWWV9CHJT1DC8V039A2R0ZZZG-13P4"
+    },
+    {
+      "name": "P empty pack",
+      "type": "P",
+      "data": {
+        "boardTag": "K7QF",
+        "packVersion": 1795190400,
+        "discordName": "WoW Forever",
+        "bounties": []
+      },
+      "code": "BL1-P-0H5KEMA6G3ER3P061DBPYNS08SQQ4SBPCNS00-1KC2"
+    },
+    {
+      "name": "P three bounties",
+      "type": "P",
+      "data": {
+        "boardTag": "K7QF",
+        "packVersion": 1795300123,
+        "discordName": "Les Chasseurs de Primes ⚔",
+        "bounties": [
+          {
+            "id": 12,
+            "targetGuid": "Player-4395-0A1B2C3D",
+            "targetName": "Grimlok Ashveil",
+            "classId": 1,
+            "targetFaction": "Horde",
+            "reward": 500,
+            "posterGuid": "Player-4395-00F00BA4",
+            "posterName": "Thalia Brightwind",
+            "expiresAt": 1796400000
+          },
+          {
+            "id": 13,
+            "targetGuid": "Player-4395-1B2C3D4E",
+            "targetName": "Mograth Skullsplitter",
+            "classId": 9,
+            "targetFaction": "Horde",
+            "reward": 10000,
+            "posterGuid": "Player-4395-01234567",
+            "posterName": "Hunter McHunterface",
+            "expiresAt": 1796486400
+          },
+          {
+            "id": 1000,
+            "targetGuid": "Player-11-2C3D4E5F",
+            "targetName": "Zoë Brightblade",
+            "classId": 8,
+            "targetFaction": "Alliance",
+            "reward": 2500,
+            "posterGuid": "Player-11-99999999",
+            "posterName": "Ælfric Stormcrow",
+            "expiresAt": 1796572800
+          }
+        ]
+      },
+      "code": "BL1-P-0H5KEMA6KEV8HP063D66AWS08DM62WVKCNTQ4WS0CHJJ0M3JD5PPAWS0WAD980RC02NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR081YG1G1AS203R0Q90HAHM62V39C4G44WK9CXM78XV9DSJ81HYBV030T05B48DJRFAE2N6PYSVJC5T6G82KDDTPRV3KE1P6JX3MCNS0J0CG9R0AP8G14D2PE4T8ENQ78SBJ416P6J3NDST6AWK6C5HPB07AT3C0DT07005JRFAEBW85MVY3NCG44WK9CXM78RKCC5J6A200RG9G02WSK6CSJ4E3GSP6CWK9CCG56X3FE9PP6WKFEY08VNPR0R-0ACH"
+    }
+  ],
+  "normalize": [
+    {
+      "name": "lowercase",
+      "input": "bl1-b-0h5kema602nj42gv5gygyhvjd5pprvvb410q6t3pcnmpr082580z80r0nch01w0bmg8n8t31dhmp2822e9mpet3mexmpws00k85r1qc1v03114g0-19d0",
+      "code": "BL1-B-0H5KEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-19D0"
+    },
+    {
+      "name": "surrounding whitespace",
+      "input": "  \tBL1-B-0H5KEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-19D0\r\n",
+      "code": "BL1-B-0H5KEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-19D0"
+    },
+    {
+      "name": "whitespace and line breaks inside",
+      "input": "BL1-B-0H5K EMA602NJ42GV5GYGYHVJ\nD5PPRVVB410Q6T3PCNMP\r\n\tR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-19D0",
+      "code": "BL1-B-0H5KEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-19D0"
+    },
+    {
+      "name": "Crockford typos O->0, I/l->1",
+      "input": "BL1-B-OH5KEMA6O2NJ42GV5GYGYHVJD5PPRVVB4IOQ6T3PCNMPRO8258OZ8ORONCHOlWOBMG8N8T31DHMP2822E9MPET3MEXMPWSOOK85R1QC1VO3114GO-I9DO",
+      "code": "BL1-B-0H5KEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-19D0"
+    },
+    {
+      "name": "mixed case K code",
+      "input": "bl1-k-0h5kema61g0ap8ga3cp3t05b480j6hb72d47avkmcns20kb391tpwx35e9k62rv5ky9rhp06k85g20g1-1KMP",
+      "code": "BL1-K-0H5KEMA61G0AP8GA3CP3T05B480J6HB72D47AVKMCNS20KB391TPWX35E9K62RV5KY9RHP06K85G20G1-1KMP"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "empty",
+      "input": "",
+      "error": "format"
+    },
+    {
+      "name": "whitespace only",
+      "input": " \n\t ",
+      "error": "format"
+    },
+    {
+      "name": "chatter",
+      "input": "anyone up for BGs?",
+      "error": "format"
+    },
+    {
+      "name": "missing version digits",
+      "input": "BL-B-00-0000",
+      "error": "format"
+    },
+    {
+      "name": "only two parts",
+      "input": "BL1-B-0000",
+      "error": "format"
+    },
+    {
+      "name": "four parts",
+      "input": "BL1-B-00-0000-0000",
+      "error": "format"
+    },
+    {
+      "name": "empty payload",
+      "input": "BL1-B--0000",
+      "error": "format"
+    },
+    {
+      "name": "check too short",
+      "input": "BL1-B-00-000",
+      "error": "format"
+    },
+    {
+      "name": "check too long",
+      "input": "BL1-B-00-00000",
+      "error": "format"
+    },
+    {
+      "name": "U is not in the alphabet",
+      "input": "BL1-B-0HUKEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-19D0",
+      "error": "format"
+    },
+    {
+      "name": "non-ASCII character",
+      "input": "BL1-B-0HÄKEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-19D0",
+      "error": "format"
+    },
+    {
+      "name": "punctuation in payload",
+      "input": "BL1-B-0H*KEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-19D0",
+      "error": "format"
+    },
+    {
+      "name": "payload with impossible length (1 char)",
+      "input": "BL1-K-0-0BQG",
+      "error": "format"
+    },
+    {
+      "name": "payload with impossible length (3 chars)",
+      "input": "BL1-K-000-1Y9G",
+      "error": "format"
+    },
+    {
+      "name": "non-zero pad bits",
+      "input": "BL1-B-00003ZZZZZZH0PKFRENJ0GKJD5KPGX32DHGP8S880WY00080ZZZZZZRF0000000HRE36RSKJD5HJ0MVMDXS6TRVJDXVG380BG208FP060002GGV1DNR6AS10DNJJ0RBM41T6GS90CSP6JSV8EGG6TRBKEHJQ4872K2G20X3QD5HPB-1AJV",
+      "error": "format"
+    },
+    {
+      "name": "future version BL2",
+      "input": "BL2-B-0H5KEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-19D0",
+      "error": "version"
+    },
+    {
+      "name": "version BL0",
+      "input": "BL0-K-00-0000",
+      "error": "version"
+    },
+    {
+      "name": "version BL10",
+      "input": "BL10-K-00-0000",
+      "error": "version"
+    },
+    {
+      "name": "version with leading zero BL01",
+      "input": "BL01-B-0H5KEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-19D0",
+      "error": "version"
+    },
+    {
+      "name": "lowercase future version",
+      "input": "bl2-b-00-0000",
+      "error": "version"
+    },
+    {
+      "name": "unknown type X",
+      "input": "BL1-X-00-0000",
+      "error": "type"
+    },
+    {
+      "name": "two-letter type",
+      "input": "BL1-BK-00-0000",
+      "error": "type"
+    },
+    {
+      "name": "empty type",
+      "input": "BL1--00-0000",
+      "error": "type"
+    },
+    {
+      "name": "type check precedes alphabet check",
+      "input": "BL1-X-0U-0000",
+      "error": "type"
+    },
+    {
+      "name": "one payload char changed",
+      "input": "BL1-B-0H5KEQA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-19D0",
+      "error": "checksum"
+    },
+    {
+      "name": "one check char changed",
+      "input": "BL1-B-0H5KEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-Q9D0",
+      "error": "checksum"
+    },
+    {
+      "name": "adjacent chars transposed",
+      "input": "BL1-B-H05KEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-19D0",
+      "error": "checksum"
+    },
+    {
+      "name": "truncated payload (last 3 chars dropped)",
+      "input": "BL1-B-0H5KEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V0311-19D0",
+      "error": "checksum"
+    },
+    {
+      "name": "type letter changed B->K",
+      "input": "BL1-K-0H5KEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-19D0",
+      "error": "checksum"
+    },
+    {
+      "name": "check out of range",
+      "input": "BL1-B-0H5KEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-ZZZZ",
+      "error": "checksum"
+    },
+    {
+      "name": "trailing byte",
+      "input": "BL1-K-0H5KEMA61G0AP8GA3CP3T05B480J6HB70H96JRV8KY9RHP06K85G20G100-1P4K",
+      "error": "payload"
+    },
+    {
+      "name": "truncated bytes (valid checksum)",
+      "input": "BL1-K-0H5KEMA61G0AP8GA3CP3T05B480J6HB70H96JRV8KY9RHP06K85G20G-1NDR",
+      "error": "payload"
+    },
+    {
+      "name": "truncated mid-string",
+      "input": "BL1-K-0H5KE-0YGV",
+      "error": "payload"
+    },
+    {
+      "name": "B payload under a P type",
+      "input": "BL1-P-0H5KEMA602NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082580Z80R0NCH01W0BMG8N8T31DHMP2822E9MPET3MEXMPWS00K85R1QC1V03114G0-047X",
+      "error": "payload"
+    },
+    {
+      "name": "non-minimal varint",
+      "input": "BL1-K-0H5KEMA6HG001AS218DJRF80NCH028T5CW254TB3D2FS726R0TD0P08204-04CH",
+      "error": "payload"
+    },
+    {
+      "name": "varint over 32 bits",
+      "input": "BL1-K-0H5KEMA6ZZZZZZRZ02NJ42GV5GYG1AS204HMASR4A9MP6T4ZJE4DG1MT1C0G408-1BF3",
+      "error": "payload"
+    },
+    {
+      "name": "varint longer than 5 bytes",
+      "input": "BL1-K-0H5KEMA6G2081040040AP8GA3CP3T05B480J6HB70H96JRV8KY9RHP06K85G20G1-1H98",
+      "error": "payload"
+    },
+    {
+      "name": "string over 255 bytes",
+      "input": "BL1-K-0H5KEMA61G0AP8GA3CP3T05B480J6HB7G0162RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP2RB1C5GP37WKH3C0D6GB04102-1901",
+      "error": "payload"
+    },
+    {
+      "name": "invalid UTF-8",
+      "input": "BL1-K-0H5KEMA61G0AP8GA3CP3T05B480J6HB70B1JH7WKH3C0D6GB04102-1GCZ",
+      "error": "payload"
+    },
+    {
+      "name": "overlong UTF-8",
+      "input": "BL1-K-0H5KEMA61G0AP8GA3CP3T05B480J6HB70B0AZ7WKH3C0D6GB04102-1MAR",
+      "error": "payload"
+    },
+    {
+      "name": "UTF-8 surrogate",
+      "input": "BL1-K-0H5KEMA61G0AP8GA3CP3T05B480J6HB70FPT104ZJE4DG1MT1C0G408-09R5",
+      "error": "payload"
+    },
+    {
+      "name": "UTF-8 above U+10FFFF",
+      "input": "BL1-K-0H5KEMA61G0AP8GA3CP3T05B480J6HB70KT91040KY9RHP06K85G20G1-1M5T",
+      "error": "payload"
+    },
+    {
+      "name": "UTF-8 truncated sequence",
+      "input": "BL1-K-0H5KEMA61G0AP8GA3CP3T05B480J6HB70BH9H7WKH3C0D6GB04102-1RQ0",
+      "error": "payload"
+    },
+    {
+      "name": "board tag with 3 chars",
+      "input": "BL1-K-0D5KEM8C02NJ42GV5GYG1AS204HMASR4A9MP6T4ZJE4DG1MT1C0G408-0X1J",
+      "error": "payload"
+    },
+    {
+      "name": "board tag with U",
+      "input": "BL1-K-0H5KEMAN1G0AP8GA3CP3T05B480J6HB70H96JRV8KY9RHP06K85G20G1-16YZ",
+      "error": "payload"
+    },
+    {
+      "name": "board tag lowercase",
+      "input": "BL1-K-0HNKEWB61G0AP8GA3CP3T05B480J6HB70H96JRV8KY9RHP06K85G20G1-0712",
+      "error": "payload"
+    },
+    {
+      "name": "unknown GUID tag",
+      "input": "BL1-K-0H5KEMA61G101AS204HMASR4A9MP6T4ZJE4DG1MT1C0G408-0S48",
+      "error": "payload"
+    },
+    {
+      "name": "raw GUID that should be compact",
+      "input": "BL1-K-0H5KEMA61G0H2M3CC5WPAWHD64PK0C1G60R30C1H02NJ40938NKG8MK9CDM9Z4W8V039M2R1080G-06SB",
+      "error": "payload"
+    },
+    {
+      "name": "boolean value 2",
+      "input": "BL1-K-0H5KEMA61G0AP8GA3CP3T05B480J6HB70H96JRV8KY9RHP06K85G40G1-08HK",
+      "error": "payload"
+    },
+    {
+      "name": "faction value 2",
+      "input": "BL1-P-0H5KEMA6KEV8HP063D66AWS08DM62WVKCNTQ4WS0CHJJ0M3JD5PPAWS0WAD9808C02NJ42GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082YG1G1AS203R0Q90HAHM62V39C4G44WK9CXM78XV9DSJ81HYBV030-05Z7",
+      "error": "payload"
+    },
+    {
+      "name": "pack count larger than contents",
+      "input": "BL1-P-0H5KEMA6G3ER3P061DBPYNS08SQQ4SBPCNS0A-18SM",
+      "error": "payload"
+    }
+  ],
+  "encodeErrors": [
+    {
+      "name": "unknown type",
+      "type": "X",
+      "data": {
+        "boardTag": "K7QF",
+        "targetGuid": "Player-4395-0A1B2C3D",
+        "targetName": "Grimlok Ashveil",
+        "classId": 1,
+        "raceId": 2,
+        "level": 42,
+        "targetFaction": "Horde",
+        "reward": 500,
+        "posterGuid": "Player-4395-00F00BA4",
+        "posterName": "Thalia Brightwind",
+        "posterFaction": "Alliance",
+        "zoneMapId": 1434,
+        "timestamp": 1795190400,
+        "nonce": 4242,
+        "note": ""
+      }
+    },
+    {
+      "name": "data is not an object",
+      "type": "B",
+      "data": "nope"
+    },
+    {
+      "name": "missing field",
+      "type": "B",
+      "data": {
+        "boardTag": "K7QF",
+        "targetGuid": "Player-4395-0A1B2C3D",
+        "targetName": "Grimlok Ashveil",
+        "classId": 1,
+        "raceId": 2,
+        "level": 42,
+        "targetFaction": "Horde",
+        "posterGuid": "Player-4395-00F00BA4",
+        "posterName": "Thalia Brightwind",
+        "posterFaction": "Alliance",
+        "zoneMapId": 1434,
+        "timestamp": 1795190400,
+        "nonce": 4242,
+        "note": ""
+      }
+    },
+    {
+      "name": "negative reward",
+      "type": "B",
+      "data": {
+        "boardTag": "K7QF",
+        "targetGuid": "Player-4395-0A1B2C3D",
+        "targetName": "Grimlok Ashveil",
+        "classId": 1,
+        "raceId": 2,
+        "level": 42,
+        "targetFaction": "Horde",
+        "reward": -1,
+        "posterGuid": "Player-4395-00F00BA4",
+        "posterName": "Thalia Brightwind",
+        "posterFaction": "Alliance",
+        "zoneMapId": 1434,
+        "timestamp": 1795190400,
+        "nonce": 4242,
+        "note": ""
+      }
+    },
+    {
+      "name": "fractional reward",
+      "type": "B",
+      "data": {
+        "boardTag": "K7QF",
+        "targetGuid": "Player-4395-0A1B2C3D",
+        "targetName": "Grimlok Ashveil",
+        "classId": 1,
+        "raceId": 2,
+        "level": 42,
+        "targetFaction": "Horde",
+        "reward": 1.5,
+        "posterGuid": "Player-4395-00F00BA4",
+        "posterName": "Thalia Brightwind",
+        "posterFaction": "Alliance",
+        "zoneMapId": 1434,
+        "timestamp": 1795190400,
+        "nonce": 4242,
+        "note": ""
+      }
+    },
+    {
+      "name": "reward over 32 bits",
+      "type": "B",
+      "data": {
+        "boardTag": "K7QF",
+        "targetGuid": "Player-4395-0A1B2C3D",
+        "targetName": "Grimlok Ashveil",
+        "classId": 1,
+        "raceId": 2,
+        "level": 42,
+        "targetFaction": "Horde",
+        "reward": 4294967296,
+        "posterGuid": "Player-4395-00F00BA4",
+        "posterName": "Thalia Brightwind",
+        "posterFaction": "Alliance",
+        "zoneMapId": 1434,
+        "timestamp": 1795190400,
+        "nonce": 4242,
+        "note": ""
+      }
+    },
+    {
+      "name": "reward as string",
+      "type": "B",
+      "data": {
+        "boardTag": "K7QF",
+        "targetGuid": "Player-4395-0A1B2C3D",
+        "targetName": "Grimlok Ashveil",
+        "classId": 1,
+        "raceId": 2,
+        "level": 42,
+        "targetFaction": "Horde",
+        "reward": "500",
+        "posterGuid": "Player-4395-00F00BA4",
+        "posterName": "Thalia Brightwind",
+        "posterFaction": "Alliance",
+        "zoneMapId": 1434,
+        "timestamp": 1795190400,
+        "nonce": 4242,
+        "note": ""
+      }
+    },
+    {
+      "name": "nonce over 16 bits",
+      "type": "B",
+      "data": {
+        "boardTag": "K7QF",
+        "targetGuid": "Player-4395-0A1B2C3D",
+        "targetName": "Grimlok Ashveil",
+        "classId": 1,
+        "raceId": 2,
+        "level": 42,
+        "targetFaction": "Horde",
+        "reward": 500,
+        "posterGuid": "Player-4395-00F00BA4",
+        "posterName": "Thalia Brightwind",
+        "posterFaction": "Alliance",
+        "zoneMapId": 1434,
+        "timestamp": 1795190400,
+        "nonce": 65536,
+        "note": ""
+      }
+    },
+    {
+      "name": "neutral faction",
+      "type": "B",
+      "data": {
+        "boardTag": "K7QF",
+        "targetGuid": "Player-4395-0A1B2C3D",
+        "targetName": "Grimlok Ashveil",
+        "classId": 1,
+        "raceId": 2,
+        "level": 42,
+        "targetFaction": "Neutral",
+        "reward": 500,
+        "posterGuid": "Player-4395-00F00BA4",
+        "posterName": "Thalia Brightwind",
+        "posterFaction": "Alliance",
+        "zoneMapId": 1434,
+        "timestamp": 1795190400,
+        "nonce": 4242,
+        "note": ""
+      }
+    },
+    {
+      "name": "name over 255 bytes",
+      "type": "B",
+      "data": {
+        "boardTag": "K7QF",
+        "targetGuid": "Player-4395-0A1B2C3D",
+        "targetName": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+        "classId": 1,
+        "raceId": 2,
+        "level": 42,
+        "targetFaction": "Horde",
+        "reward": 500,
+        "posterGuid": "Player-4395-00F00BA4",
+        "posterName": "Thalia Brightwind",
+        "posterFaction": "Alliance",
+        "zoneMapId": 1434,
+        "timestamp": 1795190400,
+        "nonce": 4242,
+        "note": ""
+      }
+    },
+    {
+      "name": "board tag with 3 chars",
+      "type": "K",
+      "data": {
+        "boardTag": "K7Q",
+        "bountyId": 12,
+        "victimGuid": "Player-4395-0A1B2C3D",
+        "killerGuid": "Player-4395-01234567",
+        "killerName": "Hunter McHunterface",
+        "timestamp": 1795295647,
+        "zoneMapId": 1434,
+        "honorCorroborated": true,
+        "nonce": 513
+      }
+    },
+    {
+      "name": "board tag lowercase",
+      "type": "K",
+      "data": {
+        "boardTag": "k7qf",
+        "bountyId": 12,
+        "victimGuid": "Player-4395-0A1B2C3D",
+        "killerGuid": "Player-4395-01234567",
+        "killerName": "Hunter McHunterface",
+        "timestamp": 1795295647,
+        "zoneMapId": 1434,
+        "honorCorroborated": true,
+        "nonce": 513
+      }
+    },
+    {
+      "name": "board tag with I",
+      "type": "K",
+      "data": {
+        "boardTag": "K7QI",
+        "bountyId": 12,
+        "victimGuid": "Player-4395-0A1B2C3D",
+        "killerGuid": "Player-4395-01234567",
+        "killerName": "Hunter McHunterface",
+        "timestamp": 1795295647,
+        "zoneMapId": 1434,
+        "honorCorroborated": true,
+        "nonce": 513
+      }
+    },
+    {
+      "name": "honor as number",
+      "type": "K",
+      "data": {
+        "boardTag": "K7QF",
+        "bountyId": 12,
+        "victimGuid": "Player-4395-0A1B2C3D",
+        "killerGuid": "Player-4395-01234567",
+        "killerName": "Hunter McHunterface",
+        "timestamp": 1795295647,
+        "zoneMapId": 1434,
+        "honorCorroborated": 1,
+        "nonce": 513
+      }
+    },
+    {
+      "name": "GUID as number",
+      "type": "K",
+      "data": {
+        "boardTag": "K7QF",
+        "bountyId": 12,
+        "victimGuid": 12345,
+        "killerGuid": "Player-4395-01234567",
+        "killerName": "Hunter McHunterface",
+        "timestamp": 1795295647,
+        "zoneMapId": 1434,
+        "honorCorroborated": true,
+        "nonce": 513
+      }
+    },
+    {
+      "name": "bounties not an array",
+      "type": "P",
+      "data": {
+        "boardTag": "K7QF",
+        "packVersion": 1795190400,
+        "discordName": "WoW Forever",
+        "bounties": "none"
+      }
+    },
+    {
+      "name": "bad pack entry",
+      "type": "P",
+      "data": {
+        "boardTag": "K7QF",
+        "packVersion": 1795190400,
+        "discordName": "WoW Forever",
+        "bounties": [
+          {
+            "id": 12,
+            "targetGuid": "Player-4395-0A1B2C3D",
+            "targetName": "Grimlok Ashveil",
+            "classId": 1,
+            "targetFaction": "Horde",
+            "reward": -5,
+            "posterGuid": "Player-4395-00F00BA4",
+            "posterName": "Thalia Brightwind",
+            "expiresAt": 1796400000
+          }
+        ]
+      }
+    }
+  ]
+}
