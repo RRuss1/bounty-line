@@ -2,6 +2,13 @@
 
 The full design lives in `docs/Bounty-Line-Design-Spec.md`. Read it before any work. It is the source of truth; if the code and the spec disagree, ask before changing either.
 
+Build compendiums (also binding):
+- `docs/compendium/01-Deployment-Architecture.md`: one Discord ↔ one Worker; config model; nothing deployment-specific committed
+- `docs/compendium/02-Code-Format-Spec.md`: exact BL1 code format; TS codec is the reference
+- `docs/compendium/03-Build-Phases.md`: phases, acceptance checks, prompts
+
+`README.md` is user-facing (players + guild admins). Keep it in sync when behavior or setup steps change.
+
 ## What this is
 - `addon/BountyLine/`: WoW: Forever addon (Lua). Interface 16001, `BountyLine_Forever.toc`.
 - `worker/`: Cloudflare Worker (TypeScript): Discord bot, Gateway Durable Object, D1, R2, Workers AI, cron.
