@@ -1,0 +1,26 @@
+# Bounty Line — Project Instructions
+
+The full design lives in `docs/Bounty-Line-Design-Spec.md`. Read it before any work. It is the source of truth; if the code and the spec disagree, ask before changing either.
+
+## What this is
+- `addon/BountyLine/`: WoW: Forever addon (Lua). Interface 16001, `BountyLine_Forever.toc`.
+- `worker/`: Cloudflare Worker (TypeScript): Discord bot, Gateway Durable Object, D1, R2, Workers AI, cron.
+- `shared/test-vectors.json`: code samples that BOTH the Lua and TS codecs must decode identically.
+
+## Hard rules
+- **Never commit secrets.** Tokens go in `wrangler secret put`, `.dev.vars` (gitignored) or GitHub Actions secrets. The repo is PUBLIC.
+- **Forever addon API = modern Midnight client with restrictions:**
+  - No `COMBAT_LOG_EVENT_UNFILTERED` (forbidden). Kills come from `PARTY_KILL` + `CHAT_MSG_COMBAT_HONOR_GAIN`.
+  - No realms: key players by GUID.
+  - Addons can't make network requests or write to the clipboard (select text + Ctrl+C only).
+  - Secret values may hide unit data in combat; degrade gracefully.
+  - Addon comms (`SendAddonMessage`) are restricted during instance encounters; queue and flush.
+- **Game rules:** opposite faction only, no duels, killing blow only, reward 1g–10,000g (default), always typed by hand.
+- **Costs:** Rich's bot is private (`ALLOWED_GUILD_IDS` allowlist checked FIRST, before any D1/R2/AI work). Other guilds self-host.
+- Keep the addon free, unobfuscated and ad-free (Blizzard UI Add-On Development Policy).
+
+## How to work
+- Build in the phases in spec Section 22. Finish and test one phase before starting the next.
+- Small commits with clear messages. Never push straight to `main` once branch protection is on.
+- When an API behavior on Forever is uncertain, add it to spec Section 23 instead of guessing, and add a `/bl debug` command to test it in game.
+- Write the codec tests first (Lua + TS against `shared/test-vectors.json`).
