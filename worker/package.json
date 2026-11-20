@@ -1,0 +1,20 @@
+{
+  "name": "bounty-board",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Bounty Board: Discord bot backend for the Bounty Line addon (Cloudflare Worker)",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "vectors": "tsx scripts/gen-test-vectors.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  }
+}
