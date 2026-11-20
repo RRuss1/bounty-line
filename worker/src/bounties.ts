@@ -5,7 +5,7 @@
 import { decode, type BountyPost } from "./codec";
 import type { Env } from "./env";
 import { log } from "./log";
-import { wantedPoster } from "./poster";
+import { SKULL, wantedPoster } from "./poster";
 import type { DiscordRest } from "./rest";
 import { checkBountyPost, decodeErrorMessage } from "./rules";
 import { audit, type Tenant } from "./tenants";
@@ -121,6 +121,6 @@ async function postBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bounty
     ok: true,
     bountyId: id,
     threadId,
-    message: `☠ Bounty #${id} on **${escapeMd(b.targetName)}** for **${gold(b.rewardGold)}** is up: <#${threadId}>`,
+    message: `${SKULL} Bounty #${id} on **${escapeMd(b.targetName)}** for **${gold(b.rewardGold)}** is up: <#${threadId}>`,
   };
 }
