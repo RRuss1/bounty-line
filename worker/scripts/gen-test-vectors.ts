@@ -8,7 +8,7 @@
  * The script refuses to overwrite an existing vector with a different value.
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, URL } from "node:url";
 import {
   _unsafe,
   adler32,

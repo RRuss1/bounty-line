@@ -1,6 +1,6 @@
 {
   "name": "bounty-board",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Bounty Board: Discord bot backend for the Bounty Line addon (Cloudflare Worker)",
   "license": "MIT",
@@ -9,13 +9,20 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "vectors": "tsx scripts/gen-test-vectors.ts"
+    "vectors": "tsx scripts/gen-test-vectors.ts",
+    "render-config": "tsx scripts/render-config.ts",
+    "dev": "npm run render-config && wrangler dev",
+    "db:migrate": "npm run render-config && wrangler d1 migrations apply DB --remote",
+    "deploy": "npm run render-config && wrangler d1 migrations apply DB --remote && wrangler deploy",
+    "register-commands": "tsx scripts/register-commands.ts"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20261120.1",
     "@types/node": "^26.6.6",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vitest": "^5.1.1"
+    "vitest": "^5.1.1",
+    "wrangler": "4.166.0"
   },
   "dependencies": {
     "fflate": "0.8.3"
