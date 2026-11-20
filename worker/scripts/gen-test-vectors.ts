@@ -39,7 +39,7 @@ const assert = (cond: unknown, msg: string): void => {
 const bBasic: BountyPost = {
   schema: 1,
   boardTag: "K7QF",
-  targetGUID: "Player-0000-0A1B2C3D",
+  targetGUID: "Player-4395-0A1B2C3D",
   targetName: "Grimlok Ashveil",
   targetClassID: 1,
   targetRaceID: 2,
@@ -47,7 +47,7 @@ const bBasic: BountyPost = {
   targetFaction: 2,
   posterFaction: 1,
   rewardGold: 500,
-  posterGUID: "Player-0000-00FFEE11",
+  posterGUID: "Player-4395-00FFEE11",
   posterName: "Slac Jaw",
   mapID: 1434,
   createdAt: 1795200000,
@@ -101,9 +101,8 @@ const kBasic: KillClaim = {
   schema: 1,
   boardTag: "K7QF",
   bountyId: 12,
-  victimGUID: "Player-0000-0A1B2C3D",
-  victimName: "Grimlok Ashveil",
-  killerGUID: "Player-0000-01234567",
+  victimGUID: "Player-4395-0A1B2C3D",
+  killerGUID: "Player-4395-01234567",
   killerName: "Hunter McHunterface",
   killerFaction: 1,
   killedAt: 1795295647,
@@ -119,15 +118,21 @@ const kPet: KillClaim = {
   killerName: "Ånund Ironside",
   killerFaction: 2,
   victimGUID: "Player-77-89ABCDEF",
-  victimName: "Zoë Brightblade",
   flags: 2,
   nonce: 65535,
+};
+
+// GUIDs that can't take the compact form fall back to raw text.
+const kRawGuids: KillClaim = {
+  ...kBasic,
+  victimGUID: "Player-0000-0A1B2C3D", // zero-padded server id
+  killerGUID: "Player-70000-0a1b2c3d", // server id over 16 bits, lowercase hex
 };
 
 const lBasic: CharacterLink = {
   schema: 1,
   boardTag: "K7QF",
-  charGUID: "Player-0000-01234567",
+  charGUID: "Player-4395-01234567",
   charName: "Hunter McHunterface",
   faction: 1,
   guildName: "Knights of the Long Night",
@@ -152,8 +157,8 @@ const packThree: BountyPack = {
   minAddonVersion: 1002,
   discordDisplayName: "Les Chasseurs de Primes ⚔",
   bounties: [
-    { bountyId: 12, targetGUID: "Player-0000-0A1B2C3D", targetName: "Grimlok Ashveil", targetClassID: 1, targetFaction: 2, rewardGold: 500, posterName: "Slac Jaw", expiresAt: 1796400000 },
-    { bountyId: 13, targetGUID: "Player-0000-1B2C3D4E", targetName: "Mograth Skullsplitter", targetClassID: 9, targetFaction: 2, rewardGold: 10000, posterName: "Hunter McHunterface", expiresAt: 1796486400 },
+    { bountyId: 12, targetGUID: "Player-4395-0A1B2C3D", targetName: "Grimlok Ashveil", targetClassID: 1, targetFaction: 2, rewardGold: 500, posterName: "Slac Jaw", expiresAt: 1796400000 },
+    { bountyId: 13, targetGUID: "Player-4395-1B2C3D4E", targetName: "Mograth Skullsplitter", targetClassID: 9, targetFaction: 2, rewardGold: 10000, posterName: "Hunter McHunterface", expiresAt: 1796486400 },
     { bountyId: 1000, targetGUID: "Player-11-2C3D4E5F", targetName: "Zoë Brightblade", targetClassID: 8, targetFaction: 1, rewardGold: 2500, posterName: "Ælfric Stormcrow", expiresAt: 1796572800 },
   ],
 };
@@ -184,6 +189,7 @@ const codes = [
   { name: "B writer truncates name and note on a UTF-8 boundary", type: "B", fields: bTruncate, decoded: bTruncateDecoded },
   { name: "K basic, honor corroborated", type: "K", fields: kBasic },
   { name: "K pet kill, no honor", type: "K", fields: kPet },
+  { name: "K GUIDs in raw form", type: "K", fields: kRawGuids },
   { name: "L basic", type: "L", fields: lBasic },
   { name: "P empty pack", type: "P", fields: packEmpty },
   { name: "P three bounties", type: "P", fields: packThree },
@@ -317,6 +323,10 @@ const invalid: { name: string; code: string; error: string }[] = [
   { name: "note over 80 bytes", code: wrapB({ note: "n".repeat(81) }), error: "PAYLOAD" },
   { name: "board tag with U", code: wrapK({ boardTag: "K7QU" }), error: "PAYLOAD" },
   { name: "board tag lowercase", code: wrapK({ boardTag: "k7qf" }), error: "PAYLOAD" },
+  { name: "raw GUID that should be compact", code: wrapK({ victimGUID: ascii("Player-1-00000001") }), error: "PAYLOAD" },
+  { name: "empty raw GUID", code: wrapK({ victimGUID: [] }), error: "PAYLOAD" },
+  { name: "unknown GUID form", code: wrapK({ victimGUID: { form: 2 } }), error: "PAYLOAD" },
+  { name: "compact GUID cut short", code: _unsafe.wrapBytes("K", _unsafe.payload("K", kBasic).slice(0, 12)), error: "PAYLOAD" },
   { name: "invalid UTF-8", code: wrapK({ killerName: [0xc3, 0x28] }), error: "PAYLOAD" },
   { name: "overlong UTF-8", code: wrapK({ killerName: [0xc0, 0xaf] }), error: "PAYLOAD" },
   { name: "UTF-8 surrogate", code: wrapK({ killerName: [0xed, 0xa0, 0x80] }), error: "PAYLOAD" },
@@ -395,6 +405,8 @@ const encodeErrors: { name: string; type: string; fields: unknown }[] = [
   { name: "board tag empty", type: "K", fields: { ...kBasic, boardTag: "" } },
   { name: "unknown flag bit", type: "K", fields: { ...kBasic, flags: 4 } },
   { name: "name as number", type: "K", fields: { ...kBasic, killerName: 42 } },
+  { name: "empty GUID", type: "K", fields: { ...kBasic, victimGUID: "" } },
+  { name: "GUID over 255 bytes (never truncated)", type: "K", fields: { ...kBasic, victimGUID: "Creature-" + "9".repeat(250) } },
   { name: "L faction 0", type: "L", fields: { ...lBasic, faction: 0 } },
 ];
 for (const v of encodeErrors) {

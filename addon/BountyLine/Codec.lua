@@ -52,7 +52,7 @@ end
 
 local PACK_ENTRY = {
   { "bountyId", "u32" },
-  { "targetGUID", "vstr", 255 },
+  { "targetGUID", "guid" },
   { "targetName", "vstr", 255 },
   { "targetClassID", "u8" },
   { "targetFaction", "faction" },
@@ -65,7 +65,7 @@ local PACK_ENTRY = {
 local SCHEMAS = {
   B = {
     { "boardTag", "tag" },
-    { "targetGUID", "vstr", 255 },
+    { "targetGUID", "guid" },
     { "targetName", "vstr", 255 },
     { "targetClassID", "u8" },
     { "targetRaceID", "u8" },
@@ -73,7 +73,7 @@ local SCHEMAS = {
     { "targetFaction", "faction" },
     { "posterFaction", "faction" },
     { "rewardGold", "u32" },
-    { "posterGUID", "vstr", 255 },
+    { "posterGUID", "guid" },
     { "posterName", "vstr", 255 },
     { "mapID", "u16" },
     { "createdAt", "u32" },
@@ -85,9 +85,8 @@ local SCHEMAS = {
   K = {
     { "boardTag", "tag" },
     { "bountyId", "u32" },
-    { "victimGUID", "vstr", 255 },
-    { "victimName", "vstr", 255 },
-    { "killerGUID", "vstr", 255 },
+    { "victimGUID", "guid" },
+    { "killerGUID", "guid" },
     { "killerName", "vstr", 255 },
     { "killerFaction", "faction" },
     { "killedAt", "u32" },
@@ -97,7 +96,7 @@ local SCHEMAS = {
   },
   L = {
     { "boardTag", "tag" },
-    { "charGUID", "vstr", 255 },
+    { "charGUID", "guid" },
     { "charName", "vstr", 255 },
     { "faction", "faction" },
     { "guildName", "vstr", 255 },
@@ -318,6 +317,29 @@ local function isTag(s)
   return true
 end
 
+-- ---------------------------------------------------------------- GUIDs
+
+local HEX = "0123456789ABCDEF"
+
+local function hex8(n)
+  local t = {}
+  for i = 8, 1, -1 do
+    local d = n % 16
+    t[i] = HEX:sub(d + 1, d + 1)
+    n = (n - d) / 16
+  end
+  return concat(t)
+end
+
+-- Returns serverId, low when the GUID round-trips through the compact form exactly.
+local function compactGuid(guid)
+  local sid, hex = guid:match("^Player%-([0-9]+)%-([0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F])$")
+  if not sid or #sid > 5 then return nil end
+  local n = tonumber(sid)
+  if n > 65535 or tostring(n) ~= sid then return nil end
+  return n, tonumber(hex, 16)
+end
+
 -- ---------------------------------------------------------------- field encode / decode
 
 local function checkUint(v, path, max)
@@ -341,6 +363,21 @@ local function writeFields(w, fields, obj, path)
     elseif kind == "faction" then
       if v ~= 1 and v ~= 2 then fail("INVALID", p .. " must be 1 (Alliance) or 2 (Horde)") end
       put(w, v)
+    elseif kind == "guid" then
+      if type(v) ~= "string" or v == "" then fail("INVALID", p .. " must be a non-empty string") end
+      local sid, low = compactGuid(v)
+      if sid then
+        put(w, 0)
+        putUint(w, sid, 2)
+        putUint(w, low, 4)
+      else
+        -- Never truncate a GUID: a cut-off GUID would identify the wrong player.
+        if not validUtf8(v) then fail("INVALID", p .. " is not valid UTF-8") end
+        if #v > 255 then fail("INVALID", p .. " is longer than 255 bytes") end
+        put(w, 1)
+        put(w, #v)
+        putBytes(w, v)
+      end
     elseif kind == "vstr" then
       if type(v) ~= "string" then fail("INVALID", p .. " must be a string") end
       if not validUtf8(v) then fail("INVALID", p .. " is not valid UTF-8") end
@@ -369,6 +406,19 @@ local function readFields(r, fields)
       local v = r:uint(1)
       if v ~= 1 and v ~= 2 then fail("FACTION", "invalid faction") end
       out[name] = v
+    elseif kind == "guid" then
+      local form = r:uint(1)
+      if form == 0 then
+        local sid = r:uint(2)
+        out[name] = "Player-" .. sid .. "-" .. hex8(r:uint(4))
+      elseif form == 1 then
+        local s = r:bytes(r:uint(1))
+        if s == "" or not validUtf8(s) then fail("PAYLOAD", name .. " is not a valid GUID") end
+        if compactGuid(s) then fail("PAYLOAD", name .. " uses a non-canonical GUID form") end
+        out[name] = s
+      else
+        fail("PAYLOAD", name .. " has an unknown GUID form")
+      end
     elseif kind == "vstr" then
       local n = r:uint(1)
       if n > f[3] then fail("PAYLOAD", name .. " is longer than " .. f[3] .. " bytes") end
