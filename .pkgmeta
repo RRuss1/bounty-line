@@ -1,7 +1,15 @@
 package-as: BountyLine
 
-# Libraries (LibStub, CallbackHandler, AceComm, LibDataBroker, LibDBIcon) are
-# added as externals when the addon phase starts.
+# The addon lives in a subfolder of a monorepo; ship only that folder.
+move-folders:
+  BountyLine/addon/BountyLine: BountyLine
+
+manual-changelog: CHANGELOG.md
 
 ignore:
+  - worker
+  - shared
+  - docs
+  - art
+  - addon/tests
   - "*.md"
