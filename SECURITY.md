@@ -11,7 +11,7 @@ reproduce, and the impact you expect.
 ## Scope
 
 - The Bounty Board Worker (`worker/`): request verification, tenant isolation, secrets handling
-- The code format and decoders (`shared/CODEC.md`)
+- The code format and decoders (`docs/compendium/02-Code-Format-Spec.md`)
 - The addon (`addon/`)
 
 ## Known limits

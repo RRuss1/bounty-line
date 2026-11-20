@@ -387,6 +387,8 @@ BountyLineCharDB = {
 
 ## 6. Component 2: The Codes
 
+> **Exact wire format:** [Compendium 02: Code Format Spec](compendium/02-Code-Format-Spec.md) is the binding byte-level contract and supersedes the field lists below, which give the overview.
+
 Codes are the bridge between game and Discord. They must be **short, copy-safe, typo-resistant, and versioned.**
 
 ### 6.1 Format
