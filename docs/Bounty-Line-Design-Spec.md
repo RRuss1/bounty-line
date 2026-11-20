@@ -745,7 +745,7 @@ CREATE TABLE audit_log (
 - No tokens in the repo, ever. Use `wrangler secret put` and GitHub Actions secrets.
 - Enable **GitHub secret scanning + push protection**.
 - Least-privilege Cloudflare API token for CI (Workers + D1 + R2 edit on one account).
-- Bot permissions: only what's needed (View Channel, Send Messages, Embed Links, Attach Files, Add Reactions, Manage Threads, Create Public Threads, Read Message History in the two channels).
+- Bot permissions: only what's needed (View Channel, Send Messages, Send Messages in Threads, Embed Links, Attach Files, Add Reactions, Manage Threads, Create Public Threads, Read Message History, Pin Messages in the two channels; invite permission integer `2252126231317568`). Never Administrator, Manage Server, Manage Roles or Manage Messages. Manage Channels (to create forum tags) is granted only on the `#bounty-board` forum through a channel override, not server-wide.
 
 **Privacy**
 - Store only: Discord user IDs, WoW character names/GUIDs, screenshots submitted as proof.

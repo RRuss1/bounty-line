@@ -62,7 +62,7 @@ Every guild ties **its own Worker to its own Discord**. You host it on your Clou
 2. **Create a Discord application** at discord.com/developers:
    - Bot → copy the token, turn **Public Bot OFF**, turn **Message Content Intent ON** (skip in budget mode).
    - Copy the **Application ID** and **Public Key**.
-3. **Create a Cloudflare API token** ("Edit Cloudflare Workers" template + D1 and R2 edit).
+3. **Create a Cloudflare API token** ("Edit Cloudflare Workers" template; make sure **Workers: Edit**, **Workers Scripts: Edit**, **D1: Edit** and **Workers R2 Storage: Edit** are ticked; remove the zone policy; limit it to your account).
 4. In **your fork** → Settings → Secrets and variables → Actions:
 
    | Type | Name | Value |
