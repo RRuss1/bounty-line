@@ -44,6 +44,12 @@ export const COMMANDS = [
         ],
       },
       { type: OptionType.SUB_COMMAND, name: "status", description: "Admin: deployment and board status" },
+      {
+        type: OptionType.SUB_COMMAND,
+        name: "submit",
+        description: "Submit a Bounty Line code here if pasting in the Bounty Line channel doesn't work",
+        options: [{ type: OptionType.STRING, name: "code", description: "The BL1-... code from the addon", required: true, max_length: 4000 }],
+      },
     ],
   },
 ] as const;
