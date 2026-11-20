@@ -915,7 +915,7 @@ git push -u origin main
 
 1. **discord.com/developers/applications → New Application** → "Bounty Line."
 2. **General Information:** copy **Application ID** and **Public Key**. Add the app icon (Bounty Line logo).
-3. **Bot tab:** Reset/copy **Token** (store as a secret only). Enable **Message Content Intent**. Turn **Public Bot OFF** so only you can invite it. Then set `ALLOWED_GUILD_IDS` (your Discord server ID: Developer Mode → right-click server → Copy Server ID) with `wrangler secret put ALLOWED_GUILD_IDS`.
+3. **Bot tab:** Reset/copy **Token** (store as a secret only). Enable **Message Content Intent**. Turn **Public Bot OFF** so only you can invite it. Then set `ALLOWED_GUILD_IDS` (your Discord server ID: Developer Mode → right-click server → Copy Server ID) as a GitHub Actions **Variable** (Compendium 01 Section 4.2), not a Worker secret: the deploy writes it into the Worker's vars, and a secret with the same name would conflict. Slash commands are registered only in the servers it lists.
 4. **Installation / OAuth2:** scopes `bot` + `applications.commands`; permissions from Section 13. Copy the invite URL.
 5. After the Worker is deployed: set **Interactions Endpoint URL** = `https://bounty-board.<your-subdomain>.workers.dev/interactions` (or your custom domain). Discord pings it to verify.
 6. Run `npm run register-commands` to publish slash commands.
