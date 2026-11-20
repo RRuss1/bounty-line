@@ -1,0 +1,24 @@
+// Committed template. Never put deployment values here (Compendium 01 Section 3.1).
+// `npm run render-config` writes worker/wrangler.jsonc (gitignored) from
+// worker/.deploy.env locally, or from GitHub Actions Variables in CI.
+// A placeholder without a ":-default" is required; one with a default is optional.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "${WORKER_NAME}",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "observability": { "enabled": true },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "${D1_NAME}", "database_id": "${D1_ID}", "migrations_dir": "migrations" }
+  ],
+  "r2_buckets": [{ "binding": "PROOFS", "bucket_name": "${R2_BUCKET}" }],
+  // Phase 2 adds the Gateway Durable Object and cron triggers; Phase 6 adds the AI binding.
+  "vars": {
+    "ALLOWED_GUILD_IDS": "${ALLOWED_GUILD_IDS}",
+    "READ_CHAT": "${READ_CHAT:-true}",
+    "AI_CHECK": "${AI_CHECK:-true}",
+    "AI_DAILY_CAP": "${AI_DAILY_CAP:-200}",
+    "PROOF_RETENTION_DAYS": "${PROOF_RETENTION_DAYS:-180}",
+    "LOG_LEVEL": "${LOG_LEVEL:-info}"
+  }
+}
