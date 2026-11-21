@@ -8,7 +8,7 @@ local DB_DEFAULTS = {
   claimed = {},
   settings = {
     debugMenu = false, debugKills = false, banners = true, minimap = { angle = 200, hide = false },
-    killPopupInCombat = false, realertMinutes = 10, packsFrom = "anyone", packMaxRank = 1,
+    relay = true, killPopupInCombat = false, realertMinutes = 10, packsFrom = "anyone", packMaxRank = 1,
     sightAlert = true, sounds = true, skull = true, skullSize = 26, tooltip = true, targetBadge = true,
     shareSeen = true, stampSeconds = 0,
   },
@@ -75,10 +75,15 @@ function ns.PostBounty(snap, reward, note, existingId)
       ns.RefreshMarks()
     end
   end
+  -- Relay (spec 5.10): if this client runs the relay it carries the code itself; otherwise
+  -- the code is offered to any relay officer online. The popup is shown either way.
+  local relayed = ns.RelayQueue and ns.RelayQueue(code)
+  if not relayed then ns.Comms.BountyCode(code) end
   ns.ShowCode({
     title = existingId and L.STACK_READY or L.BOUNTY_READY,
     subtitle = ("%s · %s"):format(ns.Describe(snap), ns.FormatGold(reward)),
     instructions = L.POST_THIS,
+    note = relayed and L.RELAYED_SELF or nil,
     code = code,
     line = { existingId and "A" or "B", snap.name, ns.FormatGold(reward) },
   })

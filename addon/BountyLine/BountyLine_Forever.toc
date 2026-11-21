@@ -4,6 +4,7 @@
 ## Author: Slac Jaw from RP-PVP
 ## Version: @project-version@
 ## X-Curse-Project-ID: 1820212
+## OptionalDeps: BountyLine_Relay
 ## SavedVariables: BountyLineDB
 ## SavedVariablesPerCharacter: BountyLineCharDB
 ## IconTexture: Interface\AddOns\BountyLine\Media\logo
@@ -29,6 +30,7 @@ UI\CodePopup.lua
 UI\AmountEntry.lua
 UI\ImportWindow.lua
 UI\Stamp.lua
+Relay.lua
 UI\Banner.lua
 UI\KillToast.lua
 UI\BoardWindow.lua

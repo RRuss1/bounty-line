@@ -92,6 +92,7 @@ ns.L = {
   OPT_ANYONE = "any guildie",
   OPT_OFFICERS = "officers only",
   OPT_SHARE_SEEN = "Share my sightings with the guild",
+  OPT_RELAY = "Use the relay program when it's running (next login)",
   OPT_OTHER = "Other",
   OPT_MINIMAP = "Minimap button (/bl minimap brings it back)",
   OPT_DEBUG_MENU = "Debug: print right-click menu names",
@@ -121,6 +122,11 @@ ns.L = {
 
   -- guild sync & banners
   SYNCED = "Bounty Pack updated from a guildie (%d open bounties).",
+  RELAY_ON = "|cff33ff33Relay: on.|r Guildies' bounties will be posted for them while you're online.",
+  RELAY_PACK = "Bounty Pack delivered by your relay (%d open bounties). Sharing it with the guild.",
+  RELAY_CAPTION = "Bounty Line relay",
+  RELAYED = "|cff33ff33%s's relay picked this up: nothing to paste.|r It should be on the Bounty Board within a minute. If it isn't, paste the code.",
+  RELAYED_SELF = "|cff33ff33Your relay is posting this: nothing to paste.|r It should be on the Bounty Board within a minute.",
   SHARED = "Shared with everyone in your guild running Bounty Line.",
   SYNC_SENT = "Sent your Bounty Pack to the guild.",
   BANNERS_ON = "Guild banners on.",

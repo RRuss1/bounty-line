@@ -10,6 +10,8 @@
 --                                       a guildie made a bounty code: hunt it before any pack lists it
 --   KILLP  "<guid>\t<killer>\t<name>"   a guildie collected a pending bounty
 --   VER    "<addon version>"            on login: so guildies on older versions are told to update
+--   BCODE  "<bounty code>"              a guildie's bounty code, for a relay officer to carry to Discord
+--   RLY    "<bounty code>\t<officer>"    a relay officer picked that code up
 --
 -- Clients ignore message types they don't know, so old and new versions can share a guild;
 -- VER is how the older ones find out they're missing features.
@@ -163,6 +165,11 @@ function Comms.NewBounty(name, reward, poster)
   Comms.Send("NEWB", ("%s\t%d\t%s"):format(name, reward, poster or ""))
 end
 
+-- Offer a just-made bounty code to any relay officer online (spec 5.10).
+function Comms.BountyCode(code)
+  Comms.Send("BCODE", code)
+end
+
 -- Share a just-made bounty so guildies can hunt it before the next pack (Pack.lua, pending).
 function Comms.Pending(snap, reward, poster, t)
   Comms.Send("PEND", table.concat({ snap.guid, snap.name, snap.classID or 0, snap.faction, reward, poster or "", t }, "\t"))
@@ -258,6 +265,32 @@ function handlers.KILLP(data, _, senderId)
   ns.Banner(L.BANNER_KILL:format(killer ~= "" and killer or "?", name ~= "" and name or "?", ns.BoardName()), "guildKill")
 end
 
+-- ---------------------------------------------------------------- relay (spec 5.10)
+
+-- Is this sender the poster named in the code? The game vouches for the sender's name, which
+-- stops a guildie relaying a bounty in someone else's name. Names on Forever are "First" or
+-- "First-Surname" for senders and "First Surname" in codes: the first names must match.
+function Comms.SenderIsPoster(senderName, posterName)
+  local sender = senderName and senderName:match("^[^-]+")
+  local poster = posterName and posterName:match("^%S+")
+  return sender ~= nil and sender ~= "" and sender == poster
+end
+
+function handlers.BCODE(data, senderName, senderId)
+  if not (ns.RelayActive and ns.RelayActive()) then return end
+  if not Comms.AllowBanner("relay:" .. senderId, GetTime()) then return end
+  local r = ns.Codec.Decode(data)
+  if not r or r.type ~= "B" or not Comms.SenderIsPoster(senderName, r.fields.posterName) then return end
+  if ns.RelayQueue(r.code) then Comms.Send("RLY", r.code .. "\t" .. (ns.FullName("player") or "")) end
+end
+
+function handlers.RLY(data, senderName)
+  local code, who = data:match("^([^\t]+)\t(.*)$")
+  if not code then return end
+  if ns.RelayHandled then ns.RelayHandled(code) end -- another relay has it: don't post it twice
+  if ns.CodeRelayed then ns.CodeRelayed(code, who ~= "" and who or (senderName and senderName:match("^[^-]+")) or "?") end
+end
+
 -- ---------------------------------------------------------------- version check
 
 local newest             -- the newest version seen from a guildie this session: { key, text }
@@ -328,6 +361,8 @@ events:SetScript("OnEvent", function(_, event, prefix, text, channel, sender)
     C_ChatInfo.RegisterAddonMessagePrefix(PREFIX)
     C_Timer.After(8, Comms.Hello) -- after the guild roster settles
     C_Timer.After(10, Comms.Version)
+    -- The relay program's data, if its addon folder is installed (globals from BountyLine_Relay).
+    if ns.RelayStart then ns.RelayStart(BountyLine_RelayAlive, BountyLine_RelayPack, GetServerTime()) end
   elseif prefix == PREFIX then
     Comms.Receive(text, channel, sender)
   end

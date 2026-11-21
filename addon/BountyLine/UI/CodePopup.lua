@@ -109,6 +109,17 @@ local function build()
   return f
 end
 
+-- A relay officer picked up the code in the open popup (or the last one shown): say so, in
+-- the popup and in chat, so the player knows there's nothing to paste.
+function ns.CodeRelayed(code, who)
+  local last = BountyLineCharDB.lastPopup
+  if not last or last.code ~= code or last.relayedBy then return end
+  last.relayedBy = who
+  local text = L.RELAYED:format(who)
+  ns.Print(text)
+  if frame and frame:IsShown() then frame.note:SetText(text) end
+end
+
 -- opts: { title, subtitle, instructions, code, line?, note? }. `line` = { kind, name, detail }:
 -- the box holds ns.CopyLine(...) around the code, built fresh on every show so /bl last never
 -- shows a line saved by an older version. Without `line` the box holds the bare code.
@@ -120,7 +131,7 @@ function ns.ShowCode(opts)
   frame.heading:SetText(opts.title)
   frame.subtitle:SetText(opts.subtitle or "")
   frame.instructions:SetText(opts.instructions or "")
-  frame.note:SetText(opts.note or "")
+  frame.note:SetText(opts.relayedBy and L.RELAYED:format(opts.relayedBy) or opts.note or "")
   frame.box:SetText(frame.code)
   frame.box:SetCursorPosition(0)
   frame.label:SetText(ns.DisplayLine(line) .. L.CODE_HIDDEN)
