@@ -388,6 +388,24 @@ BountyLineCharDB = {
 }
 ```
 
+### 5.10 The relay (optional)
+
+Addons can't use the network, so by default every hop between the game and Discord is a paste. The **relay** is a small program an officer runs on their own PC that carries two things, so the guild doesn't have to:
+
+| Direction | What | How |
+|---|---|---|
+| Discord → game | The Bounty Pack | The relay polls `GET /relay/pack` and writes the pack into its own tiny addon folder (`BountyLine_Relay`). The officer's next login or `/reload` loads it and guild sync shares it. Nobody types `/bl import`. |
+| Game → Discord | Guildies' bounty codes | A guildie's addon sends the bounty code over guild sync. The relay officer's addon shows it as a QR code and takes a screenshot; the relay reads the file and sends the code to `POST /relay/code`. |
+
+Rules:
+
+- **Optional and additive.** Pasting codes and `/bl import` always work. With no relay online, nothing changes.
+- **No input automation.** The relay only reads screenshots and writes a data file. It never types, clicks or pastes into the game.
+- **Kill claims are not relayed.** The proof screenshot is on the hunter's PC; they drop it into `#bounty-line` (Section 7.4).
+- **Tokens.** `/bl relay action: enable` (officers and admins) replies privately with a token `<guildId>.<secret>`, shown once and stored only as a SHA-256. A new token replaces the old one; `action: revoke` turns it off. The guild id is in the token so the allowlist check runs before any database work.
+- **Whose bounty is it?** A relayed bounty belongs to the Discord user the poster's character is linked to (`/bl link`). Unlinked posters are refused (`UNLINKED`) and paste as usual. To stop a guildie forging a bounty in someone else's name: the relay officer's addon forwards only codes whose poster name is the message's sender (the game vouches for the sender), and the Worker requires the name in the code to be the linked character's name.
+- **Limits.** 120 requests a minute per server before the token is looked up; 20 codes a minute per relay.
+
 ---
 
 ## 6. Component 2: The Codes

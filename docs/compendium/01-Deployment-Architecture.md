@@ -198,6 +198,7 @@ Addon and Worker release together from one tag (`v1.2.0`) to keep things simple,
 | Logs | `wrangler tail`; structured JSON logs with `tenant_id`, `event`, `outcome` |
 | Gateway recovery | Cron heartbeat every minute pings `GatewayDO`; reconnects with resume if dropped |
 | Spend safety | Allowlist-first, rate limits, `AI_DAILY_CAP`, Cloudflare billing notifications |
+| Relay (optional) | `GET /relay/pack`, `POST /relay/code` for the officers' relay program (spec 5.10). Bearer token from `/bl relay`; the guild id in the token is checked against `ALLOWED_GUILD_IDS` before any D1 work |
 | Privacy | No phone-home. No deployment ever sends data to upstream or to Rich. `/bl forget-me` per user. |
 | Retention | R2 lifecycle rule deletes proofs `PROOF_RETENTION_DAYS` after a bounty closes |
 
