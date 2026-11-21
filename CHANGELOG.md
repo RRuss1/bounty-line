@@ -17,7 +17,7 @@
 - Settings window is wider, so the longest option no longer runs past the edge.
 - The minimap menu shows the slash command beside each entry, and gains Guild banners (on/off), Check version and Hide minimap button, so every command is in the menu.
 - **Sounds per event** (all the game's own): a voice line when a bounty is created, coins when you add gold, an alarm when a wanted player is in sight, a PvP fanfare when you collect, a short PvP chime when a guildie collects, and a chime when your waiting kill code opens. `/bl debug sounds` plays each one.
-- **Proof stamp shows the kill code as a QR code** (under the band, on the left), so the Bounty Board will be able to read a claim from the screenshot alone.
+- **Claim a kill with just the screenshot.** The proof stamp shows the kill code as a QR code (under the band, on the left). Drop the screenshot into `#bounty-line` and the bot reads the code from it: nothing to paste. Pasting the code with the screenshot still works. Ordinary pictures in the channel are ignored.
 - Fixed: the proof stamp could stay on screen until you pressed Print Screen. The automatic screenshot is now called safely, the code always appears within 5 seconds, and a chat line tells you if the game refused the screenshot.
 - Sighting alerts repeat after you lose sight of a target for 10 minutes, not just once per session.
 - **View Bounty** in the right-click menu opens the board on that bounty. `/bl version`.

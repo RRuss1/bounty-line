@@ -8,11 +8,33 @@ import type { Attachment } from "./kills";
 import { isAllowedGuild } from "./discord";
 import type { Env } from "./env";
 import { log } from "./log";
-import { codeLimiter } from "./ratelimit";
+import { codeLimiter, imageLimiter } from "./ratelimit";
 import type { DiscordRest } from "./rest";
 import { getTenant } from "./tenants";
 
 export const ERROR_REPLY_TTL_MS = 60_000;
+/** Screenshots above this size are not scanned for a QR code (same limit as src/qr.ts). */
+const MAX_SCAN_BYTES = 12 * 1024 * 1024;
+const isScreenshot = (a: Attachment) => /^image\/(png|jpeg)\b/i.test(a.content_type ?? "") && (a.size ?? 0) <= MAX_SCAN_BYTES;
+
+/**
+ * The kill code from a proof screenshot's QR code (the addon's stamp draws it), or null.
+ * Never throws: an image that can't be read is just an image.
+ */
+async function killCodeFromScreenshot(env: Env, shot: Attachment): Promise<string | null> {
+  try {
+    const res = await fetch(shot.url);
+    if (!res.ok) return null;
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (bytes.byteLength > MAX_SCAN_BYTES) return null;
+    const [{ readQr }, { posterAssets }] = await Promise.all([import("./qr"), import("./poster-assets")]);
+    const [code] = extractCodes((await readQr(bytes, shot.content_type ?? "", posterAssets.wasm)) ?? "", 1);
+    return code && /^BL[0-9]+-K-/i.test(code) ? code : null;
+  } catch (e) {
+    log(env, "warn", "qr.failed", { error: String(e) });
+    return null;
+  }
+}
 
 interface MessageCreate {
   id: string;
@@ -50,13 +72,24 @@ async function onMessage(deps: ChatDeps, m: MessageCreate): Promise<void> {
   if (!isAllowedGuild(env, m.guild_id)) return;
   if (!m.author || m.author.bot || m.webhook_id) return;
   const codes = extractCodes(m.content ?? "");
-  if (codes.length === 0) return;
+  // No code in the text: a screenshot may carry the kill code as a QR code. A pasted code always wins.
+  const shot = codes.length === 0 ? (m.attachments ?? []).find(isScreenshot) : undefined;
+  if (codes.length === 0 && !shot) return;
 
   // 2. Only #bounty-line counts.
   const tenant = await getTenant(env.DB, m.guild_id!);
   if (!tenant || m.channel_id !== tenant.bounty_line_ch) return;
 
-  // 3. Rate limit, then the real work.
+  // 3. Screenshots: scan for the QR code. People post ordinary pictures too, so anything
+  //    that isn't a kill screenshot (or is over the scan limit) is silently left alone.
+  if (shot) {
+    if (!imageLimiter.allow(`${tenant.id}:${m.author.id}`)) return;
+    const code = await killCodeFromScreenshot(env, shot);
+    if (!code) return;
+    codes.push(code);
+  }
+
+  // 4. Rate limit, then the real work.
   if (!codeLimiter.allow(`${tenant.id}:${m.author.id}`)) {
     await replyError(deps, m, "Slow down a little: try again in a minute.");
     return;

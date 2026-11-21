@@ -105,12 +105,17 @@ export function posterSvg(p: PosterInput, parchmentHref = "https://bounty-line.i
 let ready: Promise<void> | null = null;
 const bytes = (b: ArrayBuffer | Uint8Array) => (b instanceof Uint8Array ? b : new Uint8Array(b));
 
-export async function renderPosterPng(p: PosterInput, assets: PosterAssets): Promise<Uint8Array> {
-  ready ??= initWasm(assets.wasm instanceof WebAssembly.Module ? assets.wasm : bytes(assets.wasm)).catch((e) => {
+/** Starts resvg once per isolate. Shared with the QR reader (src/qr.ts): it can't be started twice. */
+export function initResvg(wasm: PosterAssets["wasm"]): Promise<void> {
+  ready ??= initWasm(wasm instanceof WebAssembly.Module ? wasm : bytes(wasm)).catch((e) => {
     ready = null;
     throw e;
   });
-  await ready;
+  return ready;
+}
+
+export async function renderPosterPng(p: PosterInput, assets: PosterAssets): Promise<Uint8Array> {
+  await initResvg(assets.wasm);
   const r = new Resvg(posterSvg(p), {
     font: { fontBuffers: assets.fonts.map(bytes), loadSystemFonts: false, defaultFontFamily: "IM FELL English" } as never,
   });

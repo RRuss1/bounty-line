@@ -117,7 +117,7 @@ export async function claimKill(
 
   // 2. The screenshot (check 4): one PNG/JPG under 25 MB, never seen before.
   const image = attachments.find((a) => IMAGE_TYPES[(a.content_type ?? "").split(";")[0]!.trim()]);
-  if (!image) return fail("NO_IMAGE", "Kill codes need your screenshot attached in the same message.");
+  if (!image) return fail("NO_IMAGE", "Kill codes need your screenshot attached in the same message. It's the newest file in `World of Warcraft\\_forever_\\Screenshots`.");
   if ((image.size ?? 0) > MAX_IMAGE_BYTES) return fail("NO_IMAGE", "That screenshot is over 25 MB. Attach the PNG or JPG from your Screenshots folder.");
   const res = await fetch(image.url);
   if (!res.ok) return fail("NO_IMAGE", "I couldn't download your screenshot. Try posting it again.");

@@ -166,7 +166,7 @@ export function howToText(t: Tenant): string {
   return [
     "**📜 How the Bounty Board works**",
     `**Post a bounty:** in game, right-click an enemy player's portrait → **Set Bounty…** (or \`/bl mark\`). Copy the code and paste it here. A wanted poster appears in <#${t.bounty_board_forum}>.`,
-    "**Claim a bounty:** land the killing blow. Bounty Line screenshots the kill and gives you a kill code. Paste it here **with the screenshot** (newest file in `World of Warcraft\\_forever_\\Screenshots`).",
+    "**Claim a bounty:** land the killing blow. Bounty Line screenshots the kill and gives you a kill code. Drop the **screenshot** here: the bot reads the kill code from the QR code on it (pasting the code with it works too). It's the newest file in `World of Warcraft\\_forever_\\Screenshots`: click **+** → **Upload a File**, paste `%ProgramFiles(x86)%\\World of Warcraft\\_forever_\\Screenshots` into the file name box and press Enter.",
     "**Get paid:** the poster pays you in game, player to player (honor system).",
     `**Rules:** opposite faction only · no duels · killing blow only · rewards ${gold(t.config.reward_min)} to ${gold(t.config.reward_max)}.`,
     "**See bounties in game:** copy the pinned **Bounty Pack** below and type `/bl import` in game. Wanted players get a skull and a WANTED tooltip.",

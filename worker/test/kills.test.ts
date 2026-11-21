@@ -2,11 +2,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { onDispatch, type ChatDeps } from "../src/chat";
 import { encode, type BountyPost, type KillClaim } from "../src/codec";
 import type { Env } from "../src/env";
-import { codeLimiter } from "../src/ratelimit";
+import { codeLimiter, imageLimiter } from "../src/ratelimit";
 import { DiscordRest } from "../src/rest";
 import { TestD1 } from "./helpers/d1";
 import { call, command, GUILD_A, ids, makeEnv, setupOptions } from "./helpers/env";
 import { FakeDiscord } from "./helpers/fakes";
+
+// What the QR reader "sees" in an attached screenshot (the real reader is tested in qr.test.ts).
+const qr = vi.hoisted(() => ({ text: null as string | null, reads: 0 }));
+vi.mock("../src/qr", () => ({
+  readQr: async () => {
+    qr.reads++;
+    return qr.text;
+  },
+}));
 
 const NOW = 1795200000;
 const TARGET = "Player-4395-0A1B2C3D";
@@ -53,6 +62,9 @@ const button = (customId: string, user: string, roles: string[] = [], permission
 
 beforeEach(async () => {
   codeLimiter.clear();
+  imageLimiter.clear();
+  qr.text = null;
+  qr.reads = 0;
   discord = new FakeDiscord().install();
   discord.images.set(SHOT, PNG);
   db = TestD1.migrated();
@@ -294,6 +306,57 @@ describe("payment", () => {
 describe("character links", () => {
   const link = () =>
     encode("L", { schema: 1, boardTag: tag, charGUID: HUNTER, charName: "Hunter McHunterface", faction: 1, guildName: "Grief", createdAt: NOW, nonce: 3 });
+
+  describe("a screenshot with no code pasted", () => {
+    const reactions = () => discord.find("PUT", /\/reactions\//).length;
+
+    it("is a complete claim: the kill code comes from the QR code on the stamp", async () => {
+      qr.text = kill();
+      await say("gg", [image], HUNTER_USER);
+      expect(kills()).toHaveLength(1);
+      expect(kills()[0]).toMatchObject({ code: qr.text, killer_discord_id: HUNTER_USER });
+      expect(bountyStatus()).toBe("review");
+      expect(reactions()).toBe(1);
+    });
+
+    it("is left alone when it has no QR code: people post ordinary pictures", async () => {
+      await say("look at this", [image], HUNTER_USER);
+      expect(qr.reads).toBe(1);
+      expect(kills()).toHaveLength(0);
+      expect(reactions()).toBe(0);
+      expect(replies().filter((r) => r.startsWith("❌"))).toEqual([]);
+    });
+
+    it("only takes kill codes from a picture, never a bounty", async () => {
+      qr.text = encode("B", { ...bounty(), targetGUID: "Player-4395-0BADF00D", nonce: 9 });
+      await say("", [image], HUNTER_USER);
+      expect(reactions()).toBe(0);
+      expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM bounties").get()).toEqual({ n: 1 });
+    });
+
+    it("isn't scanned when a code is pasted, when it isn't a PNG or JPG, or when it's huge", async () => {
+      qr.text = kill();
+      await say(kill({ nonce: 8 }), [image], HUNTER_USER); // the pasted code wins
+      expect(qr.reads).toBe(0);
+      await say("", [{ ...image, content_type: "image/gif" }], HUNTER_USER);
+      await say("", [{ ...image, size: 30 * 1024 * 1024 }], HUNTER_USER);
+      expect(qr.reads).toBe(0);
+    });
+
+    it("stops scanning after a few pictures a minute, without a word", async () => {
+      for (let i = 0; i < 8; i++) await say("", [image], HUNTER_USER);
+      expect(qr.reads).toBe(6);
+      expect(replies().filter((r) => r.startsWith("❌"))).toEqual([]);
+    });
+
+    it("ignores pictures outside #bounty-line", async () => {
+      qr.text = kill();
+      await onDispatch(deps(), "MESSAGE_CREATE", {
+        id: "600000000000000999", channel_id: "999", guild_id: GUILD_A, content: "", attachments: [image], author: { id: HUNTER_USER },
+      });
+      expect(qr.reads).toBe(0);
+    });
+  });
 
   it("links a character to the Discord user who pasted it", async () => {
     await say(link(), [], HUNTER_USER);
