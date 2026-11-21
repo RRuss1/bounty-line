@@ -12,7 +12,8 @@ local function refresh()
   local c = ns.COLORS
   if pack then
     frame.status:SetTextColor(0.4, 1, 0.4)
-    frame.status:SetText(L.IMPORT_READY:format(#pack.bounties, pack.discordDisplayName ~= "" and pack.discordDisplayName or "?", pack.boardTag))
+    local board = pack.discordDisplayName ~= "" and pack.discordDisplayName or "?"
+    frame.status:SetText(L.IMPORT_READY:format(#pack.bounties, board, pack.boardTag))
   elseif err == "EMPTY" then
     frame.status:SetTextColor(c.muted[1], c.muted[2], c.muted[3])
     frame.status:SetText(text:match("%S") and L.IMPORT_NO_CODE or "")
