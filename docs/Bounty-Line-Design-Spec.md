@@ -332,6 +332,7 @@ When a unit's GUID matches an open bounty:
 - **On click:** focus the box, highlight the whole code, and change the hint line to **"✔ Selected! Press Ctrl+C"** (green, with a soft pulse). Play a small UI click sound.
 - **On popup open:** same as clicking. The code is already selected, so the fastest path is just **Ctrl+C**.
 - **Read-only box:** if the player types into it, the code is restored and re-selected, so it can't be accidentally edited.
+- **Readable paste:** the box holds a short line with the code in a Discord spoiler, e.g. `WANTED: **Grimlok Ashveil** · 500g ||BL1-B-…||` (kills: `CLAIMED: … · Bounty #12 ||…||`, links: `LINK: … ||…||`). In `#bounty-line` it shows as one tidy line with a black bar; the bot finds the code inside. The proof stamp still shows the bare code for the screenshot reader.
 - **Clicking anywhere in the box** re-selects the full code (no partial selections).
 - **Escape** closes the popup; `/bl last` re-opens it.
 
@@ -1083,6 +1084,7 @@ The same packager can upload to **Wago** (`-a <wago-id>`) and **WoWInterface** (
 15. **Window art:** the metal frame is the `ButtonFrameTemplateNoPortrait` NineSlice layout (✅ shows on Forever). The client's `FrameGeneral\UI-Background-Rock/Marble` textures did **not** show, so backgrounds ship in `Media/` (dark crops of the poster parchment).
 16. **Nameplate skull:** the addon parents a texture to `C_NamePlate.GetNamePlateForUnit(unit)`. Check it appears over enemy players and that forbidden plates are skipped without errors.
 17. **Kill debugging:** `/bl debugkills` prints every `PARTY_KILL` (attacker, victim) and honor message, to settle items 1 and 3 on a real kill.
+18. **Spoiler copy line:** the code box holds `WANTED: **Name** · 500g ||BL1-B-…||` (Section 5.7b). In a WoW EditBox, `||` is how a literal `|` is stored. Check that Ctrl+C → paste in Discord gives `||…||` (a spoiler bar). If it pastes single pipes, write `||||` instead.
 
 ---
 

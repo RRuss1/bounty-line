@@ -156,6 +156,16 @@ C_Map.GetBestMapForUnit = function() return nil end
 eq("B without a map (instances)", Codec.Decode(ns.BuildBountyCode(snap, 1)).fields.mapID, 0)
 C_Map.GetBestMapForUnit = function() return 1434 end
 
+-- ---------------------------------------------------------------- copy lines (code in a Discord spoiler)
+
+eq("bounty copy line", ns.CopyLine("B", "Grimlok Ashveil", "500g", "BL1-B-XYZ-ABCD"),
+  "WANTED: **Grimlok Ashveil** · 500g ||BL1-B-XYZ-ABCD||")
+eq("kill copy line", ns.CopyLine("K", "Grimlok Ashveil", "Bounty #7", "BL1-K-XYZ-ABCD"),
+  "CLAIMED: **Grimlok Ashveil** · Bounty #7 ||BL1-K-XYZ-ABCD||")
+eq("link copy line", ns.CopyLine("L", "Slac Jaw", nil, "BL1-L-XYZ-ABCD"), "LINK: **Slac Jaw** ||BL1-L-XYZ-ABCD||")
+local real = ns.BuildBountyCode(snap, 500)
+check("the code inside the line is intact", ns.CopyLine("B", "x", "1g", real):find("||" .. real .. "||", 1, true) ~= nil)
+
 -- ---------------------------------------------------------------- L code
 
 reset()

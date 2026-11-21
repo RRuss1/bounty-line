@@ -6,7 +6,10 @@
 - **See bounties in game.** `/bl import` takes the pinned pack (paste the whole message, or every part). Wanted players get a skull over their nameplate, a **WANTED** line in their tooltip, a "spotted nearby" alert the first time you see them, and **View Bounty** in the right-click menu. `/bl list` prints the open bounties.
 - **The kill.** Land the killing blow (or your pet does) on a bounty target: a proof stamp flashes up, Bounty Line takes a screenshot and gives you a kill code. Duels and same-faction kills never count. `/bl test` runs a practice kill.
 - **Claims in Discord.** Paste the kill code **with the screenshot** (or `/bl submit` with the image). The bot checks it, keeps the screenshot, posts the proof in the bounty's thread with **Approve / Deny** for officers, and tags the bounty *Claimed – Review*. Approve → *Awaiting Payment*; Deny → open again. The poster's stamp changes to match.
+- **Getting paid.** When a kill is approved, the thread gets **Paid** (poster) and **Received** (hunter) buttons. Both clicked → the bounty is **PAID**: tag, PAID stamp on the poster, gold added to the hunter's total, thread closed. Officers can **Force close**.
+- **Tidier pastes.** The addon now copies a short line with the code hidden in a Discord spoiler, e.g. `WANTED: **Grimlok Ashveil** · 500g ||BL1-B-…||`. `/bl submit` accepts the whole line too.
 - **Character links.** `/bl link` codes now link your character to your Discord account; kill claims show whether the character is linked.
+- Forever's Skyborne races (High Order and Windshaper) show by name on posters.
 - Windows: Blizzard's metal frame, a thick pulsing red glow, textured backgrounds, a minimap button (drag it around; `/bl minimap` hides it) and an addon icon.
 
 ### Deployer notes

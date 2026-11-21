@@ -7,6 +7,7 @@
  */
 import { EPHEMERAL, InteractionType, ResponseType, hasAdmin, isAllowedGuild, json, reply, verifySignature, type Interaction } from "./discord";
 import { reviewKill } from "./kills";
+import { handlePayment } from "./payments";
 import { getTenant } from "./tenants";
 import type { Env } from "./env";
 import { ensureGateway, gatewayState } from "./gateway";
@@ -111,20 +112,25 @@ async function interactions(request: Request, env: Env, ctx: ExecutionContext): 
 
 /** Approve / Deny on a kill claim's proof post. The work runs after a "deferred update". */
 async function buttons(interaction: Interaction & { application_id?: string }, env: Env, ctx: ExecutionContext): Promise<Response> {
-  const m = /^kill:(approve|deny):(\d+)$/.exec(interaction.data?.custom_id ?? "");
+  const m = /^(kill|pay):(approve|deny|paid|received|close):(\d+)$/.exec(interaction.data?.custom_id ?? "");
   if (!m) return json(reply("That button isn't supported."));
   const tenant = await getTenant(env.DB, interaction.guild_id!);
   if (!tenant) return json(reply("This server isn't set up yet. An admin needs to run `/bl setup`."));
   const rest = new DiscordRest(env.DISCORD_TOKEN);
   const appId = interaction.application_id ?? env.DISCORD_APP_ID;
-  const officer = { id: interaction.member?.user?.id ?? "unknown", roles: interaction.member?.roles ?? [], isAdmin: hasAdmin(interaction) };
+  const user = { id: interaction.member?.user?.id ?? "unknown", roles: interaction.member?.roles ?? [], isAdmin: hasAdmin(interaction) };
+  const now = Math.floor(Date.now() / 1000);
+  const work =
+    m[1] === "kill"
+      ? reviewKill(env, rest, tenant, m[2] as "approve" | "deny", Number(m[3]), user, now)
+      : handlePayment(env, rest, tenant, m[2] as "paid" | "received" | "close", Number(m[3]), user, now);
   ctx.waitUntil(
-    reviewKill(env, rest, tenant, m[1] as "approve" | "deny", Number(m[2]), officer, Math.floor(Date.now() / 1000))
-      .then((r) =>
-        r.ephemeral
-          ? rest.followup(appId, interaction.token, r.ephemeral)
-          : rest.editInteractionReply(appId, interaction.token, r.update!.content, { components: r.update!.components }),
-      )
+    work
+      .then(async (r) => {
+        if (r.ephemeral) return rest.followup(appId, interaction.token, r.ephemeral);
+        await rest.editInteractionReply(appId, interaction.token, r.update!.content, { components: r.update!.components });
+        await r.after?.();
+      })
       .catch((e) => log(env, "error", "kill.review_failed", { tenant_id: interaction.guild_id, error: String(e) })),
   );
   return json({ type: ResponseType.DEFERRED_UPDATE_MESSAGE });

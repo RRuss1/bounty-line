@@ -140,6 +140,19 @@ function ns.BuildBountyCode(snap, reward, note)
   })
 end
 
+-- What the code box copies: a short readable line with the code in a Discord spoiler, so
+-- #bounty-line shows "WANTED: Name · 500g" and a black bar instead of a wall of letters.
+-- The bot finds the code inside the line. (Spec 23 item 18: check "||" survives Ctrl+C.)
+local COPY = {
+  B = "WANTED: **%s** · %s ||%s||",
+  K = "CLAIMED: **%s** · %s ||%s||",
+  L = "LINK: **%s** ||%s||",
+}
+function ns.CopyLine(kind, name, detail, code)
+  if kind == "L" then return COPY.L:format(name, code) end
+  return COPY[kind]:format(name, detail, code)
+end
+
 function ns.BuildLinkCode()
   local faction = FACTION_ID[UnitFactionGroup("player")]
   if not faction then return nil, "NEUTRAL", L.LINK_NO_FACTION end

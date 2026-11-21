@@ -262,6 +262,23 @@ describe("servers that aren't allowlisted", () => {
   });
 });
 
+describe("the addon's copy line (code in a spoiler)", () => {
+  const line = () => `WANTED: **Grimlok Ashveil** · 500g ||${code()}||`;
+  it("works pasted in chat", async () => {
+    await say(line());
+    expect(bountyRows()).toHaveLength(1);
+    expect(reactions()).toEqual(["✅"]);
+  });
+  it("works in /bl submit", async () => {
+    await call(env, command(GUILD_A, "submit", [{ name: "code", type: 3, value: line() }], "0"));
+    expect(bountyRows()).toHaveLength(1);
+  });
+  it("/bl submit without a code says so", async () => {
+    await call(env, command(GUILD_A, "submit", [{ name: "code", type: 3, value: "hello" }], "0"));
+    expect(discord.followups().at(-1)).toContain("don't see a Bounty Line code");
+  });
+});
+
 describe("/bl submit", () => {
   it("runs the same pipeline", async () => {
     await call(env, command(GUILD_A, "submit", [{ name: "code", type: 3, value: code() }], "0"));

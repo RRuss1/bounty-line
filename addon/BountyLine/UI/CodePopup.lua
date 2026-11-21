@@ -93,16 +93,17 @@ local function build()
   return f
 end
 
--- opts: { title, subtitle, instructions, code, note? }. Remembered for /bl last.
+-- opts: { title, subtitle, instructions, code, copy?, note? }. `copy` is what the box holds and
+-- Ctrl+C copies (the friendly line around the code); defaults to the bare code. Kept for /bl last.
 function ns.ShowCode(opts)
   frame = frame or build()
   BountyLineCharDB.lastPopup = opts
-  frame.code = opts.code
+  frame.code = opts.copy or opts.code
   frame.heading:SetText(opts.title)
   frame.subtitle:SetText(opts.subtitle or "")
   frame.instructions:SetText(opts.instructions or "")
   frame.note:SetText(opts.note or "")
-  frame.box:SetText(opts.code)
+  frame.box:SetText(frame.code)
   frame.box:SetCursorPosition(0)
   frame:Show()
   -- Open already selected, so the fastest path is just Ctrl+C.

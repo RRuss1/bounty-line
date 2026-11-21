@@ -100,6 +100,12 @@ export class DiscordRest {
       files,
     );
 
+  /** JSON message with components and chosen pings. */
+  send = (channelId: string, payload: Record<string, unknown>) => this.request<{ id: string }>("POST", `/channels/${channelId}/messages`, payload);
+
+  /** Archive and lock a finished bounty's thread. */
+  closeThread = (threadId: string) => this.request("PATCH", `/channels/${threadId}`, { archived: true, locked: true });
+
   setThreadTags = (threadId: string, tagIds: string[]) => this.request("PATCH", `/channels/${threadId}`, { applied_tags: tagIds });
 
   /** Rewrites a wanted poster post; with an image, it replaces the old picture. */
