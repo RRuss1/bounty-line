@@ -12,9 +12,14 @@
  *   --note "text"       note (max 80 bytes)
  *   --poster "Name"     poster character name (default "Test Poster")
  *
+ * Kill claims (to test the Discord side without a real kill):
+ *   npm run test-code -- --kill 7 --pack-file pack.txt [--killer "Name"]
+ *   pack.txt = the pinned Bounty Pack message from #bounty-line, copied whole.
+ *
  * The target GUID is random each time, so each code is a new bounty.
  */
-import { encode, FACTION } from "../src/codec";
+import { readFileSync } from "node:fs";
+import { decodePack, encode, FACTION } from "../src/codec";
 import { _unsafe } from "../src/codec";
 
 const args = process.argv.slice(2);
@@ -28,6 +33,44 @@ const FIRST = ["Grimlok", "Mograth", "Zul'gor", "Vexa", "Thrall'ka", "Rokhan", "
 const LAST = ["Ashveil", "Skullsplitter", "Bloodfang", "Nightwhisper", "Ironjaw", "Dreadmane"];
 const pick = <T>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)]!;
 const hex8 = () => Math.floor(Math.random() * 0xffffffff).toString(16).toUpperCase().padStart(8, "0");
+
+// Kill claims: --kill <bounty #> with the pinned Bounty Pack (copy the whole message into a file).
+if (opt("kill")) {
+  const file = opt("pack-file");
+  const text = file ? readFileSync(file, "utf8") : opt("pack");
+  if (!text) {
+    console.error('Give the pinned Bounty Pack: --pack-file pack.txt (or --pack "BL1-P-...").');
+    process.exit(1);
+  }
+  const pack = decodePack((text.match(/BL1-P-[0-9A-Za-z-]+/gi) ?? []).join("\n"));
+  if (!pack.ok) {
+    console.error(`That Bounty Pack didn't decode: ${pack.message}`);
+    process.exit(1);
+  }
+  const id = Number(opt("kill"));
+  const b = pack.fields.bounties.find((x) => x.bountyId === id);
+  if (!b) {
+    console.error(`Bounty #${id} isn't in that pack. Open bounties: ${pack.fields.bounties.map((x) => `#${x.bountyId}`).join(", ") || "none"}`);
+    process.exit(1);
+  }
+  console.log(
+    encode("K", {
+      schema: 1,
+      boardTag: pack.fields.boardTag,
+      bountyId: id,
+      victimGUID: b.targetGUID,
+      killerGUID: `Player-4395-${hex8()}`,
+      killerName: opt("killer") ?? "Test Hunter",
+      killerFaction: b.targetFaction === FACTION.Horde ? FACTION.Alliance : FACTION.Horde,
+      killedAt: Math.floor(Date.now() / 1000),
+      mapID: 1437,
+      flags: 1,
+      nonce: Math.floor(Math.random() * 65536),
+    }),
+  );
+  console.error(`Kill code for bounty #${id} on ${b.targetName}. Post it in #bounty-line WITH a screenshot (any PNG/JPG).`);
+  process.exit(0);
+}
 
 const target = (opt("target") ?? "horde").toLowerCase() === "alliance" ? FACTION.Alliance : FACTION.Horde;
 const poster = flag("same-faction") ? target : target === FACTION.Horde ? FACTION.Alliance : FACTION.Horde;
