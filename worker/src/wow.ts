@@ -61,6 +61,9 @@ export const zoneName = (mapId: number): string | null => ZONES[mapId] ?? null;
 /** "Grief Bounty Board", or just "Bounty Board" before a name is set. */
 export const boardName = (displayName: string) => `${displayName.trim()} Bounty Board`.trim();
 
+/** Players far above the marker show "??" in game; codes carry 0 for that. */
+export const level = (n: number) => (n > 0 ? String(n) : "??");
+
 export const gold = (n: number) => `${n.toLocaleString("en-US")}g`;
 
 /** Neutralizes Discord markdown and mentions in player-supplied text. */

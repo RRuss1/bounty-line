@@ -117,6 +117,13 @@ describe("posting a bounty from #bounty-line", () => {
     expect(reactions()).toEqual(["✅"]);
   });
 
+  it("shows ?? for a target too far above the marker to see their level", async () => {
+    await say(code({ targetLevel: 0 }));
+    const message = threads()[0]!.body!.message as { content: string; embeds: { description: string }[] };
+    expect(message.content).toContain("Orc Warrior ?? · Horde");
+    expect(message.embeds[0]!.description).toContain("Orc Warrior · Level ?? · Horde");
+  });
+
   it("accepts the 1g minimum and codes made before a board was linked (tag 0000)", async () => {
     await say(code({ rewardGold: 1, boardTag: "0000" }));
     expect(bountyRows()).toHaveLength(1);
