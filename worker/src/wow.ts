@@ -51,8 +51,15 @@ const RACES: Record<number, string> = {
 export const className = (id: number) => CLASSES[id] ?? `Class #${id}`;
 export const raceName = (id: number) => RACES[id] ?? `Race #${id}`;
 export const factionName = (id: number) => (id === 1 ? "Alliance" : id === 2 ? "Horde" : `Faction #${id}`);
-/** B codes carry only a uiMapID; zone names need a verified Forever map table (spec Section 23). */
-export const zoneName = (mapId: number) => `Zone #${mapId}`;
+/**
+ * B codes carry only a uiMapID; names need a verified Forever map table (spec Section 23,
+ * filled in from `/bl debug` in Phase 3). Unknown zones are left off rather than shown as numbers.
+ */
+const ZONES: Record<number, string> = {};
+export const zoneName = (mapId: number): string | null => ZONES[mapId] ?? null;
+
+/** "Grief Bounty Board", or just "Bounty Board" before a name is set. */
+export const boardName = (displayName: string) => `${displayName.trim()} Bounty Board`.trim();
 
 export const gold = (n: number) => `${n.toLocaleString("en-US")}g`;
 

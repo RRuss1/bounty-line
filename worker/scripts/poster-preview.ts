@@ -19,11 +19,11 @@ const png = await renderPosterPng(
     subtitle: "Night Elf Monk · Level 57 · Alliance",
     rewardGold: Number(reward),
     postedBy: "Slac Jaw",
-    zone: "Zone #1434",
+    zone: null,
     markedAt: now,
     bountyId: 12,
     expiresAt: now + 14 * 86400,
-    boardTag: "MT8H",
+    boardName: "Grief Bounty Board",
     status: "open",
   },
   {

@@ -15,11 +15,13 @@ export interface PosterInput {
   subtitle: string;
   rewardGold: number;
   postedBy: string;
-  zone: string;
+  /** null until the zone table exists (spec 23). */
+  zone: string | null;
   markedAt: number;
   bountyId: number;
   expiresAt: number;
-  boardTag: string;
+  /** "Grief Bounty Board" */
+  boardName: string;
   status: PosterStatus;
 }
 
@@ -84,9 +86,9 @@ export function posterSvg(p: PosterInput, parchmentHref = "https://bounty-line.i
     line(p.subtitle, t + 300, 44, "fell", 1000),
     line(`REWARD ${fmtGold(p.rewardGold)}`, t + 400, 92, "rye", 980),
     line(`paid by ${p.postedBy} · honor system`, t + 458, 38, "fell", 900),
-    line(`Marked in ${p.zone} · ${fmtDate(p.markedAt)}`, t + 520, 34, "fell", 860),
+    line(p.zone ? `Marked in ${p.zone} · ${fmtDate(p.markedAt)}` : `Marked ${fmtDate(p.markedAt)}`, t + 520, 34, "fell", 860),
     line(`Bounty #${p.bountyId} · Expires ${fmtDate(p.expiresAt)}`, t + 610, 40, "fell", 640),
-    line(`Board ${p.boardTag}`, t + 660, 30, "fell", 400),
+    line(p.boardName, t + 662, 32, "rye", 560),
     // Status stamp, top right, clear of the seal and the blood spatter.
     `<g transform="translate(1135 ${t + 95}) rotate(11)" opacity="0.88">`,
     `<rect x="${-stampW / 2}" y="-48" width="${stampW}" height="96" rx="10" fill="none" stroke="${RED}" stroke-width="7"/>`,
