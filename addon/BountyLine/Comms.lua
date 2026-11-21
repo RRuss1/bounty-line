@@ -18,6 +18,7 @@ local CHUNK = 220          -- payload bytes per message (the limit is 255 with o
 local PACE = 0.4           -- seconds between sends
 local RETRY = 3            -- seconds before retrying a refused send
 local SEEN_EVERY = 60      -- seconds between SEEN messages for one bounty
+local BANNER_LIMIT = 3     -- banners (new bounty / kill) accepted per sender per minute
 
 local Comms = {}
 ns.Comms = Comms
@@ -105,8 +106,39 @@ local packReply      -- pending C_Timer handle for answering an older HELLO
 local seenSentAt = {} -- bounty id -> time we last sent SEEN
 
 local function myPackVersion()
-  local pack = BountyLineDB.pack
-  return pack and pack.version or 0, pack and pack.boardTag or "0000"
+  return ns.PackVersion()
+end
+
+-- Stops one client (or a forged sender) flooding everyone's screen with banners.
+local bannerTimes = {}
+function Comms.AllowBanner(sender, now)
+  local times = bannerTimes[sender] or {}
+  bannerTimes[sender] = times
+  while times[1] and now - times[1] >= 60 do table.remove(times, 1) end
+  if #times >= BANNER_LIMIT then return false end
+  times[#times + 1] = now
+  return true
+end
+
+-- Guild rank index of a sender (0 = guild master), or nil if they aren't on the roster.
+-- Roster names may be "First" or "First-Surname" on Forever (spec 23 item 19): match either.
+function Comms.SenderRank(senderName)
+  if not senderName or not GetNumGuildMembers then return nil end
+  local short = senderName:match("^[^-]+")
+  for i = 1, GetNumGuildMembers() do
+    local name, _, rankIndex = GetGuildRosterInfo(i)
+    if name and (name == senderName or name:match("^[^-]+") == short) then return rankIndex end
+  end
+  return nil
+end
+
+-- settings.packsFrom = "officers": only take packs from ranks up to settings.packMaxRank
+-- (default 1: guild master and the next rank). Spec 5.8's optional trust rule.
+function Comms.TrustsPackFrom(senderName)
+  local s = BountyLineDB.settings or {}
+  if s.packsFrom ~= "officers" then return true end
+  local rank = Comms.SenderRank(senderName)
+  return rank ~= nil and rank <= (s.packMaxRank or 1)
 end
 
 function Comms.Hello()
@@ -159,7 +191,8 @@ function handlers.HELLO(data)
   end)
 end
 
-function handlers.PACK(data)
+function handlers.PACK(data, senderName)
+  if not Comms.TrustsPackFrom(senderName) then return end
   local pack = ns.ReadPack(data)
   if not pack then return end
   local version, tag = myPackVersion()
@@ -177,10 +210,10 @@ function handlers.PACK(data)
   for _, b in ipairs(added or {}) do ns.Banner(L.BANNER_NEW:format(b.targetName, ns.FormatGold(b.rewardGold), ns.BoardName())) end
 end
 
-function handlers.NEWB(data, senderName)
+function handlers.NEWB(data, senderName, senderId)
   local name, reward, poster = data:match("^(.-)\t(%d+)\t(.*)$")
-  if not name then return end
-  ns.Banner(L.BANNER_PENDING:format(poster ~= "" and poster or senderName or "?", name, ns.FormatGold(tonumber(reward)), ns.BoardName()))
+  if not name or not Comms.AllowBanner(senderId, GetTime()) then return end
+  ns.Banner(L.BANNER_PENDING:format(poster ~= "" and poster or (senderName and senderName:match("^[^-]+")) or "?", name, ns.FormatGold(tonumber(reward)), ns.BoardName()))
 end
 
 function handlers.SEEN(data)
@@ -188,10 +221,17 @@ function handlers.SEEN(data)
   if id then ns.RecordSeen(tonumber(id), tonumber(mapID), tonumber(t)) end
 end
 
-function handlers.KILL(data)
+function handlers.KILL(data, _, senderId)
   local id, killer = data:match("^(%d+)\t(.*)$")
   if not id then return end
   local b = ns.GetBountyById(tonumber(id))
+  -- Claimed: stop hunting it here too, until the next pack.
+  if b then
+    ns.MarkClaimed(tonumber(id), GetServerTime())
+    ns.RefreshMarks()
+    if ns.RefreshBoard then ns.RefreshBoard() end
+  end
+  if not Comms.AllowBanner(senderId, GetTime()) then return end
   ns.Banner(L.BANNER_KILL:format(killer ~= "" and killer or "?", b and b.name or ("bounty #" .. id), ns.BoardName()))
 end
 
@@ -200,7 +240,7 @@ function Comms.Receive(text, channel, senderName)
   local msg = Comms.Parse(text)
   if not msg or msg.sender == me or not handlers[msg.kind] then return end
   local data = Comms.Reassemble(msg, GetTime())
-  if data then handlers[msg.kind](data, senderName) end
+  if data then handlers[msg.kind](data, senderName, msg.sender) end
 end
 
 -- ---------------------------------------------------------------- events
@@ -213,6 +253,6 @@ events:SetScript("OnEvent", function(_, event, prefix, text, channel, sender)
     C_ChatInfo.RegisterAddonMessagePrefix(PREFIX)
     C_Timer.After(8, Comms.Hello) -- after the guild roster settles
   elseif prefix == PREFIX then
-    Comms.Receive(text, channel, sender and sender:match("^[^-]+"))
+    Comms.Receive(text, channel, sender)
   end
 end)

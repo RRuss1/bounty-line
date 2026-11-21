@@ -4,6 +4,10 @@
 -- Kills come from PARTY_KILL (the combat log is closed on Forever). Guards: the victim must
 -- be an open bounty, on the opposite faction, and never during or just after a duel.
 -- CHAT_MSG_COMBAT_HONOR_GAIN naming the victim within ~2s sets the "honor" flag.
+--
+-- Kills are handled one at a time; more that land meanwhile wait in a queue. While you're
+-- still in combat the code popup is held back (it would grab the keyboard mid-fight) and
+-- opens when combat ends.
 local _, ns = ...
 local L = ns.L
 
@@ -13,7 +17,9 @@ local HONOR_WAIT = 1.2    -- seconds to wait for the honor message before taking
 local MAX_SAVED = 20
 
 local duel = { active = false, endedAt = -math.huge }
-local pending   -- kill waiting for its honor message or its screenshot
+local pending        -- the kill being processed (waiting for honor or its screenshot)
+local waiting = {}   -- kills that landed while another was being processed
+local deferred       -- popup held back until combat ends
 
 -- ---------------------------------------------------------------- rules (tested in addon/tests)
 
@@ -54,10 +60,29 @@ end
 
 -- ---------------------------------------------------------------- capture
 
+local begin
+
+local function nextKill()
+  pending = nil
+  local k = table.remove(waiting, 1)
+  if k then begin(k) end
+end
+
+-- Shows the popup now, or holds it until combat ends (never grab the keyboard mid-fight).
+local function present(popup)
+  local s = BountyLineDB.settings or {}
+  if InCombatLockdown() and not s.killPopupInCombat then
+    BountyLineCharDB.lastPopup = popup -- /bl last and the minimap menu can open it meanwhile
+    deferred = popup
+    ns.Print(L.KILL_DEFERRED)
+  else
+    ns.ShowCode(popup)
+  end
+end
+
 local function finish(shot)
   local k = pending
   if not k or not k.code then return end
-  pending = nil
   ns.HideStamp()
   local popup = {
     title = k.practice and L.PRACTICE_TITLE or L.KILL_TITLE,
@@ -67,21 +92,27 @@ local function finish(shot)
     line = not k.practice and { "K", k.bounty.name, ("Bounty #%d"):format(k.bounty.id) } or nil,
     note = shot and L.SCREENSHOT_SAVED or L.SCREENSHOT_FAILED,
   }
-  ns.ShowCode(popup)
   if not k.practice then
+    -- Claimed: no more skull, and a second kill on them won't make a second code.
+    ns.MarkClaimed(k.bounty.id, k.killedAt)
+    ns.RefreshMarks()
     ns.Comms.Kill(k.bounty.id, ns.FullName("player"))
     ns.Banner(L.BANNER_KILL:format(ns.FullName("player"), k.bounty.name, ns.BoardName()))
     local kills = BountyLineCharDB.kills
-    table.insert(kills, 1, { code = k.code, bountyId = k.bounty.id, t = k.killedAt, shot = shot })
+    table.insert(kills, 1, {
+      code = k.code, bountyId = k.bounty.id, name = k.bounty.name, reward = k.bounty.reward, t = k.killedAt, shot = shot,
+    })
     while #kills > MAX_SAVED do table.remove(kills) end
   end
+  present(popup)
+  nextKill()
 end
 
 local function capture(k)
   local code, err, message = ns.BuildKillCode(k.bounty.id, k.victimGUID, k.killedAt, k.honor, k.pet)
   if not code then
-    pending = nil
-    return ns.Print(L.CODE_FAILED:format(message or err))
+    ns.Print(L.CODE_FAILED:format(message or err))
+    return nextKill()
   end
   k.code = code
   ns.ShowStamp(k)
@@ -90,11 +121,18 @@ local function capture(k)
   C_Timer.After(5, function() if pending == k then finish(false) end end)
 end
 
+begin = function(k)
+  pending = k
+  C_Timer.After(k.practice and 0 or HONOR_WAIT, function() if pending == k then capture(k) end end)
+end
+
 local function startKill(bounty, victimGUID, pet, practice)
-  if pending then return end -- one at a time
-  pending = { bounty = bounty, victimGUID = victimGUID, pet = pet, practice = practice, killedAt = GetServerTime(), honor = false }
-  local k = pending
-  C_Timer.After(practice and 0 or HONOR_WAIT, function() if pending == k then capture(k) end end)
+  local k = { bounty = bounty, victimGUID = victimGUID, pet = pet, practice = practice, killedAt = GetServerTime(), honor = false }
+  if pending then
+    waiting[#waiting + 1] = k
+  else
+    begin(k)
+  end
 end
 
 -- /bl test: the whole flow on a pretend target, for checking screenshots and the stamp.
@@ -103,11 +141,21 @@ function ns.PracticeKill()
   startKill(practice, UnitGUID("player"), false, true)
 end
 
+local function combatEnded()
+  if not deferred then return end
+  local popup = deferred
+  deferred = nil
+  ns.ShowCode(popup)
+end
+
+-- For the test suite only.
+ns._kills = { start = startKill, finish = finish, combatEnded = combatEnded, pending = function() return pending end }
+
 -- ---------------------------------------------------------------- events
 
 local events = CreateFrame("Frame")
 for _, e in ipairs({ "PARTY_KILL", "CHAT_MSG_COMBAT_HONOR_GAIN", "DUEL_REQUESTED", "DUEL_INBOUNDS", "DUEL_FINISHED",
-  "SCREENSHOT_SUCCEEDED", "SCREENSHOT_FAILED" }) do
+  "SCREENSHOT_SUCCEEDED", "SCREENSHOT_FAILED", "PLAYER_REGEN_ENABLED" }) do
   events:RegisterEvent(e)
 end
 events:SetScript("OnEvent", function(_, event, a, b)
@@ -129,5 +177,7 @@ events:SetScript("OnEvent", function(_, event, a, b)
     finish(true)
   elseif event == "SCREENSHOT_FAILED" then
     finish(false)
+  elseif event == "PLAYER_REGEN_ENABLED" then
+    combatEnded()
   end
 end)

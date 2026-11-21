@@ -29,7 +29,7 @@ local function addSection(tag, rootDescription, contextData)
   local existing = snap and ns.GetBounty(snap.guid)
   if existing then
     rootDescription:CreateButton(L.MENU_VIEW:format(existing.id, ns.FormatGold(existing.reward)), function()
-      ns.Print(L.TOOLTIP_WANTED:format(ns.FormatGold(existing.reward), existing.id, existing.poster))
+      ns.OpenBoard(existing.id) -- opens the board with this bounty highlighted
     end)
     rootDescription:CreateButton(L.MENU_ADD, function() ns.OpenAmountEntry(snap, nil, nil, existing.id) end)
   end

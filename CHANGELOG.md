@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.8.0 (unreleased): addon audit fixes, pending bounties, menus
+
+- **Kill code no longer grabs your keyboard mid-fight.** If you are still in combat, you get a chat line and the code popup opens when combat ends (`/bl last` opens it sooner).
+- Kills in quick succession each get their own stamp, screenshot and code (they queue).
+- A bounty you or a guildie just killed shows as **claimed** and loses its skull until the next Bounty Pack, so nobody double-claims it.
+- Bounty Packs dated in the future are refused, so one bad sync can no longer block real packs. Banners are limited to 3 a minute per sender. Optional: accept synced packs from officers only.
+- Sighting alerts repeat after you lose sight of a target for 10 minutes, not just once per session.
+- **View Bounty** in the right-click menu opens the board on that bounty. `/bl version`.
+- Old sightings and expired bounties are cleaned out of saved data.
+
+### Deployer notes
+
+- Nothing to change yet (addon only so far).
+
 ## v0.7.0 (unreleased): Phase 7, deploy your own
 
 - **Bootstrap deployment** workflow for guilds running their own Bounty Board: a **dry run** checks every Secret and Variable, the Cloudflare token, the Discord app (token, app ID and public key from the same app; Public Bot; Message Content Intent) and the workers.dev subdomain, and explains how to fix each problem. The real run creates the database and screenshot storage if missing, deploys, stores the bot secrets, applies migrations, registers commands, sets Discord's Interactions Endpoint URL, waits for `/health` and lists the next steps with the invite link. It never deletes anything and is safe to re-run.

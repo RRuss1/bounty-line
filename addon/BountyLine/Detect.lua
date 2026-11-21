@@ -1,22 +1,31 @@
 -- Hunting (spec 5.6): bounty targets get a skull over their nameplate, a WANTED line in
--- their tooltip, and a raid-warning alert the first time you see them each session.
+-- their tooltip, and a raid-warning alert when you spot them. The alert repeats only after
+-- you've lost sight of them for a while (settings.realertMinutes), not while you're fighting.
 -- GUIDs hidden as secret values (combat) are skipped, never guessed.
 local _, ns = ...
 local L = ns.L
 
 local SKULL = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8"
-local marks = {}  -- nameplate frame -> skull texture
-local seen = {}   -- bounty id -> true once alerted this session
+local DEFAULT_REALERT = 10 -- minutes
+local marks = {}     -- nameplate frame -> skull texture
+local lastSight = {} -- bounty id -> GetTime() of the latest sighting
 
 local function wanted(unit)
   if not unit or not UnitIsPlayer(unit) then return nil end
   return ns.GetBounty(UnitGUID(unit))
 end
 
+-- True when this sighting deserves an alert: the first one, or the first after a gap.
+function ns.ShouldAlert(id, now)
+  local last = lastSight[id]
+  lastSight[id] = now
+  local gap = ((BountyLineDB.settings or {}).realertMinutes or DEFAULT_REALERT) * 60
+  return last == nil or now - last > gap
+end
+
 local function alert(b)
   ns.Comms.Seen(b.id, ns.PlayerMapID(), GetServerTime()) -- last-seen, shared with the guild
-  if seen[b.id] then return end
-  seen[b.id] = true
+  if not ns.ShouldAlert(b.id, GetTime()) then return end
   local text = L.SPOTTED:format(b.name, ns.FormatGold(b.reward))
   if RaidNotice_AddMessage and RaidWarningFrame then
     RaidNotice_AddMessage(RaidWarningFrame, text, ChatTypeInfo.RAID_WARNING)
@@ -46,6 +55,7 @@ local function markPlate(unit)
 end
 
 function ns.RefreshMarks()
+  if not (C_NamePlate and C_NamePlate.GetNamePlates) then return end
   for _, plate in ipairs(C_NamePlate.GetNamePlates()) do
     if plate.namePlateUnitToken then markPlate(plate.namePlateUnitToken) end
   end

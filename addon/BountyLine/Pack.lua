@@ -1,10 +1,14 @@
 -- The Bounty Pack (spec 5.5): the list of open bounties, pasted from the pinned message in
--- #bounty-line with /bl import. Stored account-wide and looked up by target GUID.
--- Guild sync (sharing it over the addon channel) arrives in Phase 5.
+-- #bounty-line with /bl import, or received from a guildie (Comms.lua). Stored account-wide
+-- and looked up by target GUID.
 local _, ns = ...
 
 -- major*1000 + minor. Packs say which addon version they need (minAddonVersion).
 ns.ADDON_VERSION_CODE = 4
+
+-- A pack's version is the time the bot made it. One dated further ahead than this is forged
+-- or broken: accepting it would block every real pack ("newest wins").
+local MAX_FUTURE = 600
 
 -- Players copy the whole pinned message or just the code block; keep only the codes.
 function ns.ExtractPackCodes(text)
@@ -23,29 +27,51 @@ function ns.ReadPack(text)
   return r.fields
 end
 
+-- The stored pack's version and board tag. A stored pack dated in the future counts as none,
+-- so a real one can replace it.
+function ns.PackVersion()
+  local pack = BountyLineDB.pack
+  if not pack or (pack.version or 0) > GetServerTime() + MAX_FUTURE then return 0, pack and pack.boardTag or "0000" end
+  return pack.version or 0, pack.boardTag or "0000"
+end
+
 -- Saves a decoded pack. Returns true and the bounties that weren't in the old pack (for
--- banners), or false and "OLDER" when the saved one is newer.
+-- banners), or false and "OLDER" (the saved one is newer) / "FUTURE" (dated ahead of now).
 function ns.StorePack(p)
   local db = BountyLineDB
+  local now = GetServerTime()
+  if p.packVersion > now + MAX_FUTURE then return false, "FUTURE" end
   local cur = db.pack
-  if cur and cur.boardTag == p.boardTag and (cur.version or 0) > p.packVersion then return false, "OLDER" end
+  if cur and cur.boardTag == p.boardTag and ns.PackVersion() > p.packVersion then return false, "OLDER" end
   local old = cur and cur.bounties or {}
-  local added = {}
-  local bounties = {}
+  local added, bounties, ids, count = {}, {}, {}, 0
   for _, b in ipairs(p.bounties) do
-    if cur and not old[b.targetGUID] then added[#added + 1] = b end
-    bounties[b.targetGUID] = {
-      id = b.bountyId, name = b.targetName, classID = b.targetClassID, faction = b.targetFaction,
-      reward = b.rewardGold, poster = b.posterName, expires = b.expiresAt,
-    }
+    if b.expiresAt > now then
+      if cur and not old[b.targetGUID] then added[#added + 1] = b end
+      bounties[b.targetGUID] = {
+        id = b.bountyId, name = b.targetName, classID = b.targetClassID, faction = b.targetFaction,
+        reward = b.rewardGold, poster = b.posterName, expires = b.expiresAt,
+      }
+      ids[b.bountyId] = true
+      count = count + 1
+    end
   end
   db.pack = {
     version = p.packVersion, boardTag = p.boardTag, discordName = p.discordDisplayName,
     rewardMin = p.rewardMin, rewardMax = p.rewardMax, minAddon = p.minAddonVersion,
-    bounties = bounties, count = #p.bounties, codes = p.codes,
+    bounties = bounties, count = count, codes = p.codes,
   }
   db.boardTag = p.boardTag
   db.discordName = p.discordDisplayName
+  -- Housekeeping: forget sightings of bounties that are gone, and "claimed" marks the bot has
+  -- caught up with (a pack made after the kill either dropped the bounty or reopened it).
+  db.lastSeen, db.claimed = db.lastSeen or {}, db.claimed or {}
+  for id in pairs(db.lastSeen) do
+    if not ids[id] then db.lastSeen[id] = nil end
+  end
+  for id, t in pairs(db.claimed) do
+    if not ids[id] or t < p.packVersion then db.claimed[id] = nil end
+  end
   return true, added
 end
 
@@ -54,23 +80,37 @@ function ns.PackOutdated()
   return pack ~= nil and (pack.minAddon or 0) > ns.ADDON_VERSION_CODE
 end
 
--- The open bounty on this GUID, if any (expired ones don't count).
+-- A kill on this bounty was just claimed (by you or a guildie): stop hunting it until the
+-- next pack says otherwise.
+function ns.MarkClaimed(id, t)
+  BountyLineDB.claimed = BountyLineDB.claimed or {}
+  BountyLineDB.claimed[id] = t or GetServerTime()
+end
+
+function ns.IsClaimed(id)
+  local claimed = BountyLineDB.claimed
+  return claimed ~= nil and claimed[id] ~= nil
+end
+
+-- The open bounty on this GUID, if any (expired and just-claimed ones don't count).
 function ns.GetBounty(guid)
   if not guid or ns.IsSecret(guid) then return nil end
   local pack = BountyLineDB and BountyLineDB.pack
   local b = pack and pack.bounties[guid]
-  if b and b.expires > GetServerTime() then return b end
+  if b and b.expires > GetServerTime() and not ns.IsClaimed(b.id) then return b end
   return nil
 end
 
--- Open bounties, biggest reward first.
+-- Bounties for the board, biggest reward first. Just-claimed ones are listed with claimed = true.
 function ns.ListBounties()
   local list = {}
   local pack = BountyLineDB.pack
   if not pack then return list end
   local now = GetServerTime()
   for guid, b in pairs(pack.bounties) do
-    if b.expires > now then list[#list + 1] = setmetatable({ guid = guid }, { __index = b }) end
+    if b.expires > now then
+      list[#list + 1] = setmetatable({ guid = guid, claimed = ns.IsClaimed(b.id) }, { __index = b })
+    end
   end
   table.sort(list, function(a, b) return a.reward > b.reward or (a.reward == b.reward and a.id < b.id) end)
   return list
@@ -92,6 +132,7 @@ end
 
 -- Last sightings, from you or guildies (spec 5.6), keyed by bounty id. Newest wins.
 function ns.RecordSeen(id, mapID, t)
+  BountyLineDB.lastSeen = BountyLineDB.lastSeen or {}
   local seen = BountyLineDB.lastSeen
   local cur = seen[id]
   if cur and cur.t >= t then return end
@@ -99,5 +140,5 @@ function ns.RecordSeen(id, mapID, t)
 end
 
 function ns.LastSeen(id)
-  return BountyLineDB.lastSeen[id]
+  return BountyLineDB.lastSeen and BountyLineDB.lastSeen[id]
 end

@@ -8,6 +8,11 @@ local WIDTH = 578
 local frame
 
 local function selectAll(selected)
+  -- Never take the keyboard during combat: WASD would go into the box.
+  if InCombatLockdown() and not frame.box:HasFocus() then
+    frame.hint:SetText(L.COPY_HINT)
+    return
+  end
   frame.box:SetFocus()
   frame.box:HighlightText()
   frame.hint:SetText(selected and L.SELECTED or L.COPY_HINT)
