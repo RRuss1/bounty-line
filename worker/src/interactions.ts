@@ -8,6 +8,7 @@ import { log } from "./log";
 import { refreshPack } from "./pack";
 import { cancel, configure, forgetMe, leaderboard, me } from "./stats";
 import { codeLimiter } from "./ratelimit";
+import { issueRelayToken, relayUsers, revokeRelayToken } from "./relay";
 import type { DiscordRest, ForumTag } from "./rest";
 import { audit, boardCounts, FORUM_TAGS, getTenant, patchConfig, upsertTenant, type ForumTagKey, type Tenant } from "./tenants";
 import { VERSION } from "./version";
@@ -85,11 +86,42 @@ export async function runCommand(
       };
     case "pack":
       return { defer: () => pack(env, rest, guildId, now) };
+    case "relay":
+      return { defer: () => relayCommand(interaction, env, guildId, o.action ?? "status", now) };
     case "submit":
       return { defer: () => submit(interaction, env, rest, guildId, o.code ?? "", now, o.image) };
     default:
       return { reply: reply("I don't know that command. Try `/bl ping`.") };
   }
+}
+
+// ---------------------------------------------------------------- /bl relay
+
+/** Tokens for the relay program (spec 5.10). The reply is private; the token is shown once. */
+async function relayCommand(interaction: Interaction, env: Env, guildId: string, action: string, now: number): Promise<string> {
+  const tenant = await getTenant(env.DB, guildId);
+  if (!tenant) return "This server isn't set up yet. An admin needs to run `/bl setup`.";
+  const roles = interaction.member?.roles ?? [];
+  if (!hasAdmin(interaction) && !(tenant.officer_role_id && roles.includes(tenant.officer_role_id))) {
+    return "Only officers and server admins can run a relay.";
+  }
+  const user = actorOf(interaction);
+  if (action === "enable") {
+    const token = await issueRelayToken(env, tenant, user, now);
+    return [
+      "🔁 **Your relay token** (only you can see this, and it is shown once):",
+      `||\`${token}\`||`,
+      "Paste it when the relay program asks for it. Treat it like a password: anyone who has it can post bounties as a relay.",
+      "Lost it or shared it by mistake? Run `/bl relay action: enable` again for a new one (the old one stops working), or `action: revoke` to turn yours off.",
+    ].join("\n");
+  }
+  if (action === "revoke") {
+    return (await revokeRelayToken(env, tenant, user, now)) ? "Your relay token is turned off." : "You don't have a relay token.";
+  }
+  const users = await relayUsers(env, tenant);
+  return users.length
+    ? `Relay tokens: ${users.map((u) => `<@${u}>`).join(", ")}. Use \`/bl relay action: enable\` to get your own.`
+    : "Nobody has a relay token yet. Use `/bl relay action: enable` to get one.";
 }
 
 // ---------------------------------------------------------------- /bl setup

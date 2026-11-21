@@ -8,6 +8,7 @@
 import { EPHEMERAL, InteractionType, ResponseType, hasAdmin, isAllowedGuild, json, reply, verifySignature, type Interaction } from "./discord";
 import { reviewKill } from "./kills";
 import { handlePayment } from "./payments";
+import { relay } from "./relay";
 import { getTenant } from "./tenants";
 import type { Env } from "./env";
 import { ensureGateway, gatewayState } from "./gateway";
@@ -33,6 +34,8 @@ export default {
       if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
       return interactions(request, env, ctx);
     }
+    // The officers' relay program (spec 5.10). Allowlist and token checks are inside.
+    if (pathname.startsWith("/relay/")) return relay(request, env);
     return new Response("Not found", { status: 404 });
   },
 

@@ -29,7 +29,8 @@ interface OpenRow {
   expires_at: number;
 }
 
-export async function buildPack(env: Env, tenant: Tenant, now: number): Promise<{ codes: string[]; count: number }> {
+/** packVersion: normally the build time; the relay passes a fixed value to compare packs by content. */
+export async function buildPack(env: Env, tenant: Tenant, now: number, packVersion = now): Promise<{ codes: string[]; count: number }> {
   const { results } = await env.DB.prepare(
     `SELECT id, target_guid, target_name, class, faction, reward_gold, poster_name, expires_at
        FROM bounties WHERE tenant_id = ?1 AND status = 'open' AND expires_at > ?2 ORDER BY id`,
@@ -50,7 +51,7 @@ export async function buildPack(env: Env, tenant: Tenant, now: number): Promise<
     {
       schema: 1,
       boardTag: tenant.board_tag,
-      packVersion: now,
+      packVersion,
       minAddonVersion: MIN_ADDON_VERSION,
       discordDisplayName: tenant.config.discord_display_name || tenant.wow_guild_name || "",
       rewardMin: tenant.config.reward_min,

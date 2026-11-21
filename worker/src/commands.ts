@@ -86,6 +86,23 @@ export const COMMANDS = [
       },
       {
         type: OptionType.SUB_COMMAND,
+        name: "relay",
+        description: "Officers: get a token for the Bounty Line Relay program on your PC",
+        options: [
+          {
+            type: OptionType.STRING,
+            name: "action",
+            description: "What to do (default: status)",
+            choices: [
+              { name: "enable (make me a new token)", value: "enable" },
+              { name: "revoke (turn my relay off)", value: "revoke" },
+              { name: "status (who runs a relay)", value: "status" },
+            ],
+          },
+        ],
+      },
+      {
+        type: OptionType.SUB_COMMAND,
         name: "submit",
         description: "Submit a Bounty Line code here if pasting in the Bounty Line channel doesn't work",
         options: [
