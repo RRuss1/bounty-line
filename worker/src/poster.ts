@@ -4,7 +4,7 @@ import type { Env } from "./env";
 import { log } from "./log";
 import type { PosterStatus } from "./poster-image";
 import type { Tenant } from "./tenants";
-import { boardName, className, escapeMd, factionName, gold, raceName, zoneName } from "./wow";
+import { boardName, className, escapeMd, factionName, gold, level, raceName, zoneName } from "./wow";
 
 /** ☠ plus the emoji variation selector, so Discord draws the emoji, not the text glyph. */
 export const SKULL = "☠️";
@@ -16,7 +16,7 @@ export function wantedPoster(b: BountyPost, opts: { id: number; expiresAt: numbe
     title: `${SKULL} WANTED: ${name.toUpperCase()}`,
     color: Number.isFinite(color) ? color : 0xb8860b,
     description: [
-      `${raceName(b.targetRaceID)} ${className(b.targetClassID)} · Level ${b.targetLevel} · ${factionName(b.targetFaction)}`,
+      `${raceName(b.targetRaceID)} ${className(b.targetClassID)} · Level ${level(b.targetLevel)} · ${factionName(b.targetFaction)}`,
       `**Reward: ${gold(b.rewardGold)}** (honor system, paid by ${escapeMd(b.posterName || "the poster")})`,
       `Marked${zoneName(b.mapID) ? ` in: ${zoneName(b.mapID)} ·` : ":"} <t:${b.createdAt}:f>`,
       `Bounty #${opts.id} · Expires <t:${opts.expiresAt}:D>`,
@@ -28,7 +28,7 @@ export function wantedPoster(b: BountyPost, opts: { id: number; expiresAt: numbe
   const threadName = `${SKULL} ${b.targetName || "Unknown"} · ${gold(b.rewardGold)}`.slice(0, 100);
   // Forum cards preview only the message text (never embeds), so the key facts go here too.
   const content = [
-    `**Reward: ${gold(b.rewardGold)}** · ${raceName(b.targetRaceID)} ${className(b.targetClassID)} ${b.targetLevel} · ${factionName(b.targetFaction)}`,
+    `**Reward: ${gold(b.rewardGold)}** · ${raceName(b.targetRaceID)} ${className(b.targetClassID)} ${level(b.targetLevel)} · ${factionName(b.targetFaction)}`,
     `Bounty #${opts.id} · expires <t:${opts.expiresAt}:D> · posted by <@${opts.postedBy}>`,
   ].join("\n");
   return { threadName, embed, content };
@@ -49,7 +49,7 @@ export async function wantedPosterImage(
     return await renderPosterPng(
       {
         name: b.targetName || "Unknown",
-        subtitle: `${raceName(b.targetRaceID)} ${className(b.targetClassID)} · Level ${b.targetLevel} · ${factionName(b.targetFaction)}`,
+        subtitle: `${raceName(b.targetRaceID)} ${className(b.targetClassID)} · Level ${level(b.targetLevel)} · ${factionName(b.targetFaction)}`,
         rewardGold: b.rewardGold,
         postedBy: b.posterName || "the poster",
         zone: zoneName(b.mapID),
