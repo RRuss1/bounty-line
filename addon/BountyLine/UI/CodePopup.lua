@@ -4,7 +4,7 @@
 local _, ns = ...
 local L = ns.L
 
-local WIDTH = 572
+local WIDTH = 578
 local frame
 
 local function selectAll(selected)
@@ -14,7 +14,7 @@ local function selectAll(selected)
 end
 
 local function build()
-  local f = ns.CreateWindow("BountyLineCodePopup", WIDTH, 314, L.ADDON)
+  local f = ns.CreateWindow("BountyLineCodePopup", WIDTH, 320, L.ADDON)
   local c = f.content
 
   f.heading = ns.Text(c, "heading")
@@ -29,8 +29,10 @@ local function build()
   f.instructions:SetPoint("RIGHT", -16, 0)
 
   local box = CreateFrame("EditBox", nil, c, "InputBoxTemplate")
-  box:SetSize(WIDTH - 90, 26)
+  -- Fills the panel width, leaving room for the copy button on its right.
+  box:SetHeight(26)
   box:SetPoint("TOPLEFT", f.instructions, "BOTTOMLEFT", -4, -10)
+  box:SetPoint("TOPRIGHT", f.instructions, "BOTTOMRIGHT", -40, -10)
   box:SetAutoFocus(false)
   box:SetMaxLetters(0)
   box:SetFontObject("ChatFontNormal")
