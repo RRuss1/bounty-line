@@ -9,6 +9,10 @@
 --   PEND   "<guid>\t<name>\t<classID>\t<faction>\t<reward>\t<poster>\t<time>"
 --                                       a guildie made a bounty code: hunt it before any pack lists it
 --   KILLP  "<guid>\t<killer>\t<name>"   a guildie collected a pending bounty
+--   VER    "<addon version>"            on login: so guildies on older versions are told to update
+--
+-- Clients ignore message types they don't know, so old and new versions can share a guild;
+-- VER is how the older ones find out they're missing features.
 --
 -- Self-contained instead of AceComm: messages over 240 bytes are chunked, sends are paced, and
 -- anything the client refuses (addon comms are blocked during instance encounters) is retried
@@ -254,6 +258,39 @@ function handlers.KILLP(data, _, senderId)
   ns.Banner(L.BANNER_KILL:format(killer ~= "" and killer or "?", name ~= "" and name or "?", ns.BoardName()))
 end
 
+-- ---------------------------------------------------------------- version check
+
+local newest             -- the newest version seen from a guildie this session: { key, text }
+local olderGuildies = {} -- sender name -> their (older) version
+local versionSentAt = -math.huge
+
+function Comms.Version()
+  local mine = ns.AddonVersion()
+  if not mine then return end -- a source copy has no version to announce
+  versionSentAt = GetTime()
+  Comms.Send("VER", mine)
+end
+
+-- The newer version a guildie is running, if any (text), for the board and /bl version.
+function ns.NewerVersion() return newest and newest.text end
+function ns.OlderGuildies() return olderGuildies end
+
+function handlers.VER(data, senderName)
+  local theirs, mine = ns.ParseVersion(data), ns.ParseVersion(ns.AddonVersion() or "")
+  if not theirs or not mine then return end
+  if theirs > mine then
+    local first = newest == nil
+    if first or theirs > newest.key then newest = { key = theirs, text = data } end
+    -- Say it once per session; the board keeps showing it.
+    if first then ns.Print(L.UPDATE_AVAILABLE:format(data, ns.AddonVersion())) end
+    if ns.RefreshBoard then ns.RefreshBoard() end
+  elseif theirs < mine then
+    olderGuildies[senderName and senderName:match("^[^-]+") or "?"] = data
+    -- Tell them (they may have logged in before us), at most every 5 minutes.
+    if GetTime() - versionSentAt > 300 then Comms.Version() end
+  end
+end
+
 function handlers.SEEN(data)
   local id, mapID, t = data:match("^(%d+)\t(%d+)\t(%d+)$")
   if id then ns.RecordSeen(tonumber(id), tonumber(mapID), tonumber(t)) end
@@ -290,6 +327,7 @@ events:SetScript("OnEvent", function(_, event, prefix, text, channel, sender)
   if event == "PLAYER_LOGIN" then
     C_ChatInfo.RegisterAddonMessagePrefix(PREFIX)
     C_Timer.After(8, Comms.Hello) -- after the guild roster settles
+    C_Timer.After(10, Comms.Version)
   elseif prefix == PREFIX then
     Comms.Receive(text, channel, sender)
   end

@@ -268,6 +268,9 @@ function ns.RefreshBoard()
     else
       frame.summary:SetText("")
     end
+    -- A guildie has a newer Bounty Line: say so here until this one is updated.
+    local newer = ns.NewerVersion()
+    if newer then frame.summary:SetText(L.UPDATE_SHORT:format(newer)) end
     frame.empty:SetText(#rows > 0 and "" or pack and L.LIST_EMPTY or L.FIRST_RUN)
   end
 

@@ -63,6 +63,9 @@ function GetTime() return clock end
 function IsInGuild() return false end
 function InCombatLockdown() return combat end
 function Screenshot() end
+-- The installed version, as the TOC would report it.
+local installed = "v0.8.0-beta2"
+C_AddOns = { GetAddOnMetadata = function() return installed end }
 -- Timers are collected and run by hand with runTimers().
 local timers = {}
 C_Timer = {
@@ -507,6 +510,35 @@ eq("by name", order("name", false), "1,2,3")
 eq("by expiry, latest first", order("expires", true), "3,2,1")
 eq("missing poster sorts first", order("poster", false), "2,1,3")
 eq("add-gold description without a unit", ns.Describe({ name = "Amy Vale", factionName = "Horde" }), "Amy Vale · Horde")
+
+-- ---------------------------------------------------------------- version check
+
+local V = ns.ParseVersion
+check("versions sort by release order",
+  V("v0.7.0") < V("v0.8.0-alpha1") and V("v0.8.0-alpha1") < V("v0.8.0-beta1") and V("v0.8.0-beta1") < V("v0.8.0-beta2")
+  and V("v0.8.0-beta2") < V("v0.8.0") and V("v0.8.0") < V("v0.8.1-beta1") and V("0.9.0") < V("v1.0.0"))
+eq("a build past a tag counts as that tag", V("v0.8.0-beta2-3-gabc1234"), V("v0.8.0-beta2"))
+check("not versions", V("@project-version@") == nil and V("hello") == nil and V(nil) == nil and V(("9"):rep(50)) == nil)
+eq("version code for packs", ns.AddonVersionCode(), 8)
+installed = "@project-version@"
+check("a source copy has no version", ns.AddonVersion() == nil)
+eq("and falls back for packs", ns.AddonVersionCode(), 8)
+installed = "v0.8.0-beta2"
+
+prints = {}
+receive("VER", "v0.8.0-beta2")
+check("same version: nothing said", #prints == 0 and ns.NewerVersion() == nil)
+receive("VER", "v0.8.0-beta1")
+eq("an older guildie is noted", ns.OlderGuildies().Grey, "v0.8.0-beta1")
+check("and I'm not told to update", #prints == 0)
+receive("VER", "v0.9.0")
+check("a newer guildie: told to update", #prints == 1 and prints[1]:find("v0.9.0", 1, true) ~= nil, tostring(prints[1]))
+eq("remembered for the board", ns.NewerVersion(), "v0.9.0")
+receive("VER", "v0.9.1")
+eq("said once per session", #prints, 1)
+eq("but the newest is kept", ns.NewerVersion(), "v0.9.1")
+receive("VER", "nonsense")
+eq("junk ignored", ns.NewerVersion(), "v0.9.1")
 
 -- ---------------------------------------------------------------- kill queue and combat
 

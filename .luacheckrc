@@ -1,5 +1,7 @@
 std = "lua51"
 max_line_length = 140
+-- Player-facing sentences are kept on one line each.
+files["addon/BountyLine/Locales/"] = { max_line_length = 200 }
 exclude_files = { "addon/BountyLine/Libs/" }
 
 -- The test runners stub the WoW API as globals.

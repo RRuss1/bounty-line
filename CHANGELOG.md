@@ -12,6 +12,7 @@
 - **Settings window** (`/bl options`, the board's **Settings** button, or the menu): banners, sighting alerts and how soon they repeat, sounds, nameplate skull and its size, tooltip line, target-frame badge, kill popup in combat, how long the proof stamp stays, who you accept packs from, sharing sightings, minimap button, debug switches.
 - **Bounty Board tabs:** *Wanted* (click a column to sort, hover for details, right-click a row to add gold without targeting them), *My Bounties*, and *My Kills* (your saved kill codes; click one to open it again).
 - A **WANTED badge** above the target frame when your target has a bounty, and a first-login welcome that says where everything is.
+- **Version check.** Bounty Line tells your guildies which version you have. If someone in the guild has a newer one, you get a chat line and a red note on the Bounty Board telling you to update. `/bl version` shows your version and lists guildies on older ones. (Versions before this one can't be told; they need the update first.)
 - Sighting alerts repeat after you lose sight of a target for 10 minutes, not just once per session.
 - **View Bounty** in the right-click menu opens the board on that bounty. `/bl version`.
 - Old sightings and expired bounties are cleaned out of saved data.
