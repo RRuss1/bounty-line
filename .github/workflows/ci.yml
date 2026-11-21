@@ -23,6 +23,8 @@ jobs:
       # WoW runs Lua 5.1; test on both stock 5.1 and LuaJIT.
       - run: lua5.1 addon/tests/run.lua
       - run: luajit addon/tests/run.lua
+      - run: lua5.1 addon/tests/logic.lua
+      - run: luajit addon/tests/logic.lua
 
   worker:
     name: Worker (typecheck + tests)
