@@ -15,6 +15,7 @@
 - **Version check.** Bounty Line tells your guildies which version you have. If someone in the guild has a newer one, you get a chat line and a red note on the Bounty Board telling you to update. `/bl version` shows your version and lists guildies on older ones. (Versions before this one can't be told; they need the update first.)
 - **Quieter `#bounty-line`.** A pasted code that works now gets only the ✅ reaction: no reply repeating the bounty. A code that fails gets ❌ and a one-line reason that deletes itself after a minute.
 - Settings window is wider, so the longest option no longer runs past the edge.
+- The minimap menu shows the slash command beside each entry, and gains Guild banners (on/off), Check version and Hide minimap button, so every command is in the menu.
 - Sighting alerts repeat after you lose sight of a target for 10 minutes, not just once per session.
 - **View Bounty** in the right-click menu opens the board on that bounty. `/bl version`.
 - Old sightings and expired bounties are cleaned out of saved data.

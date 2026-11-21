@@ -27,6 +27,11 @@ local function onDragUpdate()
   place()
 end
 
+-- "Open Bounty Board   /bl": each entry shows the command that does the same thing, in grey.
+local function entry(text, command)
+  return ("%s   |cff8a8a8a/bl%s|r"):format(text, command ~= "" and (" " .. command) or "")
+end
+
 -- The right-click menu: every player command, with the reason shown when one can't be used.
 function ns.OpenMainMenu(owner)
   if not (MenuUtil and MenuUtil.CreateContextMenu) then return ns.RunCommand("help") end
@@ -36,33 +41,38 @@ function ns.OpenMainMenu(owner)
       item:SetTooltip(function(tip) GameTooltip_SetTitle(tip, reason) end)
     end
     root:CreateTitle(L.ADDON)
-    root:CreateButton(L.M_BOARD, function() ns.OpenBoard(nil, "wanted") end)
+    root:CreateButton(entry(L.M_BOARD, ""), function() ns.OpenBoard(nil, "wanted") end)
 
     local snap, why = ns.SnapshotUnit("target")
-    local set = root:CreateButton(L.M_SET, function() if snap then ns.OpenAmountEntry(snap) end end)
+    local set = root:CreateButton(entry(L.M_SET, "mark"), function() if snap then ns.OpenAmountEntry(snap) end end)
     if not snap then disabled(set, L[why]) end
 
-    root:CreateButton(L.M_IMPORT, function() ns.OpenImport() end)
-    local share = root:CreateButton(L.M_SHARE, function() ns.RunCommand("sync") end)
+    root:CreateButton(entry(L.M_IMPORT, "import"), function() ns.OpenImport() end)
+    local share = root:CreateButton(entry(L.M_SHARE, "sync"), function() ns.RunCommand("sync") end)
     if not BountyLineDB.pack then disabled(share, L.NO_PACK) end
 
     root:CreateDivider()
     local last = BountyLineCharDB.lastPopup
-    local lastItem = root:CreateButton(L.M_LAST, function() if last then ns.ShowCode(last) end end)
+    local lastItem = root:CreateButton(entry(L.M_LAST, "last"), function() if last then ns.ShowCode(last) end end)
     if not last then disabled(lastItem, L.NO_LAST) end
     root:CreateButton(L.M_KILLS, function() ns.OpenBoard(nil, "kills") end)
     root:CreateButton(L.M_MINE, function() ns.OpenBoard(nil, "mine") end)
-    root:CreateButton(L.M_LINK, function() ns.RunCommand("link") end)
-    root:CreateButton(L.M_TEST, function() ns.RunCommand("test") end)
+    root:CreateButton(entry(L.M_LINK, "link"), function() ns.RunCommand("link") end)
+    root:CreateButton(entry(L.M_TEST, "test"), function() ns.RunCommand("test") end)
 
     root:CreateDivider()
-    root:CreateButton(L.M_OPTIONS, function() ns.OpenOptions() end)
-    root:CreateButton(L.M_HELP, function() ns.RunCommand("help") end)
-    local debug = root:CreateButton(L.M_DEBUG)
     local s = BountyLineDB.settings
-    debug:CreateButton(L.M_DEBUG_INFO, function() ns.Debug() end)
-    debug:CreateCheckbox(L.OPT_DEBUG_MENU, function() return s.debugMenu end, function() s.debugMenu = not s.debugMenu end)
-    debug:CreateCheckbox(L.OPT_DEBUG_KILLS, function() return s.debugKills end, function() s.debugKills = not s.debugKills end)
+    root:CreateCheckbox(entry(L.M_BANNERS, "banners"), function() return s.banners end, function() s.banners = not s.banners end)
+    root:CreateButton(entry(L.M_OPTIONS, "options"), function() ns.OpenOptions() end)
+    root:CreateButton(entry(L.M_VERSION, "version"), function() ns.RunCommand("version") end)
+    root:CreateButton(entry(L.M_HELP, "help"), function() ns.RunCommand("help") end)
+    root:CreateButton(entry(L.M_HIDE, "minimap"), function() ns.ToggleMinimap() end)
+    local debug = root:CreateButton(L.M_DEBUG)
+    debug:CreateButton(entry(L.M_DEBUG_INFO, "debug"), function() ns.Debug() end)
+    debug:CreateCheckbox(entry(L.OPT_DEBUG_MENU, "debugmenu"), function() return s.debugMenu end,
+      function() s.debugMenu = not s.debugMenu end)
+    debug:CreateCheckbox(entry(L.OPT_DEBUG_KILLS, "debugkills"), function() return s.debugKills end,
+      function() s.debugKills = not s.debugKills end)
   end)
 end
 
