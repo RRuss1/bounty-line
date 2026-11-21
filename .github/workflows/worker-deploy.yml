@@ -30,6 +30,7 @@ jobs:
       AI_DAILY_CAP: ${{ vars.AI_DAILY_CAP }}
       PROOF_RETENTION_DAYS: ${{ vars.PROOF_RETENTION_DAYS }}
       LOG_LEVEL: ${{ vars.LOG_LEVEL }}
+      POSTER_IMAGE: ${{ vars.POSTER_IMAGE }}
     steps:
       - name: Check deployment config
         id: cfg

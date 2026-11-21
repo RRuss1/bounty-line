@@ -32,6 +32,8 @@ export async function makeEnv(db: D1Database, overrides: Partial<Env> = {}): Pro
     DISCORD_APP_ID: "400000000000000000",
     DISCORD_TOKEN: "test-token",
     LOG_LEVEL: "error",
+    // Drawing posters takes ~150 ms; the poster tests turn it on.
+    POSTER_IMAGE: "false",
     ...overrides,
   };
 }

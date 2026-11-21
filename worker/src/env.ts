@@ -11,6 +11,7 @@ export interface Env {
   AI_DAILY_CAP?: string;
   PROOF_RETENTION_DAYS?: string;
   LOG_LEVEL?: string;
+  POSTER_IMAGE?: string;
 
   // secrets (wrangler secret put)
   DISCORD_TOKEN: string;

@@ -75,7 +75,7 @@ Every guild ties **its own Worker to its own Discord**. You host it on your Clou
    | Variable | `WORKER_NAME` | e.g. `bounty-board-myguild` |
    | Variable | `D1_NAME` / `R2_BUCKET` | e.g. `bounty-board-myguild` / `bounty-proofs-myguild` |
    | Variable | `ALLOWED_GUILD_IDS` | your Discord server ID |
-   | Variable (optional) | `READ_CHAT`, `AI_CHECK`, `AI_DAILY_CAP` | `false`/`false` for budget mode |
+   | Variable (optional) | `READ_CHAT`, `AI_CHECK`, `POSTER_IMAGE`, `AI_DAILY_CAP` | `false`/`false`/`false` for budget mode |
 
 5. Actions → **Bootstrap deployment** → *Run workflow*. It creates the database and bucket, deploys, and registers commands.
 6. Discord portal → **Interactions Endpoint URL** = `https://<WORKER_NAME>.<your-subdomain>.workers.dev/interactions`
@@ -86,7 +86,7 @@ Every guild ties **its own Worker to its own Discord**. You host it on your Clou
 Click **Sync fork** on GitHub. Your deploy workflow applies database migrations and redeploys automatically. Check [CHANGELOG.md](CHANGELOG.md) → *Deployer notes* for anything that needs action.
 
 ### Budget mode
-Set `READ_CHAT=false` and `AI_CHECK=false`. Players submit with `/bl submit` instead of pasting in chat, and officers approve every claim. No Durable Object, no AI, so it fits a free account.
+Set `READ_CHAT=false`, `AI_CHECK=false` and `POSTER_IMAGE=false`. Players submit with `/bl submit` instead of pasting in chat, officers approve every claim, and wanted posters are text-only (drawing the parchment picture needs more CPU time than the Free plan allows). No Durable Object, no AI, so it fits a free account.
 
 ### Costs & safety
 - Your bot only works in servers listed in `ALLOWED_GUILD_IDS`. It leaves any other server, and the check runs before anything that costs money.

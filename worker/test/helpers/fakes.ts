@@ -6,6 +6,8 @@ export interface Call {
   method: string;
   path: string;
   body: Record<string, unknown> | undefined;
+  /** Multipart uploads: the files[n] parts. */
+  files?: { name: string; type: string; bytes: Uint8Array }[];
 }
 
 /** Stubs global fetch with an in-memory Discord API that records every call. */
@@ -28,8 +30,19 @@ export class FakeDiscord {
   private async handle(url: string, init?: RequestInit): Promise<Response> {
     const path = new URL(url).pathname.replace(/^\/api\/v10/, "");
     const method = init?.method ?? "GET";
-    const body = typeof init?.body === "string" ? (JSON.parse(init.body) as Record<string, unknown>) : undefined;
-    this.calls.push({ method, path, body });
+    let body: Record<string, unknown> | undefined;
+    let files: Call["files"];
+    if (typeof init?.body === "string") body = JSON.parse(init.body) as Record<string, unknown>;
+    else if (init?.body instanceof FormData) {
+      body = JSON.parse(String(init.body.get("payload_json"))) as Record<string, unknown>;
+      files = [];
+      for (const [key, value] of init.body.entries()) {
+        if (key.startsWith("files[") && value instanceof Blob) {
+          files.push({ name: (value as File).name, type: value.type, bytes: new Uint8Array(await value.arrayBuffer()) });
+        }
+      }
+    }
+    this.calls.push({ method, path, body, ...(files ? { files } : {}) });
     const ok = (data: unknown = {}) => new Response(JSON.stringify(data), { status: 200, headers: { "content-type": "application/json" } });
     const status = (code: number) => new Response(JSON.stringify({ message: "nope", code: 50013 }), { status: code });
     const noContent = () => new Response(null, { status: 204 });
