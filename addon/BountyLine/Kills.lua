@@ -83,7 +83,9 @@ end
 local function finish(shot)
   local k = pending
   if not k or not k.code then return end
-  ns.HideStamp()
+  -- The screenshot is taken; the stamp can stay up a moment longer if the player likes.
+  local linger = (BountyLineDB.settings or {}).stampSeconds or 0
+  if linger > 0 then C_Timer.After(linger, ns.HideStamp) else ns.HideStamp() end
   local popup = {
     title = k.practice and L.PRACTICE_TITLE or L.KILL_TITLE,
     subtitle = ("%s · %s · %s"):format(k.bounty.name, ns.FormatGold(k.bounty.reward), ns.BountyLabel(k.bounty)),

@@ -34,7 +34,9 @@ Put a price on an enemy's head in game, hunt them down, auto-screenshot the kill
 
 | Command | Does |
 |---|---|
-| `/bl` | Open the in-game Bounty Board (also: click the minimap button) |
+| *(minimap button)* | **Left-click:** Bounty Board. **Right-click:** a menu with every command below |
+| `/bl` | Open the in-game Bounty Board |
+| `/bl options` | Settings (alerts, sounds, skull, sync and more) |
 | `/bl mark` | Set a bounty on your target (same as right-click → Set Bounty…) |
 | `/bl import` | Paste a Bounty Pack from Discord |
 | `/bl list` | Print the open bounties |

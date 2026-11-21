@@ -77,6 +77,7 @@ local function runTimers()
 end
 loadAddon("Comms.lua")
 loadAddon("Detect.lua")
+loadAddon("UI/BoardWindow.lua")
 local Codec = ns.Codec
 
 -- ---------------------------------------------------------------- harness
@@ -488,6 +489,24 @@ check("pending added", ns.AddPending(PGUID, "Vexa Nightwhisper", 4, 2, 250, "Gre
 serverTime = PACK_TIME + 49 * 3600
 check("gone after 48h", ns.GetBounty(PGUID) == nil)
 serverTime = PACK_TIME
+
+-- ---------------------------------------------------------------- board sorting
+
+local sortable = {
+  { id = 3, name = "Zed", reward = 50, poster = "B", expires = 30 },
+  { id = 1, name = "Amy", reward = 500, poster = "A", expires = 10 },
+  { id = 2, name = "Mia", reward = 50, expires = 20 },
+}
+local function order(key, desc)
+  local out = {}
+  for i, row in ipairs(ns.SortBounties(sortable, key, desc)) do out[i] = row.id end
+  return table.concat(out, ",")
+end
+eq("by reward, biggest first (ties by number)", order("reward", true), "1,2,3")
+eq("by name", order("name", false), "1,2,3")
+eq("by expiry, latest first", order("expires", true), "3,2,1")
+eq("missing poster sorts first", order("poster", false), "2,1,3")
+eq("add-gold description without a unit", ns.Describe({ name = "Amy Vale", factionName = "Horde" }), "Amy Vale · Horde")
 
 -- ---------------------------------------------------------------- kill queue and combat
 

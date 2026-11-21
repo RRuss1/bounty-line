@@ -29,5 +29,6 @@ read_globals = {
   "C_NamePlate", "TooltipDataProcessor", "Enum", "RaidNotice_AddMessage", "RaidWarningFrame", "ChatTypeInfo",
   "C_Timer", "Screenshot", "GetTime", "date",
   -- guild sync & board
+  "MenuUtil", "Settings", "TargetFrame",
   "C_ChatInfo", "IsInGuild", "GetNumGuildMembers", "GetGuildRosterInfo", "C_AddOns", "IsShiftKeyDown", "C_CreatureInfo", "RAID_CLASS_COLORS",
 }

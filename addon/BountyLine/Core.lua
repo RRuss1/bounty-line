@@ -9,6 +9,8 @@ local DB_DEFAULTS = {
   settings = {
     debugMenu = false, debugKills = false, banners = true, minimap = { angle = 200, hide = false },
     killPopupInCombat = false, realertMinutes = 10, packsFrom = "anyone", packMaxRank = 1,
+    sightAlert = true, sounds = true, skull = true, skullSize = 26, tooltip = true, targetBadge = true,
+    shareSeen = true, stampSeconds = 0,
   },
 }
 local CHAR_DEFAULTS = { version = 1, kills = {} }
@@ -22,6 +24,11 @@ local function applyDefaults(t, defaults)
     end
   end
   return t
+end
+
+-- Addon sounds, unless turned off in Settings.
+function ns.Sound(kit)
+  if (BountyLineDB.settings or {}).sounds ~= false then PlaySound(kit) end
 end
 
 function ns.Print(msg)
@@ -113,6 +120,8 @@ local COMMANDS = {
     ns.Print(L.VERSION:format(get and get(addonName, "Version") or "?", ns.Codec.PREFIX))
   end,
   minimap = function() ns.ToggleMinimap() end,
+  options = function() ns.OpenOptions() end,
+  menu = function() ns.OpenMainMenu(UIParent) end,
   debugmenu = function()
     local s = BountyLineDB.settings
     s.debugMenu = not s.debugMenu
@@ -142,7 +151,13 @@ events:SetScript("OnEvent", function(self, event, name)
     BountyLineCharDB = applyDefaults(BountyLineCharDB or {}, CHAR_DEFAULTS)
     ns.SetupMenus()
     ns.SetupMinimap()
+    pcall(ns.RegisterOptions) -- the client's Settings UI may differ on Forever; our own window always works
     if ns.PackOutdated() then ns.Print(L.OUTDATED) end
+    if not BountyLineDB.welcomed then
+      -- First login with the addon: say where everything is, once.
+      BountyLineDB.welcomed = true
+      C_Timer.After(6, function() for _, line in ipairs(L.WELCOME) do ns.Print(line) end end)
+    end
     self:UnregisterEvent("ADDON_LOADED")
   end
 end)

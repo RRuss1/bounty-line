@@ -1,7 +1,9 @@
--- Minimap button: drag it around the minimap's edge; position and visibility are saved.
--- Left-click: last code (or help). Right-click: set a bounty on your target.
--- Also registers with the minimap's addon compartment menu (TOC AddonCompartmentFunc).
--- Self-contained instead of LibDBIcon, to keep the addon free of extra libraries.
+-- Minimap button: the menu for everything, so nobody has to remember slash commands.
+--   Left-click   opens the Bounty Board (which has the Settings button)
+--   Right-click  a dropdown with every command
+--   Drag         moves it around the minimap's edge (position and visibility are saved)
+-- The same clicks work on the entry in the minimap's addon compartment menu (TOC
+-- AddonCompartmentFunc). Self-contained instead of LibDBIcon, to avoid extra libraries.
 local _, ns = ...
 local L = ns.L
 
@@ -25,14 +27,47 @@ local function onDragUpdate()
   place()
 end
 
-function ns.MinimapClick(mouse)
-  if mouse == "RightButton" then
+-- The right-click menu: every player command, with the reason shown when one can't be used.
+function ns.OpenMainMenu(owner)
+  if not (MenuUtil and MenuUtil.CreateContextMenu) then return ns.RunCommand("help") end
+  MenuUtil.CreateContextMenu(owner, function(_, root)
+    local function disabled(item, reason)
+      item:SetEnabled(false)
+      item:SetTooltip(function(tip) GameTooltip_SetTitle(tip, reason) end)
+    end
+    root:CreateTitle(L.ADDON)
+    root:CreateButton(L.M_BOARD, function() ns.OpenBoard(nil, "wanted") end)
+
     local snap, why = ns.SnapshotUnit("target")
-    if not snap then return ns.Print(L[why]) end
-    return ns.OpenAmountEntry(snap)
-  end
-  local last = BountyLineCharDB.lastPopup
-  if IsShiftKeyDown() and last then return ns.ShowCode(last) end
+    local set = root:CreateButton(L.M_SET, function() if snap then ns.OpenAmountEntry(snap) end end)
+    if not snap then disabled(set, L[why]) end
+
+    root:CreateButton(L.M_IMPORT, function() ns.OpenImport() end)
+    local share = root:CreateButton(L.M_SHARE, function() ns.RunCommand("sync") end)
+    if not BountyLineDB.pack then disabled(share, L.NO_PACK) end
+
+    root:CreateDivider()
+    local last = BountyLineCharDB.lastPopup
+    local lastItem = root:CreateButton(L.M_LAST, function() if last then ns.ShowCode(last) end end)
+    if not last then disabled(lastItem, L.NO_LAST) end
+    root:CreateButton(L.M_KILLS, function() ns.OpenBoard(nil, "kills") end)
+    root:CreateButton(L.M_MINE, function() ns.OpenBoard(nil, "mine") end)
+    root:CreateButton(L.M_LINK, function() ns.RunCommand("link") end)
+    root:CreateButton(L.M_TEST, function() ns.RunCommand("test") end)
+
+    root:CreateDivider()
+    root:CreateButton(L.M_OPTIONS, function() ns.OpenOptions() end)
+    root:CreateButton(L.M_HELP, function() ns.RunCommand("help") end)
+    local debug = root:CreateButton(L.M_DEBUG)
+    local s = BountyLineDB.settings
+    debug:CreateButton(L.M_DEBUG_INFO, function() ns.Debug() end)
+    debug:CreateCheckbox(L.OPT_DEBUG_MENU, function() return s.debugMenu end, function() s.debugMenu = not s.debugMenu end)
+    debug:CreateCheckbox(L.OPT_DEBUG_KILLS, function() return s.debugKills end, function() s.debugKills = not s.debugKills end)
+  end)
+end
+
+function ns.MinimapClick(mouse, owner)
+  if mouse == "RightButton" then return ns.OpenMainMenu(owner or button or UIParent) end
   ns.OpenBoard()
 end
 
@@ -66,7 +101,10 @@ local function build()
   border:SetPoint("TOPLEFT")
   border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
 
-  b:SetScript("OnClick", function(_, mouse) ns.MinimapClick(mouse) end)
+  b:SetScript("OnClick", function(self, mouse)
+    GameTooltip:Hide()
+    ns.MinimapClick(mouse, self)
+  end)
   b:SetScript("OnDragStart", function(self)
     GameTooltip:Hide()
     self:SetScript("OnUpdate", onDragUpdate)
@@ -94,7 +132,7 @@ function ns.ToggleMinimap()
 end
 
 -- Addon compartment (the minimap's addon menu), named in the TOC.
-function BountyLine_OnAddonCompartmentClick(_, mouse) ns.MinimapClick(mouse) end
+function BountyLine_OnAddonCompartmentClick(_, mouse, menuButton) ns.MinimapClick(mouse, menuButton) end
 function BountyLine_OnAddonCompartmentEnter(_, menuButton)
   GameTooltip:SetOwner(menuButton, "ANCHOR_LEFT")
   ns.MinimapTooltip(GameTooltip)

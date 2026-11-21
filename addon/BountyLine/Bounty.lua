@@ -110,6 +110,8 @@ end
 
 -- "Grimlok Ashveil · Orc Warrior 42 · Horde"
 function ns.Describe(snap)
+  -- From the board there's no unit to read race and level from: name and faction only.
+  if not snap.raceName then return ("%s · %s"):format(snap.name, snap.factionName) end
   local level = snap.level > 0 and tostring(snap.level) or "??"
   return ("%s · %s %s %s · %s"):format(snap.name, snap.raceName or "?", snap.className or "?", level, snap.factionName)
 end

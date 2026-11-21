@@ -175,6 +175,7 @@ end
 -- A wanted player was spotted: remember it and tell the guild (at most once a minute each).
 function Comms.Seen(bountyId, mapID, now)
   ns.RecordSeen(bountyId, mapID, now)
+  if (BountyLineDB.settings or {}).shareSeen == false then return end
   local last = seenSentAt[bountyId]
   if last and GetTime() - last < SEEN_EVERY then return end
   seenSentAt[bountyId] = GetTime()
