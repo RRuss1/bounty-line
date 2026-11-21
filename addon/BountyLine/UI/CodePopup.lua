@@ -93,12 +93,14 @@ local function build()
   return f
 end
 
--- opts: { title, subtitle, instructions, code, copy?, note? }. `copy` is what the box holds and
--- Ctrl+C copies (the friendly line around the code); defaults to the bare code. Kept for /bl last.
+-- opts: { title, subtitle, instructions, code, line?, note? }. `line` = { kind, name, detail }:
+-- the box holds ns.CopyLine(...) around the code, built fresh on every show so /bl last never
+-- shows a line saved by an older version. Without `line` the box holds the bare code.
 function ns.ShowCode(opts)
   frame = frame or build()
   BountyLineCharDB.lastPopup = opts
-  frame.code = opts.copy or opts.code
+  local line = opts.line
+  frame.code = line and ns.CopyLine(line[1], line[2], line[3], opts.code) or opts.code
   frame.heading:SetText(opts.title)
   frame.subtitle:SetText(opts.subtitle or "")
   frame.instructions:SetText(opts.instructions or "")

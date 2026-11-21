@@ -64,7 +64,7 @@ local function finish(shot)
     subtitle = ("%s · %s · Bounty #%d"):format(k.bounty.name, ns.FormatGold(k.bounty.reward), k.bounty.id),
     instructions = k.practice and L.PRACTICE_POST or L.KILL_POST,
     code = k.code,
-    copy = not k.practice and ns.CopyLine("K", k.bounty.name, ("Bounty #%d"):format(k.bounty.id), k.code) or nil,
+    line = not k.practice and { "K", k.bounty.name, ("Bounty #%d"):format(k.bounty.id) } or nil,
     note = shot and L.SCREENSHOT_SAVED or L.SCREENSHOT_FAILED,
   }
   ns.ShowCode(popup)
