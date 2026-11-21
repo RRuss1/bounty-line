@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.4.0 (unreleased): Phase 4, packs and the kill
+## v0.4.0 (2026-11-21): Phase 4, packs and the kill
 
 - **Bounty Pack.** The bot keeps a pinned **Bounty Pack** in `#bounty-line` with every open bounty, and updates it whenever one opens or closes (big packs split into parts). `/bl pack` refreshes it and links to it.
 - **See bounties in game.** `/bl import` takes the pinned pack (paste the whole message, or every part). Wanted players get a skull over their nameplate, a **WANTED** line in their tooltip, a "spotted nearby" alert the first time you see them, and **View Bounty** in the right-click menu. `/bl list` prints the open bounties.
@@ -10,7 +10,9 @@
 - **Tidier pastes.** The addon now copies a short line with the code hidden in a Discord spoiler, e.g. `WANTED: **Grimlok Ashveil** · 500g ||BL1-B-…||`. `/bl submit` accepts the whole line too.
 - **Character links.** `/bl link` codes now link your character to your Discord account; kill claims show whether the character is linked.
 - Forever's Skyborne races (High Order and Windshaper) show by name on posters.
-- Windows: Blizzard's metal frame, a thick pulsing red glow, textured backgrounds, a minimap button (drag it around; `/bl minimap` hides it) and an addon icon.
+- Windows: classic metal border, a pulsing red glow, textured backgrounds, a minimap button (drag it around; `/bl minimap` hides it) and the Bounty Line logo as the addon icon.
+- The copy box hides the code behind a tidy label; Ctrl+C still copies it.
+- On CurseForge: https://www.curseforge.com/wow/addons (project 1820212).
 
 ### Deployer notes
 
