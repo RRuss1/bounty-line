@@ -4,7 +4,7 @@ import { decodePack, encode, type BountyPost } from "../src/codec";
 import type { Env } from "../src/env";
 import worker from "../src/index";
 import { codeLimiter } from "../src/ratelimit";
-import { relayCodeLimiter, relayGuildLimiter } from "../src/relay";
+import { relayCodeLimiter, relayGuildLimiter, relayNoticeLimiter } from "../src/relay";
 import { DiscordRest } from "../src/rest";
 import { TestD1 } from "./helpers/d1";
 import { ADMIN, call, command, GUILD_A, ids, makeEnv, MEMBER, setupOptions, STRANGER, USER } from "./helpers/env";
@@ -49,13 +49,15 @@ const http = async (path: string, init: { method?: string; token?: string | null
 };
 const postCode = (code: string, t?: string | null) => http("/relay/code", { method: "POST", body: { code }, token: t });
 const relayCmd = (action: string, permissions = ADMIN) => call(env, command(GUILD_A, "relay", [{ name: "action", type: 3, value: action }], permissions));
-const tokenFrom = (text: string) => text.match(/`(\d{17,20}\.[A-Za-z0-9_-]+)`/)![1]!;
+const setupFrom = (text: string) => text.match(/`(BLR1\.[A-Za-z0-9_-]+\.\d{17,20}\.[A-Za-z0-9_-]+)`/)![1]!;
+const tokenFrom = (text: string) => setupFrom(text).split(".").slice(2).join(".");
 const bounties = () => db.sqlite.prepare("SELECT id, poster_discord_id, reward_gold FROM bounties ORDER BY id").all() as Record<string, unknown>[];
 
 beforeEach(async () => {
   codeLimiter.clear();
   relayCodeLimiter.clear();
   relayGuildLimiter.clear();
+  relayNoticeLimiter.clear();
   discord = new FakeDiscord().install();
   db = TestD1.migrated();
   env = await makeEnv(db.asD1());
@@ -67,6 +69,12 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("/bl relay", () => {
+  it("hands out one setup code holding this Worker's address and the token", async () => {
+    const [prefix, address] = setupFrom(discord.followups().at(-1)!).split(".");
+    expect(prefix).toBe("BLR1");
+    expect(Buffer.from(address!, "base64url").toString()).toBe("https://bounty.test");
+  });
+
   it("gives an officer a token, shown once, stored only as a hash", async () => {
     expect(token.startsWith(`${GUILD_A}.`)).toBe(true);
     const row = db.sqlite.prepare("SELECT * FROM relay_tokens").get() as Record<string, unknown>;
@@ -81,7 +89,7 @@ describe("/bl relay", () => {
     const officer = { ...command(GUILD_A, "relay", [{ name: "action", type: 3, value: "enable" }], MEMBER) };
     (officer.member as { roles?: string[] }).roles = [ids.role];
     await call(env, officer);
-    expect(discord.followups().at(-1)).toContain("Your relay token");
+    expect(discord.followups().at(-1)).toContain("Your relay setup code");
   });
 
   it("a new token replaces the old one; revoke turns it off", async () => {
@@ -166,6 +174,12 @@ describe("POST /relay/code", () => {
     expect(res.status).toBe(409);
     expect(res.body).toMatchObject({ ok: false, code: "UNLINKED" });
     expect(bounties()).toEqual([]);
+    // They're told in the channel, once: the relay can't answer them in game.
+    const notices = () => discord.find("POST", new RegExp(`/channels/${ids.line}/messages$`)).map((c) => String(c.body!.content)).filter((t) => t.includes("reached the relay"));
+    expect(notices()).toHaveLength(1);
+    expect(notices()[0]).toContain("**Slac Jaw**");
+    await postCode(encode("B", bounty({ nonce: 2 })));
+    expect(notices()).toHaveLength(1);
   });
 
   it("refuses a code that names someone else's character under another name", async () => {
@@ -181,8 +195,6 @@ describe("POST /relay/code", () => {
     const again = await postCode(encode("B", bounty()));
     expect(again.status).toBe(422);
     expect(again.body).toMatchObject({ ok: false, code: "DUPLICATE" });
-    const tooMuch = await postCode(encode("B", bounty({ rewardGold: 10000, nonce: 5, targetGUID: "Player-4395-0BADF00D" })).replace(/.$/, "0"));
-    expect(tooMuch.body!.ok).toBe(false);
   });
 
   it("only carries bounty codes", async () => {

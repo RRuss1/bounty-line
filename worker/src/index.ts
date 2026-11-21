@@ -102,7 +102,7 @@ async function interactions(request: Request, env: Env, ctx: ExecutionContext): 
       return "Something went wrong on the Bounty Board. Try again in a minute.";
     };
     try {
-      const result = await runCommand(interaction, env, rest);
+      const result = await runCommand(interaction, env, rest, undefined, new URL(request.url).origin);
       if ("reply" in result) return json(result.reply);
       // Slow work: answer "thinking..." now (Discord allows 3s), then fill in the reply.
       const appId = interaction.application_id ?? env.DISCORD_APP_ID;

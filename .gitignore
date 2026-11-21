@@ -166,6 +166,9 @@ vite.config.ts.timestamp-*
 worker/wrangler.jsonc
 worker/.deploy.env
 
+# Relay program: holds the officer's relay setup code (never commit)
+relay/config.json
+
 # Local packager output
 .release/
 worker/poster-preview.png

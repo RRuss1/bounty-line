@@ -33,6 +33,8 @@ export async function runCommand(
   env: Env,
   rest: DiscordRest,
   now = Math.floor(Date.now() / 1000),
+  /** This Worker's own address, for the relay setup code. */
+  origin = "",
 ): Promise<CommandResult> {
   const sub = interaction.data?.options?.[0];
   const guildId = interaction.guild_id!; // guaranteed by the allowlist check
@@ -87,7 +89,7 @@ export async function runCommand(
     case "pack":
       return { defer: () => pack(env, rest, guildId, now) };
     case "relay":
-      return { defer: () => relayCommand(interaction, env, guildId, o.action ?? "status", now) };
+      return { defer: () => relayCommand(interaction, env, guildId, o.action ?? "status", now, origin) };
     case "submit":
       return { defer: () => submit(interaction, env, rest, guildId, o.code ?? "", now, o.image) };
     default:
@@ -97,8 +99,14 @@ export async function runCommand(
 
 // ---------------------------------------------------------------- /bl relay
 
+/** One paste for the relay program: "BLR1.<this Worker's address, base64url>.<token>". */
+export function relaySetupCode(origin: string, token: string): string {
+  const address = btoa(origin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `BLR1.${address}.${token}`;
+}
+
 /** Tokens for the relay program (spec 5.10). The reply is private; the token is shown once. */
-async function relayCommand(interaction: Interaction, env: Env, guildId: string, action: string, now: number): Promise<string> {
+async function relayCommand(interaction: Interaction, env: Env, guildId: string, action: string, now: number, origin: string): Promise<string> {
   const tenant = await getTenant(env.DB, guildId);
   if (!tenant) return "This server isn't set up yet. An admin needs to run `/bl setup`.";
   const roles = interaction.member?.roles ?? [];
@@ -109,8 +117,8 @@ async function relayCommand(interaction: Interaction, env: Env, guildId: string,
   if (action === "enable") {
     const token = await issueRelayToken(env, tenant, user, now);
     return [
-      "🔁 **Your relay token** (only you can see this, and it is shown once):",
-      `||\`${token}\`||`,
+      "🔁 **Your relay setup code** (only you can see this, and it is shown once):",
+      `||\`${relaySetupCode(origin, token)}\`||`,
       "Paste it when the relay program asks for it. Treat it like a password: anyone who has it can post bounties as a relay.",
       "Lost it or shared it by mistake? Run `/bl relay action: enable` again for a new one (the old one stops working), or `action: revoke` to turn yours off.",
     ].join("\n");

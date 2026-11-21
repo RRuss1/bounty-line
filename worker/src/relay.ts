@@ -16,12 +16,15 @@ import { buildPack } from "./pack";
 import { RateLimiter } from "./ratelimit";
 import { DiscordRest } from "./rest";
 import { audit, getTenant, type Tenant } from "./tenants";
+import { escapeMd } from "./wow";
 
 const MAX_BODY_BYTES = 8 * 1024;
 /** Every request for a guild, before the token is looked up: bounds what a stranger can cost. */
 export const relayGuildLimiter = new RateLimiter(120, 60_000);
 /** Codes per relay per minute. */
 export const relayCodeLimiter = new RateLimiter(20, 60_000);
+/** "Link your character" notices in the channel: one per character per hour. */
+export const relayNoticeLimiter = new RateLimiter(1, 3_600_000);
 
 async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
@@ -134,6 +137,16 @@ async function code(request: Request, env: Env, tenant: Tenant, relayUser: strin
     .bind(tenant.id, r.fields.posterGUID)
     .first<{ name: string | null; discord_user_id: string }>();
   if (!linked || (linked.name ?? "") !== r.fields.posterName) {
+    // The poster can't see why nothing appeared (the relay can't talk to the game), so say it
+    // where they will look next. Names only: there is no Discord user to mention yet.
+    if (tenant.bounty_line_ch && relayNoticeLimiter.allow(`${tenant.id}:${r.fields.posterGUID}`)) {
+      await new DiscordRest(env.DISCORD_TOKEN)
+        .sendMessage(
+          tenant.bounty_line_ch,
+          `🔗 **${escapeMd(r.fields.posterName || "A guildie")}**: your bounty on **${escapeMd(r.fields.targetName)}** reached the relay, but your character isn't linked to your Discord yet. In game, type \`/bl link\` and paste that code here once; then paste the bounty code. After that the relay posts your bounties for you.`,
+        )
+        .catch(() => undefined);
+    }
     return error(409, "UNLINKED", "The poster's character isn't linked to a Discord user yet. They need to run /bl link in game once and paste that code.");
   }
 

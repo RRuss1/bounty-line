@@ -97,10 +97,15 @@ Click **Sync fork** on GitHub. Your deploy workflow applies database migrations 
 | `/bl me` | Anyone | Your kills, trust level, open bounties and payments |
 | `/bl cancel` | Poster or officer | Cancel an open bounty |
 | `/bl forget-me` | Anyone | Delete your links and stats from this board |
+| `/bl relay` | Officers | Get a setup code for the optional [relay program](docs/relay.md): packs reach the game and bounties reach Discord without pasting |
 | `/bl config` | Admins | Rewards, expiry, auto-approve, stacking, weekly recap |
 | `/bl setup`, `/bl status` | Admins | Connect channels and roles; deployment status |
 
 Clean kill claims from **trusted** hunters (5 approved kills in a row) are approved automatically once the AI has read the screenshot's stamp; everything else goes to your officers.
+
+### Less pasting
+- **Kill claims:** hunters drop the kill screenshot into the Bounty Line channel. The bot reads the kill code from the QR code on the proof stamp; no code to paste.
+- **Relay (optional):** an officer can run a small program while playing that delivers the Bounty Pack into the game and posts guildies' bounties to Discord. See [docs/relay.md](docs/relay.md).
 
 ### Budget mode
 Set `READ_CHAT=false`, `AI_CHECK=false` and `POSTER_IMAGE=false`. Players submit with `/bl submit` instead of pasting in chat, officers approve every claim, and wanted posters are text-only (drawing the parchment picture needs more CPU time than the Free plan allows). No Durable Object, no AI, so it fits a free account.
