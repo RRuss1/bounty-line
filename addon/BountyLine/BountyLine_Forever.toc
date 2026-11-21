@@ -29,6 +29,7 @@ UI\AmountEntry.lua
 UI\ImportWindow.lua
 UI\Stamp.lua
 UI\Banner.lua
+UI\KillToast.lua
 UI\BoardWindow.lua
 UI\Options.lua
 UI\Minimap.lua

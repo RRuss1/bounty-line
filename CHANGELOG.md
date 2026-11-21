@@ -2,7 +2,7 @@
 
 ## v0.8.0 (unreleased): addon audit fixes, pending bounties, menus
 
-- **Kill code no longer grabs your keyboard mid-fight.** If you are still in combat, you get a chat line and the code popup opens when combat ends (`/bl last` opens it sooner).
+- **Kill code no longer grabs your keyboard mid-fight.** If you are still in combat, **BOUNTY KILLED** flashes for 3 seconds, then a small shimmering Bounty Line square waits on screen. Click it after the fight to open your kill code (drag it to move it).
 - Kills in quick succession each get their own stamp, screenshot and code (they queue).
 - A bounty you or a guildie just killed shows as **claimed** and loses its skull until the next Bounty Pack, so nobody double-claims it.
 - Bounty Packs dated in the future are refused, so one bad sync can no longer block real packs. Banners are limited to 3 a minute per sender. Optional: accept synced packs from officers only.

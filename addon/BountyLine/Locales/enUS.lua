@@ -166,7 +166,11 @@ ns.L = {
 
   -- kills
   KILL_TITLE = "BOUNTY COLLECTED!",
-  KILL_DEFERRED = "|cff33ff33Bounty collected!|r Your kill code opens when combat ends (or type /bl last).",
+  KILL_DEFERRED = "|cff33ff33Bounty collected!|r Click the Bounty Line square after the fight for your kill code.",
+  KILL_FLASH = "BOUNTY KILLED",
+  KILL_WAIT = "Finish the fight first: the kill code needs your keyboard for Ctrl+C.",
+  KILL_TOAST_TITLE = "Bounty killed!",
+  KILL_TOAST_TIP = "Click after the fight to get your kill code and screenshot note. Drag to move.",
   KILL_POST = "Post this in the Discord Bounty Line chat WITH your screenshot:",
   PRACTICE_TITLE = "PRACTICE KILL",
   PRACTICE_POST = "Practice only: don't post this code. A real kill gives you one like it.",
