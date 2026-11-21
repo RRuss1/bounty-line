@@ -4,7 +4,8 @@
 local _, ns = ...
 
 local WHITE = "Interface\\Buttons\\WHITE8x8"
-local ICON = "Interface\\Icons\\INV_Misc_Bone_HumanSkull_01"
+-- The Bounty Line logo (art/logo), 64x64 in Media/.
+local ICON = "Interface\\AddOns\\BountyLine\\Media\\logo"
 -- Our own backgrounds (Media/): dark, softened crops of the wanted-poster parchment.
 local WINDOW_BG = "Interface\\AddOns\\BountyLine\\Media\\window-bg"
 local PANEL_BG = "Interface\\AddOns\\BountyLine\\Media\\panel-bg"
@@ -168,7 +169,6 @@ function ns.CreateWindow(name, width, height, title)
   icon:SetSize(30, 30)
   icon:SetPoint("LEFT", 6, 0)
   icon:SetTexture(ICON)
-  icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 
   local t = bar:CreateFontString(nil, "ARTWORK", "GameFontNormalHuge")
   local font = t:GetFont()
