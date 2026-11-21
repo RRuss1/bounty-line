@@ -29,19 +29,21 @@ Put a price on an enemy's head in game, hunt them down, auto-screenshot the kill
 1. Install **Bounty Line** from **CurseForge** (filter: *WoW Forever*), or download the zip from [Releases](../../releases) and unzip it into
    `World of Warcraft\_forever_\Interface\AddOns\`
 2. In your guild's Discord, copy the pinned **Bounty Pack** from `#bounty-line`.
-3. In game: `/bl import`, paste, done. Wanted players now show a skull and a WANTED tooltip. (Guild sync, so one import covers everyone online, is coming in the next update; until then each player imports.)
+3. In game: `/bl import`, paste, done. It's shared with everyone in your guild running Bounty Line, and guildies who log in later get it automatically. Wanted players show a skull and a WANTED tooltip.
 4. Optional: `/bl link` and paste the code in `#bounty-line` so your kills are credited to your Discord name.
 
 | Command | Does |
 |---|---|
-| `/bl` | Open the in-game board |
+| `/bl` | Open the in-game Bounty Board (also: click the minimap button) |
 | `/bl mark` | Set a bounty on your target (same as right-click → Set Bounty…) |
 | `/bl import` | Paste a Bounty Pack from Discord |
 | `/bl list` | Print the open bounties |
 | `/bl last` | Re-open your last kill code |
 | `/bl link` | Link your character to your Discord account |
 | `/bl test` | Practice run: fake kill, stamp, screenshot, popup |
-| `/bl options` | Settings |
+| `/bl sync` | Share your Bounty Pack with the guild right now |
+| `/bl banners` | Turn guild banners on or off |
+| `/bl minimap` | Show or hide the minimap button |
 
 Screenshots are saved to `World of Warcraft\_forever_\Screenshots` (newest file).
 

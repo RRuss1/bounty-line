@@ -54,6 +54,11 @@ reset()
 loadAddon("Bounty.lua")
 loadAddon("Pack.lua")
 loadAddon("Kills.lua")
+-- Guild sync: timers and sends are stubbed; IsInGuild() is false so nothing is sent.
+function GetTime() return 1000 end
+function IsInGuild() return false end
+C_Timer = { After = function() end, NewTimer = function() return { Cancel = function() end } end, NewTicker = function() end }
+loadAddon("Comms.lua")
 local Codec = ns.Codec
 
 -- ---------------------------------------------------------------- harness
@@ -273,6 +278,83 @@ for k, want in pairs({ boardTag = "K7QF", bountyId = 7, victimGUID = VICTIM, kil
   eq("K field " .. k, kill.fields[k], want)
 end
 eq("K flags without honor or pet", Codec.Decode(ns.BuildKillCode(7, VICTIM, 1, false, false)).fields.flags, 0)
+
+-- ---------------------------------------------------------------- guild sync
+
+local Comms = ns.Comms
+local banners, prints = {}, {}
+ns.Banner = function(text) banners[#banners + 1] = text end
+ns.Print = function(text) prints[#prints + 1] = text end
+ns.RefreshMarks = function() end
+ns.RefreshBoard = function() end
+
+-- Wire format: chunks fit WoW's 255-byte limit and reassemble in any order, once.
+local long = ("ABCDEFGHJK"):rep(55) -- 550 bytes
+local lines = Comms.Split("PACK", long, "a1b2c3", 7)
+eq("long message is split", #lines, 3)
+local fits = true
+for _, line in ipairs(lines) do fits = fits and #line <= 255 and not line:find("|", 1, true) end
+check("every chunk fits in 255 bytes, no pipes", fits)
+local got
+for _, i in ipairs({ 3, 1, 1, 2 }) do got = Comms.Reassemble(Comms.Parse(lines[i]), 0) or got end
+eq("chunks reassemble in any order, duplicates ignored", got, long)
+eq("a short message is one chunk", Comms.Reassemble(Comms.Parse(Comms.Split("HELLO", "5 K7QF", "a1b2c3", 8)[1]), 0), "5 K7QF")
+check("junk is ignored", Comms.Parse("hello there") == nil)
+
+-- Who answers a HELLO: only someone with a strictly newer pack from the same board.
+reset()
+check("no pack: never answer", not Comms.ShouldShare(0, "0000"))
+BountyLineDB.pack = { version = 100, boardTag = "K7QF", bounties = {}, codes = "BL1-P-X-0000" }
+check("answer an older pack", Comms.ShouldShare(50, "K7QF"))
+check("answer someone with no pack yet", Comms.ShouldShare(0, "0000"))
+check("not a newer pack", not Comms.ShouldShare(150, "K7QF"))
+check("not the same pack", not Comms.ShouldShare(100, "K7QF"))
+check("not another guild's board", not Comms.ShouldShare(50, "ZZZZ"))
+
+-- Receiving a pack: guild only, newest wins, new bounties get a banner.
+local function receive(kind, data, channel)
+  for _, line in ipairs(Comms.Split(kind, data, "f00d01", 1)) do Comms.Receive(line, channel or "GUILD", "Grey") end
+end
+reset()
+banners, prints = {}, {}
+local packText = single.input
+receive("PACK", packText, "WHISPER")
+check("packs from outside the guild channel are ignored", BountyLineDB.pack == nil)
+receive("PACK", packText)
+eq("a guildie's pack is stored", BountyLineDB.pack and BountyLineDB.pack.version, single.fields.packVersion)
+eq("first pack: no banners for every bounty", #banners, 0)
+check("sync is announced", prints[1] and prints[1]:find("updated from a guildie") ~= nil, tostring(prints[1]))
+
+-- A newer pack with one more bounty: one banner, for that bounty.
+BountyLineDB.pack.version = single.fields.packVersion - 10
+local gone = single.fields.bounties[1].targetGUID
+BountyLineDB.pack.bounties[gone] = nil
+receive("PACK", packText)
+eq("banner for the bounty that's new", #banners, 1)
+check("banner names it", banners[1] and banners[1]:find(single.fields.bounties[1].targetName, 1, true) ~= nil, tostring(banners[1]))
+
+-- An older pack never replaces a newer one.
+BountyLineDB.pack.version = single.fields.packVersion + 10
+receive("PACK", packText)
+eq("older pack ignored", BountyLineDB.pack.version, single.fields.packVersion + 10)
+
+-- Banners for a guildie's new bounty and kill.
+banners = {}
+receive("NEWB", "Grimlok Ashveil\t500\tSlac Jaw")
+check("pending-bounty banner", banners[1] and banners[1]:find("Slac Jaw put a bounty on Grimlok Ashveil", 1, true) ~= nil, tostring(banners[1]))
+receive("KILL", ("%d\tHunter McHunterface"):format(single.fields.bounties[2].bountyId))
+check("kill banner names the hunter and the target",
+  banners[2] and banners[2]:find("Hunter McHunterface collected the bounty on " .. single.fields.bounties[2].targetName, 1, true) ~= nil,
+  tostring(banners[2]))
+
+-- Last seen: newest sighting wins, whoever reports it.
+reset()
+BountyLineDB.lastSeen = {}
+receive("SEEN", "12\t1437\t500")
+receive("SEEN", "12\t1434\t400")
+eq("older sighting doesn't overwrite", ns.LastSeen(12).map, 1437)
+receive("SEEN", "12\t1434\t600")
+eq("newer sighting does", ns.LastSeen(12).map, 1434)
 
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

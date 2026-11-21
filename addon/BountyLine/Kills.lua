@@ -69,6 +69,8 @@ local function finish(shot)
   }
   ns.ShowCode(popup)
   if not k.practice then
+    ns.Comms.Kill(k.bounty.id, ns.FullName("player"))
+    ns.Banner(L.BANNER_KILL:format(ns.FullName("player"), k.bounty.name, ns.BoardName()))
     local kills = BountyLineCharDB.kills
     table.insert(kills, 1, { code = k.code, bountyId = k.bounty.id, t = k.killedAt, shot = shot })
     while #kills > MAX_SAVED do table.remove(kills) end

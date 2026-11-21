@@ -2,7 +2,11 @@
 local addonName, ns = ...
 local L = ns.L
 
-local DB_DEFAULTS = { version = 1, settings = { debugMenu = false, debugKills = false, minimap = { angle = 200, hide = false } } }
+local DB_DEFAULTS = {
+  version = 1,
+  lastSeen = {},
+  settings = { debugMenu = false, debugKills = false, banners = true, minimap = { angle = 200, hide = false } },
+}
 local CHAR_DEFAULTS = { version = 1, kills = {} }
 
 local function applyDefaults(t, defaults)
@@ -26,6 +30,7 @@ end
 function ns.PostBounty(snap, reward, note)
   local code, err, message = ns.BuildBountyCode(snap, reward, note)
   if not code then return ns.Print(L.CODE_FAILED:format(message or err)) end
+  ns.Comms.NewBounty(snap.name, reward, ns.FullName("player")) -- guildies see a "pending" banner
   ns.ShowCode({
     title = L.BOUNTY_READY,
     subtitle = ("%s · %s"):format(ns.Describe(snap), ns.FormatGold(reward)),
@@ -74,6 +79,16 @@ local COMMANDS = {
     end
   end,
   test = function() ns.PracticeKill() end,
+  sync = function()
+    ns.Comms.Hello()
+    ns.Comms.SharePack()
+    ns.Print(L.SYNC_SENT)
+  end,
+  banners = function()
+    local s = BountyLineDB.settings
+    s.banners = not s.banners
+    ns.Print(s.banners and L.BANNERS_ON or L.BANNERS_OFF)
+  end,
   debugkills = function()
     local s = BountyLineDB.settings
     s.debugKills = not s.debugKills
@@ -93,7 +108,7 @@ SLASH_BOUNTYLINE2 = "/bountyline"
 function ns.RunCommand(input)
   local cmd, rest = (input or ""):match("^%s*(%S*)%s*(.-)%s*$")
   cmd = cmd:lower()
-  if cmd == "" then cmd = "help" end -- the board window replaces this in Phase 5
+  if cmd == "" then return ns.OpenBoard() end
   local fn = COMMANDS[cmd]
   if not fn then return ns.Print(L.UNKNOWN_COMMAND:format(cmd)) end
   fn(rest)

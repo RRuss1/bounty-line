@@ -32,8 +32,8 @@ function ns.MinimapClick(mouse)
     return ns.OpenAmountEntry(snap)
   end
   local last = BountyLineCharDB.lastPopup
-  if last then return ns.ShowCode(last) end
-  ns.RunCommand("help")
+  if IsShiftKeyDown() and last then return ns.ShowCode(last) end
+  ns.OpenBoard()
 end
 
 function ns.MinimapTooltip(tooltip)

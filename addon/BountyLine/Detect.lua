@@ -14,6 +14,7 @@ local function wanted(unit)
 end
 
 local function alert(b)
+  ns.Comms.Seen(b.id, ns.PlayerMapID(), GetServerTime()) -- last-seen, shared with the guild
   if seen[b.id] then return end
   seen[b.id] = true
   local text = L.SPOTTED:format(b.name, ns.FormatGold(b.reward))

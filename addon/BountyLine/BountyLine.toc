@@ -17,6 +17,7 @@ Codec.lua
 Locales\enUS.lua
 Bounty.lua
 Pack.lua
+Comms.lua
 Core.lua
 Menu.lua
 Detect.lua
@@ -27,4 +28,6 @@ UI\CodePopup.lua
 UI\AmountEntry.lua
 UI\ImportWindow.lua
 UI\Stamp.lua
+UI\Banner.lua
+UI\BoardWindow.lua
 UI\Minimap.lua
