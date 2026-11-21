@@ -16,3 +16,10 @@ vi.mock("../../src/poster-assets", () => {
     },
   };
 });
+
+/**
+ * Slash commands and crons read the real clock, while the tests write rows around a fixed
+ * NOW (1795200000). Pin Date to that moment so the suite doesn't start failing once the
+ * real date passes a test row's expiry. Timers stay real.
+ */
+vi.useFakeTimers({ toFake: ["Date"], now: 1795200000_000 });
