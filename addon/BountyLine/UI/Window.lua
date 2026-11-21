@@ -51,12 +51,14 @@ local function edge(parent, layer, color, out, sublevel)
 end
 
 -- The red glow: ten fading 1px rings just outside the metal border, pulsing slowly.
--- `around` is the metal frame's outer edge, so the glow is even on all four sides.
+-- Anchored to the window itself (the metal's corner pieces carry invisible padding, which
+-- pushed the glow off-centre), starting GLOW_OUTSET px out so it hugs the visible metal.
 local GLOW = { 0.95, 0.85, 0.7, 0.55, 0.42, 0.31, 0.22, 0.14, 0.08, 0.04 }
-local function glow(f, around)
+local GLOW_OUTSET = 1
+local function glow(f)
   local holder = CreateFrame("Frame", nil, f)
-  holder:SetPoint("TOPLEFT", around.topLeft, "TOPLEFT")
-  holder:SetPoint("BOTTOMRIGHT", around.bottomRight, "BOTTOMRIGHT")
+  holder:SetPoint("TOPLEFT", -GLOW_OUTSET, GLOW_OUTSET)
+  holder:SetPoint("BOTTOMRIGHT", GLOW_OUTSET, -GLOW_OUTSET)
   holder:SetFrameLevel(math.max(0, f:GetFrameLevel() - 1))
   local r, g, b = COLORS.red[1], COLORS.red[2], COLORS.red[3]
   for i, alpha in ipairs(GLOW) do edge(holder, "BACKGROUND", { r, g, b, alpha }, i) end
@@ -109,7 +111,8 @@ function ns.CreateWindow(name, width, height, title)
   tinsert(UISpecialFrames, name) -- Escape closes it
 
   image(f, "BACKGROUND", WINDOW_BG):SetAllPoints()
-  glow(f, metalBorder(f))
+  metalBorder(f)
+  glow(f)
 
   -- Only the title bar drags the window, so clicks in the content never move it.
   local bar = CreateFrame("Frame", nil, f)
