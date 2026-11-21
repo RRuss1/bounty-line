@@ -160,7 +160,7 @@ addon/BountyLine/
 ## Interface: 16001
 ## Title: Bounty Line
 ## Notes: Guild PvP bounties: mark targets, hunt them, prove the kill on your Discord Bounty Board.
-## Author: Rich Russell
+## Author: Slac Jaw from RP-PVP
 ## Version: @project-version@
 ## SavedVariables: BountyLineDB
 ## SavedVariablesPerCharacter: BountyLineCharDB
@@ -970,6 +970,7 @@ wrangler deploy
 2. **Game:** World of Warcraft → **Addons**.
 3. Fill in:
    - **Name:** Bounty Line
+   - **Author credit:** everything players see (TOC `## Author`, description, screenshots, changelog) names the author as **"Slac Jaw from RP-PVP"**
    - **Summary:** "Guild PvP bounties for WoW: Forever. Mark targets, hunt them, auto-screenshot the kill, and prove it on your Discord Bounty Board."
    - **Categories:** PvP; Chat & Communication (pick what's available)
    - **License:** MIT
@@ -1073,6 +1074,9 @@ The same packager can upload to **Wago** (`-a <wago-id>`) and **WoWInterface** (
 9. **Duplicate posters:** stacking UX when two members mark the same GUID.
 10. **Player GUID shape on Forever:** confirm `UnitGUID` returns `Player-<serverID>-<8 hex>` with an unpadded decimal server ID ≤ 65535 (print a few with `/bl debug`). Codes use the 7-byte compact form for that shape; anything else still works through the raw fallback, just ~25 characters longer per GUID (Compendium 02 Section 2).
 11. **Zone names on wanted posters:** B codes carry only `mapID`, so posters show "Zone #1434". Print `C_Map.GetBestMapForUnit("player")` and the zone name with `/bl debug` in a few zones, then either ship a verified mapID→name table in the Worker or add the zone name to a schema-2 B code.
+12. **Full character names:** codes use `UnitName(unit)`. Check with `/bl debug` (target an enemy) whether that includes the surname on Forever, or whether `GetUnitName(unit, true)` / `UnitFullName(unit)` is needed for "First Surname".
+13. **"??" levels:** `UnitLevel` returns -1 for enemies far above you. B codes carry level 0 for that and the Bounty Board shows "Level ??". Confirm the -1 on Forever.
+14. **Copy button icon:** the popup uses `Interface\Buttons\UI-GuildButton-PublicNote-Up`. Confirm it exists on Forever (a missing texture shows as a green square).
 
 ---
 

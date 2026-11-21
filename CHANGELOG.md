@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.3.0 (unreleased): Phase 3, addon core
+
+- **Set a bounty from the game.** Right-click an opposite-faction player's portrait → **Set Bounty…**, type the gold (`500`, `500g`, `1.5k`) and an optional note. Or target them and use `/bl mark [gold] [note]`.
+- The code popup opens with the code already selected: press **Ctrl+C**, then paste it in `#bounty-line`. The copy button re-selects it, and the box can't be edited by accident.
+- `/bl last` shows your last code again. `/bl link` makes a code that links your character to your Discord account (the Bounty Board reads it in a later update).
+- `/bl debug` and `/bl debugmenu` print what the game tells the addon, for bug reports and for checking Forever's API.
+- Same-faction players, NPCs and yourself never get the menu item. Mid-combat, if the game hides the target's details, the item shows disabled: "Set bounties out of combat."
+- Bounty Board: targets too far above you to see their level show as "Level ??".
+
+### Deployer notes
+
+- Nothing to change. The Worker update (the "Level ??" display) deploys as usual.
+
 ## v0.2.0 (2026-11-20): Phase 2, bounty posting
 
 - The bot reads `#bounty-line` through a Discord Gateway connection (a Durable Object, kept alive by a once-a-minute cron). Pasted bounty codes become wanted posters in `#bounty-board` with the **Open** tag; the bot reacts ✅ or ❌, and error replies delete themselves after a minute.
