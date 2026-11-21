@@ -38,7 +38,8 @@ export interface PosterAssets {
 export const CANVAS = { width: 1376, height: 917 } as const;
 const SHEET = { width: 1376, height: 768, top: Math.round((917 - 768) / 2) } as const;
 const CX = 688;
-const INK = "#2a1708";
+/** Charcoal, not brown: reads sharper on the parchment. */
+const INK = "#1b1a19";
 const RED = "#8b1a1a";
 const PAPER = "#e3cfa8";
 
@@ -64,10 +65,13 @@ const EM = { rye: 0.72, fell: 0.46 } as const;
 function line(text: string, y: number, size: number, font: keyof typeof EM, maxWidth: number, extra = "") {
   const fitted = Math.min(size, Math.floor(maxWidth / Math.max(1, text.length * EM[font])));
   const family = font === "rye" ? "Rye" : "IM FELL English";
+  const attrs = `x="${CX}" y="${y}" font-family="${family}" font-size="${fitted}" text-anchor="middle" ${extra}`;
+  // A faint paper halo keeps text readable over stains; the thin body face gets a hairline
+  // ink stroke so it reads bold and crisp when Discord shrinks the card.
+  const weight = font === "fell" ? Math.max(1, fitted / 34).toFixed(1) : "0";
   return (
-    `<text x="${CX}" y="${y}" font-family="${family}" font-size="${fitted}" fill="${INK}" text-anchor="middle" ` +
-    `stroke="${PAPER}" stroke-width="${Math.max(3, Math.round(fitted / 12))}" stroke-opacity="0.55" stroke-linejoin="round" paint-order="stroke" ${extra}>` +
-    `${xml(text)}</text>`
+    `<text ${attrs} fill="none" stroke="${PAPER}" stroke-width="${Math.max(3, Math.round(fitted / 14))}" stroke-opacity="0.4" stroke-linejoin="round">${xml(text)}</text>` +
+    `<text ${attrs} fill="${INK}" stroke="${INK}" stroke-width="${weight}" stroke-linejoin="round">${xml(text)}</text>`
   );
 }
 
@@ -83,12 +87,12 @@ export function posterSvg(p: PosterInput, parchmentHref = "https://bounty-line.i
     `<image x="0" y="${t}" width="${SHEET.width}" height="${SHEET.height}" xlink:href="${parchmentHref}" href="${parchmentHref}"/>`,
     line("WANTED", t + 135, 128, "rye", 760, `letter-spacing="6"`),
     line(p.name.toUpperCase(), t + 240, 72, "rye", 1040),
-    line(p.subtitle, t + 300, 44, "fell", 1000),
-    line(`REWARD ${fmtGold(p.rewardGold)}`, t + 400, 92, "rye", 980),
-    line(`paid by ${p.postedBy} · honor system`, t + 458, 38, "fell", 900),
-    line(p.zone ? `Marked in ${p.zone} · ${fmtDate(p.markedAt)}` : `Marked ${fmtDate(p.markedAt)}`, t + 520, 34, "fell", 860),
-    line(`Bounty #${p.bountyId} · Expires ${fmtDate(p.expiresAt)}`, t + 610, 40, "fell", 640),
-    line(p.boardName, t + 662, 32, "rye", 560),
+    line(p.subtitle, t + 305, 50, "fell", 1000),
+    line(`REWARD ${fmtGold(p.rewardGold)}`, t + 410, 92, "rye", 980),
+    line(`paid by ${p.postedBy} · honor system`, t + 474, 44, "fell", 900),
+    line(p.zone ? `Marked in ${p.zone} · ${fmtDate(p.markedAt)}` : `Marked ${fmtDate(p.markedAt)}`, t + 536, 40, "fell", 860),
+    line(`Bounty #${p.bountyId} · Expires ${fmtDate(p.expiresAt)}`, t + 622, 48, "fell", 700),
+    line(p.boardName, t + 682, 38, "rye", 600),
     // Status stamp, top right, clear of the seal and the blood spatter.
     `<g transform="translate(1135 ${t + 95}) rotate(11)" opacity="0.88">`,
     `<rect x="${-stampW / 2}" y="-48" width="${stampW}" height="96" rx="10" fill="none" stroke="${RED}" stroke-width="7"/>`,
