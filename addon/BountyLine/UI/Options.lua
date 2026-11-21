@@ -45,7 +45,7 @@ local RIGHT = {
   { "check", "debugKills", L.OPT_DEBUG_KILLS },
 }
 
-local COLUMN_WIDTH = 400
+local COLUMN_WIDTH = 420
 
 local function makeCheck(parent, row, x, y)
   local key = row[2]
