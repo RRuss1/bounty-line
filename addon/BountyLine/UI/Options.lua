@@ -38,6 +38,7 @@ local RIGHT = {
   { "cycle", "packsFrom", L.OPT_PACKS_FROM, { "anyone", "officers" },
     function(v) return v == "officers" and L.OPT_OFFICERS or L.OPT_ANYONE end },
   { "check", "shareSeen", L.OPT_SHARE_SEEN },
+  { "check", "relay", L.OPT_RELAY },
   { "head", L.OPT_OTHER },
   { "check", "minimapShown", L.OPT_MINIMAP,
     get = function() return not S().minimap.hide end, set = function(v) S().minimap.hide = not v end },
@@ -103,7 +104,7 @@ local function column(parent, rows, x)
 end
 
 local function build()
-  local f = ns.CreateWindow("BountyLineOptions", 860, 440, L.OPT_TITLE)
+  local f = ns.CreateWindow("BountyLineOptions", 860, 470, L.OPT_TITLE)
   local c = f.content
   column(c, LEFT, 10)
   column(c, RIGHT, 370)

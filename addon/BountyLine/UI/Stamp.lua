@@ -44,23 +44,28 @@ function ns.QRRuns(code)
   return runs, n
 end
 
-local function drawQR(parent, code)
+-- A white square that ns.DrawQR fills. The caller places it.
+function ns.NewQR(parent)
+  local f = CreateFrame("Frame", nil, parent)
+  local white = f:CreateTexture(nil, "BACKGROUND")
+  white:SetAllPoints()
+  white:SetColorTexture(1, 1, 1, 1)
+  f.pool = {}
+  f:Hide()
+  return f
+end
+
+-- Draws the code into a frame from ns.NewQR and shows it. Returns false (and hides the frame)
+-- if the code can't be drawn. Also used by the relay (Relay.lua).
+function ns.DrawQR(qr, code)
   local runs, n = ns.QRRuns(code)
   if not runs then
-    if qr then qr:Hide() end
-    return
-  end
-  if not qr then
-    qr = CreateFrame("Frame", nil, parent)
-    qr:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", 24, -12)
-    local white = qr:CreateTexture(nil, "BACKGROUND")
-    white:SetAllPoints()
-    white:SetColorTexture(1, 1, 1, 1)
-    qr.pool = {}
+    qr:Hide()
+    return false
   end
   -- A whole number of screen pixels per module, so every module is the same size.
   local _, screenHeight = GetPhysicalScreenSize()
-  local unitPx = (screenHeight or 768) / 768 * parent:GetEffectiveScale()
+  local unitPx = (screenHeight or 768) / 768 * qr:GetEffectiveScale()
   local m = math.max(3, math.floor(QR_BOX * unitPx / (n + QR_QUIET * 2))) / unitPx
   qr:SetSize(m * (n + QR_QUIET * 2), m * (n + QR_QUIET * 2))
   for i, run in ipairs(runs) do
@@ -77,6 +82,15 @@ local function drawQR(parent, code)
   end
   for i = #runs + 1, #qr.pool do qr.pool[i]:Hide() end
   qr:Show()
+  return true
+end
+
+local function drawQR(parent, code)
+  if not qr then
+    qr = ns.NewQR(parent)
+    qr:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", 24, -12)
+  end
+  ns.DrawQR(qr, code)
 end
 
 local function build()

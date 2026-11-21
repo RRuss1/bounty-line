@@ -82,6 +82,7 @@ end
 loadAddon("Comms.lua")
 loadAddon("Detect.lua")
 loadAddon("UI/BoardWindow.lua")
+loadAddon("Relay.lua")
 local Codec = ns.Codec
 
 -- ---------------------------------------------------------------- harness
@@ -512,6 +513,79 @@ eq("by name", order("name", false), "1,2,3")
 eq("by expiry, latest first", order("expires", true), "3,2,1")
 eq("missing poster sorts first", order("poster", false), "2,1,3")
 eq("add-gold description without a unit", ns.Describe({ name = "Amy Vale", factionName = "Horde" }), "Amy Vale · Horde")
+
+-- ---------------------------------------------------------------- relay (spec 5.10)
+
+do
+  local realSend, realShow = Comms.Send, ns.RelayShow
+  local sent, shown = {}, {}
+  Comms.Send = function(kind, data) sent[#sent + 1] = { kind, data } end
+  ns.RelayShow = function(code) shown[#shown + 1] = code return true end
+  ns.RelayHide = function() end
+  local relayed = {}
+  ns.CodeRelayed = function(code, who) relayed[#relayed + 1] = code .. " by " .. who end
+  local function from(sender, kind, data)
+    for _, line in ipairs(Comms.Split(kind, data, "beef02", #sent + #shown + 40)) do Comms.Receive(line, "GUILD", sender) end
+  end
+  reset()
+  local bcode = assert(ns.BuildBountyCode(snap, 500, "")) -- the poster is "Slac Jaw"
+  local other = assert(ns.BuildBountyCode(snap, 501, ""))
+  local mine = assert(ns.BuildBountyCode(snap, 502, ""))
+
+  check("the sender must be the poster named in the code",
+    Comms.SenderIsPoster("Slac-Jaw", "Slac Jaw") and Comms.SenderIsPoster("Slac", "Slac Jaw")
+    and not Comms.SenderIsPoster("Evil", "Slac Jaw") and not Comms.SenderIsPoster(nil, "Slac Jaw") and not Comms.SenderIsPoster("Slac", nil))
+
+  reset()
+  BountyLineDB.settings.relay = true
+  ns.RelayStart(nil, nil, serverTime)
+  check("no relay program: not a relay", not ns.RelayActive())
+  from("Slac-Jaw", "BCODE", bcode)
+  check("and guildies' codes are left alone", #shown == 0 and #sent == 0)
+
+  ns.RelayStart(serverTime - 3600, nil, serverTime)
+  check("a stale stamp doesn't count (the program isn't running)", not ns.RelayActive())
+  BountyLineDB.settings.relay = false
+  ns.RelayStart(serverTime - 30, nil, serverTime)
+  check("turned off in settings", not ns.RelayActive())
+  BountyLineDB.settings.relay = true
+  ns.RelayStart(serverTime - 30, nil, serverTime)
+  check("a fresh stamp: this client is a relay", ns.RelayActive())
+
+  from("Evil", "BCODE", bcode)
+  check("a code sent by someone other than its poster is dropped", #shown == 0 and #sent == 0)
+  from("Slac-Jaw", "BCODE", "hello")
+  check("junk is dropped", #shown == 0)
+  from("Slac-Jaw", "BCODE", bcode)
+  eq("the poster's own code is shown for the program", shown[1], bcode)
+  check("and the poster is told", sent[1] and sent[1][1] == "RLY" and sent[1][2]:find(bcode, 1, true) == 1)
+  runTimers()
+  from("Slac-Jaw", "BCODE", bcode)
+  eq("the same code isn't shown twice", #shown, 1)
+
+  from("Grey", "RLY", other .. "\tGrey Warden")
+  eq("the maker hears that a relay has it", relayed[#relayed], other .. " by Grey Warden")
+  from("Slac-Jaw", "BCODE", other)
+  eq("a code another relay already has is left to them", #shown, 1)
+
+  check("a relay carries its own bounties itself", ns.RelayQueue(mine) == true)
+  runTimers()
+  runTimers()
+
+  -- The pack the program left in its data file is loaded and shared.
+  reset()
+  BountyLineDB.settings.relay = true
+  prints = {}
+  ns.RelayStart(serverTime - 30, single.input, serverTime)
+  check("the relay's pack is stored at login", BountyLineDB.pack ~= nil and #BountyLineDB.pack.bounties == #single.fields.bounties)
+  check("and announced", #prints >= 1)
+  local stored = BountyLineDB.pack.packVersion
+  ns.RelayStart(serverTime - 30, "not a pack", serverTime)
+  eq("junk in the data file changes nothing", BountyLineDB.pack.packVersion, stored)
+
+  Comms.Send, ns.RelayShow = realSend, realShow
+  ns.RelayStart(nil, nil, serverTime)
+end
 
 -- ---------------------------------------------------------------- QR code on the stamp
 

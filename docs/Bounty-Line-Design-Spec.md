@@ -367,6 +367,8 @@ Prefix: `BountyLine` (≤16 chars). Messages are chunked (≤220 bytes of payloa
 | `KILL` | bounty id, killer name | The killer |
 | `PEND` | target GUID, name, class, faction, reward, poster, time | The poster, with `NEWB`. Guildies store a **pending bounty** (highlighted and huntable, no number yet) until a pack lists it or 48h pass |
 | `KILLP` | target GUID, killer name, target name | The killer of a pending bounty |
+| `BCODE` | a bounty code | Its maker, right after making it: offered to any relay officer online (Section 5.10) |
+| `RLY` | the bounty code, officer name | A relay officer who picked the code up. The maker's popup says there is nothing to paste; other relays leave that code alone |
 | `VER` | addon version (the release tag) | Every client on login; clients on a newer version answer older ones. Older clients are told to update (chat line once per session, note on the board) |
 
 **Trust rule:** only process messages arriving on `GUILD`. Optional setting: only accept `PACK` from guild ranks ≥ X (officer-only pack distribution).

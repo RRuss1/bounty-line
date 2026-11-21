@@ -84,6 +84,9 @@ end
 
 function ns.DeferredKills() return #deferred end
 
+-- True while a kill's stamp and screenshot are in progress (the relay waits its turn).
+function ns.KillBusy() return pending ~= nil end
+
 -- Click on the logo square: open the oldest waiting kill code, once the fight is over.
 function ns.OpenDeferredKill()
   if #deferred == 0 then return ns.UpdateKillToast(0) end
