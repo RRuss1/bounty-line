@@ -156,6 +156,13 @@ function ns.CopyLine(kind, name, detail, code)
   return COPY[kind]:format(name, detail, code)
 end
 
+-- The tidy label shown over the (invisible) code box in game: the line without the code.
+local DISPLAY = { B = "WANTED: %s · %s", K = "CLAIMED: %s · %s", L = "LINK: %s" }
+function ns.DisplayLine(line)
+  if not line then return "" end
+  return DISPLAY[line[1]]:format(line[2], line[3]) .. "  "
+end
+
 function ns.BuildLinkCode()
   local faction = FACTION_ID[UnitFactionGroup("player")]
   if not faction then return nil, "NEUTRAL", L.LINK_NO_FACTION end

@@ -95,6 +95,7 @@ ns.L = {
   POST_THIS = "Post this in the Discord Bounty Line chat:",
   POST_LINK = "Post this in the Discord Bounty Line chat once, so your kills count for you:",
   COPY_TIP = "Copy code",
+  CODE_HIDDEN = "|cff9a9a9a[code hidden: Ctrl+C copies it]|r",
   COPY_HINT = "Click the code, then press CTRL+C",
   SELECTED = "Selected! Now press CTRL+C",
   CLOSE = "Close",

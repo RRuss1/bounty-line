@@ -47,6 +47,15 @@ local function build()
   box:SetScript("OnEnterPressed", function() selectAll(true) end)
   f.box = box
 
+  -- The box's own text is invisible (it must hold the real line for Ctrl+C); a tidy label
+  -- sits on top instead, like the spoiler bar in Discord. The selection highlight still shows.
+  box:SetTextColor(1, 1, 1, 0)
+  f.label = box:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
+  f.label:SetPoint("LEFT", 2, 0)
+  f.label:SetPoint("RIGHT", -4, 0)
+  f.label:SetJustifyH("LEFT")
+  f.label:SetWordWrap(false)
+
   local copy = CreateFrame("Button", nil, c)
   copy:SetSize(26, 26)
   copy:SetPoint("LEFT", box, "RIGHT", 8, 0)
@@ -107,6 +116,7 @@ function ns.ShowCode(opts)
   frame.note:SetText(opts.note or "")
   frame.box:SetText(frame.code)
   frame.box:SetCursorPosition(0)
+  frame.label:SetText(ns.DisplayLine(line) .. L.CODE_HIDDEN)
   frame:Show()
   -- Open already selected, so the fastest path is just Ctrl+C.
   selectAll(true)
