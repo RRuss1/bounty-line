@@ -6,6 +6,7 @@ import type { Env } from "./env";
 import { gatewayState } from "./gateway";
 import { log } from "./log";
 import { refreshPack } from "./pack";
+import { cancel, leaderboard, me } from "./stats";
 import { codeLimiter } from "./ratelimit";
 import type { DiscordRest, ForumTag } from "./rest";
 import { audit, boardCounts, FORUM_TAGS, getTenant, patchConfig, upsertTenant, type ForumTagKey, type Tenant } from "./tenants";
@@ -44,6 +45,28 @@ export async function runCommand(
       return setup(interaction, env, rest, guildId, o, now);
     case "status":
       return { reply: await status(interaction, env, guildId) };
+    case "leaderboard": {
+      const tenant = await getTenant(env.DB, guildId);
+      if (!tenant) return { reply: reply("This server isn't set up yet. An admin needs to run `/bl setup`.") };
+      // Public, so the whole channel sees it; never pings.
+      return { reply: { type: 4, data: { content: await leaderboard(env, tenant, now), allowed_mentions: { parse: [] } } } };
+    }
+    case "me":
+      return {
+        defer: async () => {
+          const tenant = await getTenant(env.DB, guildId);
+          return tenant ? me(env, tenant, actorOf(interaction)) : "This server isn't set up yet.";
+        },
+      };
+    case "cancel":
+      return {
+        defer: async () => {
+          const tenant = await getTenant(env.DB, guildId);
+          if (!tenant) return "This server isn't set up yet.";
+          const user = { id: actorOf(interaction), roles: interaction.member?.roles ?? [], isAdmin: hasAdmin(interaction) };
+          return cancel(env, rest, tenant, Number(o.id), user, now);
+        },
+      };
     case "pack":
       return { defer: () => pack(env, rest, guildId, now) };
     case "submit":

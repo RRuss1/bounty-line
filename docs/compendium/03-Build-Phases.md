@@ -162,6 +162,8 @@ Tag each phase `v0.<phase>.0` (e.g. `v0.2.0`).
 
 ## Phase 6: Automation & polish
 
+> Split for delivery (2026-11-21): **6a** = AI check, verdicts and trust, leaderboard / me / cancel, expiry + weekly recap crons. **6b** = stacking, `/bl config`, `/bl forget-me`, R2 lifecycle. (Paid / Received shipped early, in Phase 4.)
+
 **Deliverables**
 - Workers AI stamp reader (vision model) → structured fields → compare to code; `AI_DAILY_CAP`; checks recorded in `kills.checks_json`.
 - Verdicts: auto-approve / officer review per `auto_approve` setting and trust levels.

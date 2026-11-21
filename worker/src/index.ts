@@ -14,6 +14,7 @@ import { ensureGateway, gatewayState } from "./gateway";
 import { runCommand } from "./interactions";
 import { log } from "./log";
 import { DiscordRest } from "./rest";
+import { expirySweep, weeklyRecap } from "./stats";
 import { VERSION } from "./version";
 
 export { GatewayDO } from "./gateway";
@@ -36,12 +37,20 @@ export default {
   },
 
   /** Every minute: keep the Gateway connected (spec 7.2). Budget mode never starts it. */
-  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(
-      ensureGateway(env).catch((e) => {
-        log(env, "error", "cron.gateway_failed", { error: String(e) });
-      }),
-    );
+  /**
+   * Every minute: keep the Gateway connected (spec 7.2; budget mode never starts it).
+   * Hourly: expire old bounties. Sundays 17:00 UTC: the weekly recap.
+   */
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    const now = Math.floor(controller.scheduledTime / 1000);
+    const failed = (job: string) => (e: unknown) => log(env, "error", `cron.${job}_failed`, { error: String(e) });
+    if (controller.cron === "0 * * * *") {
+      ctx.waitUntil(expirySweep(env, new DiscordRest(env.DISCORD_TOKEN), now).catch(failed("expiry")));
+    } else if (controller.cron === "0 17 * * SUN") {
+      ctx.waitUntil(weeklyRecap(env, new DiscordRest(env.DISCORD_TOKEN), now).catch(failed("recap")));
+    } else {
+      ctx.waitUntil(ensureGateway(env).catch(failed("gateway")));
+    }
   },
 } satisfies ExportedHandler<Env>;
 
