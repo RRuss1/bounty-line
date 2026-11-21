@@ -894,7 +894,7 @@ cd bounty-line
 - **Branches → protect `main`:** require pull request + passing CI (even solo, this prevents accidental pushes from breaking the live bot).
 - **Actions → secrets** (add as you reach each step):
   - `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` (Section 18)
-  - `CF_API_KEY` (CurseForge upload token, Section 19)
+  - `CF_API_TOKEN` (CurseForge upload token, Section 19)
   - `DISCORD_TOKEN`, `DISCORD_APP_ID` (only for the command-registration workflow)
 - Add a `.dev.vars` file locally for Worker secrets. It's in `.gitignore` and **never committed**.
 
@@ -980,7 +980,7 @@ wrangler deploy
    - **Description:** what it does, the code workflow, screenshots/GIF, link to GitHub + bot invite + setup guide. Per CurseForge guidelines, keep promo links (Discord, socials) **below** the main description and modestly sized.
    - **Source:** link the GitHub repo.
 4. Save and note the **Project ID** → put it in the TOC as `## X-Curse-Project-ID: <id>`.
-5. Account settings → **API tokens** → create one → GitHub secret `CF_API_KEY`.
+5. **https://authors.curseforge.com/#/settings/api-tokens** → create a token → GitHub secret `CF_API_TOKEN` (the name the BigWigs packager reads).
 
 ### 19.2 Automated releases with the BigWigs packager
 `.github/workflows/addon-release.yml`:
@@ -993,7 +993,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     env:
-      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
       GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
