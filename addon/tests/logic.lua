@@ -518,8 +518,8 @@ ns.ShowCode = function(popup) shown[#shown + 1] = popup end
 ns.ShowStamp = function() end
 ns.HideStamp = function() end
 local toast = { shown = 0, waiting = 0 }
-ns.ShowKillToast = function(n) toast.shown, toast.waiting = toast.shown + 1, n end
-ns.UpdateKillToast = function(n) toast.waiting = n end
+ns.ShowKillToast = function(count) toast.shown, toast.waiting = toast.shown + 1, count end
+ns.UpdateKillToast = function(count) toast.waiting = count end
 timers = {}
 local K = ns._kills
 K.start({ id = 21, name = "First Target", reward = 5 }, VICTIM, false, false)
