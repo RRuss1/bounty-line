@@ -14,7 +14,7 @@ local function selectAll(selected)
 end
 
 local function build()
-  local f = ns.CreateWindow("BountyLineCodePopup", WIDTH, 268, L.ADDON)
+  local f = ns.CreateWindow("BountyLineCodePopup", WIDTH, 280, L.ADDON)
   local c = f.content
 
   f.heading = ns.Text(c, "heading")
