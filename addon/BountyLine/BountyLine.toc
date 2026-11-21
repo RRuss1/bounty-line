@@ -6,7 +6,7 @@
 ## X-Curse-Project-ID: 1820212
 ## SavedVariables: BountyLineDB
 ## SavedVariablesPerCharacter: BountyLineCharDB
-## IconTexture: Interface\Icons\INV_Misc_Bone_HumanSkull_01
+## IconTexture: Interface\AddOns\BountyLine\Media\logo
 ## AddonCompartmentFunc: BountyLine_OnAddonCompartmentClick
 ## AddonCompartmentFuncOnEnter: BountyLine_OnAddonCompartmentEnter
 ## AddonCompartmentFuncOnLeave: BountyLine_OnAddonCompartmentLeave

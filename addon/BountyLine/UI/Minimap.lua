@@ -5,7 +5,7 @@
 local _, ns = ...
 local L = ns.L
 
-local ICON = "Interface\\Icons\\INV_Misc_Bone_HumanSkull_01"
+local ICON = "Interface\\AddOns\\BountyLine\\Media\\logo" -- the Bounty Line logo
 local button
 
 local function settings() return BountyLineDB.settings.minimap end
@@ -60,7 +60,6 @@ local function build()
   icon:SetSize(18, 18)
   icon:SetPoint("TOPLEFT", 7, -6)
   icon:SetTexture(ICON)
-  icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 
   local border = b:CreateTexture(nil, "OVERLAY")
   border:SetSize(50, 50)
