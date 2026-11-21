@@ -495,6 +495,10 @@ on MESSAGE_CREATE (channel == tenant.bountyLineChannel, author not a bot):
     decode → checksum fail? reply "That code looks cut off. Copy it again with /bl last"
     B → createBounty()
     K → requires an image attachment → submitKill()
+  no code in the text, but a PNG/JPG attached (≤ 12 MB, first one only):
+    read the QR code the addon's proof stamp draws (lower left, under the band)
+    a K code → handled as if pasted; anything else, or no QR code → ignore (ordinary picture)
+    scans are rate limited per user; over the limit the picture is ignored silently
     P → ignore (packs flow Discord → game only)
   react ✅ on success (no reply: the poster, thread and pinned pack carry the details)
   react ❌ on failure and reply with the reason (the reply deletes itself after 60s)
