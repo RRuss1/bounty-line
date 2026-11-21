@@ -64,6 +64,7 @@ ns.L = {
   M_HELP = "Help (list commands)",
   M_DEBUG = "Debug",
   M_DEBUG_INFO = "Print debug info",
+  M_DEBUG_SOUNDS = "Play every sound",
 
   -- settings
   OPT_TITLE = "Bounty Line Settings",

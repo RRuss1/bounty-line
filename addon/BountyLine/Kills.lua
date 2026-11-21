@@ -90,6 +90,7 @@ function ns.OpenDeferredKill()
   if not popupAllowed() then return ns.Print(L.KILL_WAIT) end
   local popup = table.remove(deferred, 1)
   ns.UpdateKillToast(#deferred)
+  ns.Sound("codeReady")
   ns.ShowCode(popup)
 end
 
@@ -117,7 +118,8 @@ local function finish(shot)
       ns.Comms.Kill(k.bounty.id, ns.FullName("player"))
     end
     ns.RefreshMarks()
-    ns.Banner(L.BANNER_KILL:format(ns.FullName("player"), k.bounty.name, ns.BoardName()))
+    ns.Sound("kill")
+    ns.Banner(L.BANNER_KILL:format(ns.FullName("player"), k.bounty.name, ns.BoardName()), false)
     local kills = BountyLineCharDB.kills
     table.insert(kills, 1, {
       code = k.code, bountyId = k.bounty.id, name = k.bounty.name, reward = k.bounty.reward, t = k.killedAt, shot = shot,

@@ -46,17 +46,19 @@ local function build()
   return f
 end
 
-function ns.Banner(text)
+-- sound: the event to play with it (see ns.SOUNDS in Core.lua); false for a silent banner.
+function ns.Banner(text, sound)
   local settings = BountyLineDB.settings
   if settings.banners == false then return end
   frame = frame or build()
   if frame:IsShown() then
-    queue[#queue + 1] = text
+    queue[#queue + 1] = { text, sound }
     return
   end
+  if type(text) == "table" then text, sound = text[1], text[2] end
   frame.text:SetText(text)
   frame:SetAlpha(1)
   frame:Show()
   frame.anim:Play()
-  ns.Sound(SOUNDKIT.RAID_WARNING)
+  if sound ~= false then ns.Sound(sound or "create") end
 end
