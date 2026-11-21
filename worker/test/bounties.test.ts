@@ -92,9 +92,8 @@ describe("posting a bounty from #bounty-line", () => {
     expect(row!.thread_id).toBeTruthy();
 
     expect(reactions()).toEqual(["✅"]);
-    expect(replies()[0]).toContain(`Bounty #${row!.id}`);
-    expect(replies()[0]).toMatch(/\[Bounty Pack\]\(https:\/\/discord\.com\/channels\/\d+\/\d+\/\d+\) updated/); // links the pinned pack
-    expect(later).toEqual([]); // success replies stay
+    expect(replies()).toEqual([]); // success is the reaction alone: no reply in the channel
+    expect(later).toEqual([]);
   });
 
   it("attaches the parchment poster as a plain attachment, so it becomes the forum card's cover", async () => {
@@ -176,14 +175,14 @@ describe("posting a bounty from #bounty-line", () => {
     await say(c);
     await say(c);
     expect(bountyRows()).toHaveLength(1);
-    expect(replies()[1]).toBe("❌ That code was already used.");
+    expect(replies()[0]).toBe("❌ That code was already used.");
   });
 
   it("refuses a second bounty on the same target for now", async () => {
     await say(code());
     await say(code({ nonce: 1, rewardGold: 50 }));
     expect(bountyRows()).toHaveLength(1);
-    expect(replies()[1]).toContain("already a bounty on Grimlok Ashveil");
+    expect(replies()[0]).toContain("already a bounty on Grimlok Ashveil");
   });
 
   it("rolls back the bounty if the poster can't be created", async () => {

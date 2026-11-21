@@ -45,6 +45,8 @@ local RIGHT = {
   { "check", "debugKills", L.OPT_DEBUG_KILLS },
 }
 
+local COLUMN_WIDTH = 400
+
 local function makeCheck(parent, row, x, y)
   local key = row[2]
   local get = row.get or function() return S()[key] ~= false and S()[key] ~= nil end
@@ -54,6 +56,8 @@ local function makeCheck(parent, row, x, y)
   box:SetPoint("TOPLEFT", x, y)
   local label = ns.Text(parent, "body", 13)
   label:SetPoint("LEFT", box, "RIGHT", 4, 0)
+  label:SetWidth(COLUMN_WIDTH - 32) -- never past the window's edge
+  label:SetWordWrap(false)
   label:SetText(row[3])
   box:SetScript("OnClick", function(self)
     set(self:GetChecked() and true or false)
@@ -99,10 +103,10 @@ local function column(parent, rows, x)
 end
 
 local function build()
-  local f = ns.CreateWindow("BountyLineOptions", 760, 440, L.OPT_TITLE)
+  local f = ns.CreateWindow("BountyLineOptions", 860, 440, L.OPT_TITLE)
   local c = f.content
   column(c, LEFT, 10)
-  column(c, RIGHT, 350)
+  column(c, RIGHT, 370)
 
   local function button(text, x, onClick)
     local b = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")

@@ -496,7 +496,8 @@ on MESSAGE_CREATE (channel == tenant.bountyLineChannel, author not a bot):
     B → createBounty()
     K → requires an image attachment → submitKill()
     P → ignore (packs flow Discord → game only)
-  react ✅ on success / ❌ on failure, reply with details (auto-delete error replies after 60s)
+  react ✅ on success (no reply: the poster, thread and pinned pack carry the details)
+  react ❌ on failure and reply with the reason (the reply deletes itself after 60s)
 ```
 
 ### 7.5 Slash commands (HTTP interactions)
