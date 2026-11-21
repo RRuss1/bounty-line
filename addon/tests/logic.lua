@@ -164,6 +164,8 @@ eq("bounty copy line", ns.CopyLine("B", "Grimlok Ashveil", "500g", "BL1-B-XYZ-AB
 eq("kill copy line", ns.CopyLine("K", "Grimlok Ashveil", "Bounty #7", "BL1-K-XYZ-ABCD"),
   "CLAIMED: **Grimlok Ashveil** · Bounty #7 ||||BL1-K-XYZ-ABCD||||")
 eq("link copy line", ns.CopyLine("L", "Slac Jaw", nil, "BL1-L-XYZ-ABCD"), "LINK: **Slac Jaw** ||||BL1-L-XYZ-ABCD||||")
+eq("in-game label hides the code", ns.DisplayLine({ "B", "Grimlok Ashveil", "500g" }), "WANTED: Grimlok Ashveil · 500g  ")
+eq("no line, no label text", ns.DisplayLine(nil), "")
 local real = ns.BuildBountyCode(snap, 500)
 check("the code inside the line is intact", ns.CopyLine("B", "x", "1g", real):find("||||" .. real .. "||||", 1, true) ~= nil)
 
