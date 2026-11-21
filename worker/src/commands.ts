@@ -1,6 +1,6 @@
 /** Slash command definitions, shared by the router and scripts/register-commands.ts. */
 
-export const OptionType = { SUB_COMMAND: 1, STRING: 3, INTEGER: 4, CHANNEL: 7, ROLE: 8, ATTACHMENT: 11 } as const;
+export const OptionType = { SUB_COMMAND: 1, STRING: 3, INTEGER: 4, BOOLEAN: 5, CHANNEL: 7, ROLE: 8, ATTACHMENT: 11 } as const;
 export const ChannelType = { GUILD_TEXT: 0, GUILD_FORUM: 15 } as const;
 
 export const COMMANDS = [
@@ -47,6 +47,37 @@ export const COMMANDS = [
       { type: OptionType.SUB_COMMAND, name: "pack", description: "Update the pinned Bounty Pack and link to it (for /bl import in game)" },
       { type: OptionType.SUB_COMMAND, name: "leaderboard", description: "Top hunters, most wanted and biggest payers" },
       { type: OptionType.SUB_COMMAND, name: "me", description: "Your kills, trust level, open bounties and pending payments" },
+      {
+        type: OptionType.SUB_COMMAND,
+        name: "config",
+        description: "Admin: show or change this board's settings",
+        options: [
+          { type: OptionType.INTEGER, name: "reward_min", description: "Smallest reward in gold", min_value: 1 },
+          { type: OptionType.INTEGER, name: "reward_max", description: "Biggest reward in gold", min_value: 1 },
+          { type: OptionType.INTEGER, name: "expiry_days", description: "Days a bounty stays open (1-60)", min_value: 1, max_value: 60 },
+          { type: OptionType.INTEGER, name: "proof_window_hours", description: "Hours to post a kill (1-168)", min_value: 1, max_value: 168 },
+          {
+            type: OptionType.STRING,
+            name: "auto_approve",
+            description: "Which clean kill claims approve themselves",
+            choices: [
+              { name: "off (officers review everything)", value: "off" },
+              { name: "trusted hunters only", value: "trusted_only" },
+              { name: "all clean claims", value: "all_clean" },
+            ],
+          },
+          { type: OptionType.INTEGER, name: "trust_threshold", description: "Approved kills in a row to become trusted", min_value: 1, max_value: 50 },
+          { type: OptionType.BOOLEAN, name: "allow_stacking", description: "Let several players add gold to one bounty" },
+          { type: OptionType.BOOLEAN, name: "weekly_recap", description: "Post the Sunday recap" },
+          { type: OptionType.CHANNEL, name: "hall_of_fame", description: "Channel for the weekly recap", channel_types: [ChannelType.GUILD_TEXT] },
+        ],
+      },
+      {
+        type: OptionType.SUB_COMMAND,
+        name: "forget-me",
+        description: "Delete your links and stats from this Bounty Board",
+        options: [{ type: OptionType.BOOLEAN, name: "confirm", description: "Yes, delete my data", required: true }],
+      },
       {
         type: OptionType.SUB_COMMAND,
         name: "cancel",

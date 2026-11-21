@@ -106,6 +106,8 @@ export class DiscordRest {
   /** Archive and lock a finished bounty's thread. */
   closeThread = (threadId: string) => this.request("PATCH", `/channels/${threadId}`, { archived: true, locked: true });
 
+  renameThread = (threadId: string, name: string) => this.request("PATCH", `/channels/${threadId}`, { name });
+
   setThreadTags = (threadId: string, tagIds: string[]) => this.request("PATCH", `/channels/${threadId}`, { applied_tags: tagIds });
 
   /** Rewrites a wanted poster post; with an image, it replaces the old picture. */

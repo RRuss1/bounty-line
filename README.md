@@ -97,6 +97,8 @@ Click **Sync fork** on GitHub. Your deploy workflow applies database migrations 
 | `/bl leaderboard` | Anyone | Top hunters, most wanted, biggest payers |
 | `/bl me` | Anyone | Your kills, trust level, open bounties and payments |
 | `/bl cancel` | Poster or officer | Cancel an open bounty |
+| `/bl forget-me` | Anyone | Delete your links and stats from this board |
+| `/bl config` | Admins | Rewards, expiry, auto-approve, stacking, weekly recap |
 | `/bl setup`, `/bl status` | Admins | Connect channels and roles; deployment status |
 
 Clean kill claims from **trusted** hunters (5 approved kills in a row) are approved automatically once the AI has read the screenshot's stamp; everything else goes to your officers.

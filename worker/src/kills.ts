@@ -93,7 +93,10 @@ export async function claimKill(
   if (b.status !== "open" || b.expires_at <= now) return fail("CLOSED", `Bounty #${b.id} is no longer open.`);
   if (k.victimGUID !== b.target_guid) return fail("MISMATCH", `That kill wasn't on ${escapeMd(b.target_name ?? "the target")} (bounty #${b.id}).`);
   if (k.killerFaction === factionId(b.faction)) return fail("FACTION", "Bounties must be on the opposite faction.");
-  if (b.poster_guid && k.killerGUID === b.poster_guid) return fail("SELF", "You can't claim your own bounty.");
+  const contributor = await env.DB.prepare("SELECT 1 FROM contributions WHERE tenant_id = ?1 AND bounty_id = ?2 AND poster_guid = ?3")
+    .bind(tenant.id, b.id, k.killerGUID)
+    .first();
+  if ((b.poster_guid && k.killerGUID === b.poster_guid) || contributor) return fail("SELF", "You can't claim your own bounty.");
   if (await env.DB.prepare("SELECT 1 FROM kills WHERE code = ?1").bind(code).first()) return fail("DUPLICATE", "That code was already used.");
 
   // 2. The screenshot (check 4): one PNG/JPG under 25 MB, never seen before.
@@ -228,13 +231,18 @@ const STATUS_TAG: Record<string, ForumTagKey> = {
 
 /** Moves a bounty to a new status: database, forum tag, poster picture, then the Bounty Pack. */
 export async function setBountyStatus(env: Env, rest: DiscordRest, tenant: Tenant, b: BountyRow, status: PosterStatus, now: number): Promise<void> {
-  await env.DB.prepare("UPDATE bounties SET status = ?1 WHERE id = ?2 AND tenant_id = ?3").bind(status, b.id, tenant.id).run();
+  const closed = status === "paid" || status === "expired" || status === "cancelled";
+  await env.DB.prepare("UPDATE bounties SET status = ?1, closed_at = CASE WHEN ?4 THEN ?5 ELSE closed_at END WHERE id = ?2 AND tenant_id = ?3")
+    .bind(status, b.id, tenant.id, closed ? 1 : 0, now)
+    .run();
   const updated = { ...b, status };
   if (b.thread_id) {
     const tag = tenant.config.forum_tags[STATUS_TAG[status]!];
     if (tag) await rest.setThreadTags(b.thread_id, [tag]).catch((e) => log(env, "warn", "bounty.tag_failed", { tenant_id: tenant.id, error: String(e) }));
     try {
       const post = rowToPost(updated);
+      const { n } = (await env.DB.prepare("SELECT COUNT(*) AS n FROM contributions WHERE tenant_id = ?1 AND bounty_id = ?2").bind(tenant.id, b.id).first<{ n: number }>()) ?? { n: 1 };
+      if (n > 1) post.posterName = `${post.posterName} +${n - 1}`; // stacked: "paid by Slac Jaw +2"
       const poster = wantedPoster(post, { id: b.id, expiresAt: b.expires_at, postedBy: b.poster_discord_id ?? "", tenant, status });
       const image = await wantedPosterImage(env, post, { id: b.id, expiresAt: b.expires_at, tenant, status });
       // The forum post's first message has the thread's id.
@@ -344,7 +352,7 @@ async function onApproved(env: Env, rest: DiscordRest, tenant: Tenant, b: Bounty
       .run();
   }
   await setBountyStatus(env, rest, tenant, b, "awaiting_payment", now);
-  await postPaymentPrompt(rest, b, killId, hunterId).catch((e) =>
+  await postPaymentPrompt(env, rest, b, killId, hunterId).catch((e) =>
     log(env, "warn", "bounty.payment_prompt_failed", { tenant_id: tenant.id, error: String(e) }),
   );
 }

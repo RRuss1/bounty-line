@@ -257,3 +257,132 @@ describe("crons", () => {
     expect(await weeklyRecap(env, new DiscordRest("t"), NOW)).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------- Phase 6b
+
+describe("stacking (Add to Bounty…)", () => {
+  const STACKER = "700000000000000555";
+  const stack = (f: Partial<BountyPost> = {}) =>
+    encode("B", bounty({ mode: 1, existingBountyId: bountyId, rewardGold: 200, posterGUID: "Player-4395-0BADF00D", posterName: "Vexa Night", nonce: ++seq, ...f }));
+  const contribs = () => db.sqlite.prepare("SELECT poster_discord_id, reward_gold, paid_at FROM contributions ORDER BY id").all();
+
+  it("adds gold to the open bounty: total, contributors, renamed thread, redrawn poster", async () => {
+    await say(stack(), [], STACKER);
+    expect((db.sqlite.prepare("SELECT reward_gold FROM bounties WHERE id = ?").get(bountyId) as { reward_gold: number }).reward_gold).toBe(700);
+    expect(contribs()).toEqual([
+      { poster_discord_id: POSTER_USER, reward_gold: 500, paid_at: null },
+      { poster_discord_id: STACKER, reward_gold: 200, paid_at: null },
+    ]);
+    expect(discord.find("PATCH", new RegExp(`^/channels/${threadId}$`)).map((c) => c.body)).toContainEqual({ name: "☠️ Grimlok Ashveil · 700g" });
+    expect(JSON.stringify(discord.find("PATCH", new RegExp(`/channels/${threadId}/messages/${threadId}$`)).at(-1)!.body)).toContain("Slac Jaw +1");
+    expect(replies().at(-1)).toContain("added **200g** to bounty #1");
+    expect(replies().at(-1)).toContain("now **700g**");
+  });
+
+  it("a second plain bounty on the same target points at Add to Bounty", async () => {
+    await say(encode("B", bounty({ nonce: ++seq })), [], STACKER);
+    expect(replies().at(-1)).toContain("Add to Bounty");
+  });
+
+  it("refuses stacking when the board turns it off, a wrong target, or a closed bounty", async () => {
+    setConfig("allow_stacking", false);
+    await say(stack(), [], STACKER);
+    expect(replies().at(-1)).toContain("doesn't allow adding gold");
+    setConfig("allow_stacking", true);
+    await say(stack({ targetGUID: "Player-4395-0B0B0B0B" }), [], STACKER);
+    expect(replies().at(-1)).toContain("isn't for bounty #1");
+    db.sqlite.prepare("UPDATE bounties SET status = 'paid'").run();
+    await say(stack(), [], STACKER);
+    expect(replies().at(-1)).toContain("no longer open");
+    expect(contribs()).toHaveLength(1);
+  });
+
+  it("contributors can't claim it, and everyone who put gold in pays their share", async () => {
+    await say(stack(), [], STACKER);
+    await say(kill({ killerGUID: "Player-4395-0BADF00D" }), [shot()], STACKER);
+    expect(replies().at(-1)).toContain("You can't claim your own bounty.");
+
+    await say(kill(), [shot()], HUNTER_USER);
+    const id = Number(lastKill().id);
+    await call(env, button(`kill:approve:${id}`, OFFICER, [ids.role]));
+    const prompt = discord.find("POST", new RegExp(`/channels/${threadId}/messages$`)).at(-1)!.body as { content: string; allowed_mentions: { users: string[] } };
+    expect(prompt.content).toContain(`<@${POSTER_USER}> pays **500g**`);
+    expect(prompt.content).toContain(`<@${STACKER}> pays **200g**`);
+    expect(prompt.allowed_mentions.users.sort()).toEqual([HUNTER_USER, POSTER_USER, STACKER].sort());
+
+    await call(env, button(`pay:paid:${id}`, POSTER_USER));
+    await call(env, button(`pay:received:${id}`, HUNTER_USER));
+    expect(status()).toBe("awaiting_payment"); // the stacker hasn't paid yet
+    await call(env, button(`pay:paid:${id}`, STACKER));
+    expect(status()).toBe("paid");
+    expect(db.sqlite.prepare("SELECT gold_earned FROM hunters WHERE discord_user_id = ?").get(HUNTER_USER)).toEqual({ gold_earned: 700 });
+  });
+});
+
+describe("/bl config", () => {
+  const cfg = (options: { name: string; type: number; value: string }[], perms = String(1n << 5n)) => command(GUILD_A, "config", options, perms);
+
+  it("admins only", async () => {
+    const r = await call(env, cfg([], "0"));
+    expect(r.content).toContain("Only server admins");
+  });
+
+  it("shows settings with no options, saves valid ones, and refreshes the pack when limits change", async () => {
+    await call(env, cfg([]));
+    expect(discord.followups().at(-1)).toContain("Rewards: 1g to 10,000g");
+    discord.calls = [];
+    await call(env, cfg([
+      { name: "reward_max", type: 4, value: "5000" },
+      { name: "auto_approve", type: 3, value: "all_clean" },
+      { name: "allow_stacking", type: 5, value: "false" },
+    ]));
+    expect(discord.followups().at(-1)).toContain("Settings saved");
+    const config = JSON.parse((db.sqlite.prepare("SELECT config_json FROM tenants").get() as { config_json: string }).config_json);
+    expect(config).toMatchObject({ reward_max: 5000, auto_approve: "all_clean", allow_stacking: false });
+    expect(discord.find("PATCH", new RegExp(`/channels/${ids.line}/messages/\\d+$`)).length).toBeGreaterThan(0); // pack updated
+  });
+
+  it("rejects bad values and saves nothing", async () => {
+    await call(env, cfg([{ name: "reward_min", type: 4, value: "9000" }, { name: "reward_max", type: 4, value: "100" }]));
+    expect(discord.followups().at(-1)).toContain("can't be above");
+    expect(JSON.parse((db.sqlite.prepare("SELECT config_json FROM tenants").get() as { config_json: string }).config_json).reward_max).toBeUndefined();
+  });
+});
+
+describe("/bl forget-me and proof cleanup", () => {
+  it("needs confirm, then deletes links and stats, and anonymises closed bounties", async () => {
+    db.sqlite.prepare("INSERT INTO characters (tenant_id, guid, name, discord_user_id) VALUES (?, ?, 'Hunter', ?)").run(GUILD_A, HUNTER, HUNTER_USER);
+    db.sqlite.prepare("INSERT INTO hunters (tenant_id, discord_user_id, approved) VALUES (?, ?, 3)").run(GUILD_A, HUNTER_USER);
+    await say(kill(), [shot()], HUNTER_USER);
+    db.sqlite.prepare("UPDATE bounties SET status = 'paid'").run();
+    const key = String(lastKill().image_r2_key);
+    const r2 = (env.PROOFS as unknown as { objects: Map<string, unknown>; delete?: unknown }).objects;
+    expect(r2.has(key)).toBe(true);
+
+    const forget = (confirm: string) => ({
+      ...command(GUILD_A, "forget-me", [{ name: "confirm", type: 5, value: confirm }], "0"),
+      member: { user: { id: HUNTER_USER }, permissions: "0" },
+    });
+    expect((await call(env, forget("false"))).content).toContain("Nothing deleted");
+    await call(env, forget("true"));
+    expect(discord.followups().at(-1)).toContain("Your character links and stats are deleted");
+    expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM characters").get()).toEqual({ n: 0 });
+    expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM hunters").get()).toEqual({ n: 0 });
+    expect(lastKill()).toMatchObject({ killer_discord_id: null, killer_name: null, image_r2_key: null });
+    expect(r2.has(key)).toBe(false);
+  });
+
+  it("deletes proof screenshots PROOF_RETENTION_DAYS after the bounty closes", async () => {
+    await say(kill(), [shot()], HUNTER_USER);
+    const key = String(lastKill().image_r2_key);
+    const r2 = (env.PROOFS as unknown as { objects: Map<string, unknown> }).objects;
+    db.sqlite.prepare("UPDATE bounties SET status = 'paid', closed_at = ?").run(NOW - 10 * 86400);
+    env.PROOF_RETENTION_DAYS = "30";
+    await expirySweep(env, new DiscordRest("t"), NOW);
+    expect(r2.has(key)).toBe(true);
+    env.PROOF_RETENTION_DAYS = "7";
+    await expirySweep(env, new DiscordRest("t"), NOW);
+    expect(r2.has(key)).toBe(false);
+    expect(lastKill().image_r2_key).toBeNull();
+  });
+});

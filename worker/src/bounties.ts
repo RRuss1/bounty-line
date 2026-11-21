@@ -3,7 +3,7 @@
  * Callers have already passed the allowlist check and loaded the tenant.
  */
 import { decode, type BountyPost } from "./codec";
-import { claimKill, linkCharacter, type Attachment } from "./kills";
+import { claimKill, linkCharacter, setBountyStatus, type Attachment, type BountyRow } from "./kills";
 import type { Env } from "./env";
 import { log } from "./log";
 import { refreshPack } from "./pack";
@@ -46,6 +46,8 @@ async function postBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bounty
 
   const DUPLICATE = { ok: false as const, code: "DUPLICATE", message: "That code was already used." };
   if (await env.DB.prepare("SELECT 1 FROM bounties WHERE source_code = ?1").bind(code).first()) return DUPLICATE;
+  if (await env.DB.prepare("SELECT 1 FROM contributions WHERE source_code = ?1").bind(code).first()) return DUPLICATE;
+  if (b.mode === 1) return stackBounty(env, rest, tenant, b, code, authorId, now);
 
   const existing = await env.DB.prepare(
     "SELECT id FROM bounties WHERE tenant_id = ?1 AND target_guid = ?2 AND status IN ('open', 'review', 'awaiting_payment')",
@@ -56,7 +58,9 @@ async function postBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bounty
     return {
       ok: false,
       code: "EXISTS",
-      message: `There's already a bounty on ${escapeMd(b.targetName)} (#${existing.id}). Adding gold to it arrives in a later update.`,
+      message: tenant.config.allow_stacking
+        ? `There's already a bounty on ${escapeMd(b.targetName)} (#${existing.id}). To add gold, right-click them in game → **Add to Bounty…**.`
+        : `There's already a bounty on ${escapeMd(b.targetName)} (#${existing.id}).`,
     };
   }
 
@@ -118,6 +122,7 @@ async function postBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bounty
   }
 
   await env.DB.prepare("UPDATE bounties SET thread_id = ?1 WHERE id = ?2 AND tenant_id = ?3").bind(threadId, id, tenant.id).run();
+  await addContribution(env, tenant, id, b, code, authorId, now);
   await audit(env.DB, tenant.id, authorId, "bounty.create", { id, target: b.targetGUID, reward: b.rewardGold }, now);
   log(env, "info", "bounty.created", { tenant_id: tenant.id, bounty_id: id, outcome: "ok" });
   // The pinned pack is edited in place, so it never shows at the bottom of the channel: link it.
@@ -130,5 +135,46 @@ async function postBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bounty
       `${SKULL} Bounty #${id} on **${escapeMd(b.targetName)}** for **${gold(b.rewardGold)}** is up: <#${threadId}>`,
       ...(packLink ? [`📦 [Bounty Pack](${packLink}) updated: copy it and type \`/bl import\` in game.`] : []),
     ].join("\n"),
+  };
+}
+
+// ---------------------------------------------------------------- stacking (spec 10)
+
+async function addContribution(env: Env, tenant: Tenant, bountyId: number, b: BountyPost, code: string, authorId: string, now: number) {
+  await env.DB.prepare(
+    `INSERT INTO contributions (tenant_id, bounty_id, poster_discord_id, poster_name, poster_guid, reward_gold, source_code, created_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
+  )
+    .bind(tenant.id, bountyId, authorId, b.posterName, b.posterGUID, b.rewardGold, code, now)
+    .run();
+}
+
+/** "Add to Bounty…" (B code, mode 1): more gold on an open bounty. Each contributor pays their share. */
+async function stackBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: BountyPost, code: string, authorId: string, now: number): Promise<Outcome> {
+  if (!tenant.config.allow_stacking) return { ok: false, code: "STACK", message: "This Bounty Board doesn't allow adding gold to bounties." };
+  const row = await env.DB.prepare("SELECT * FROM bounties WHERE id = ?1 AND tenant_id = ?2").bind(b.existingBountyId, tenant.id).first<BountyRow>();
+  if (!row) return { ok: false, code: "CLOSED", message: `Bounty #${b.existingBountyId} isn't on this Bounty Board.` };
+  if (row.target_guid !== b.targetGUID) return { ok: false, code: "MISMATCH", message: `That code isn't for bounty #${row.id}'s target.` };
+  if (row.status !== "open" || row.expires_at <= now) return { ok: false, code: "CLOSED", message: `Bounty #${row.id} is no longer open.` };
+  try {
+    await addContribution(env, tenant, row.id, b, code, authorId, now);
+  } catch (e) {
+    if (String(e).includes("contributions.source_code")) return { ok: false, code: "DUPLICATE", message: "That code was already used." };
+    throw e;
+  }
+  await env.DB.prepare("UPDATE bounties SET reward_gold = reward_gold + ?1 WHERE id = ?2 AND tenant_id = ?3").bind(b.rewardGold, row.id, tenant.id).run();
+  const total = row.reward_gold + b.rewardGold;
+  const updated = { ...row, reward_gold: total };
+  // Same status: this redraws the poster with the new total and refreshes the pack.
+  await setBountyStatus(env, rest, tenant, updated, "open", now);
+  if (row.thread_id) {
+    await rest.renameThread(row.thread_id, `${SKULL} ${row.target_name ?? "Unknown"} · ${gold(total)}`.slice(0, 100)).catch(() => undefined);
+  }
+  await audit(env.DB, tenant.id, authorId, "bounty.stack", { id: row.id, added: b.rewardGold, total }, now);
+  return {
+    ok: true,
+    bountyId: row.id,
+    threadId: row.thread_id ?? undefined,
+    message: `💰 **${escapeMd(b.posterName || "Someone")}** added **${gold(b.rewardGold)}** to bounty #${row.id} on **${escapeMd(row.target_name ?? "?")}**: now **${gold(total)}**${row.thread_id ? ` <#${row.thread_id}>` : ""}`,
   };
 }

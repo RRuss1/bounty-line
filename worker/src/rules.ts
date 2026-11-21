@@ -33,9 +33,6 @@ export function checkBountyPost(f: BountyPost, tenant: Tenant, now: number): Rul
   if (f.rewardGold < reward_min || f.rewardGold > reward_max) {
     return { code: "LIMITS", message: `Reward must be between ${gold(reward_min)} and ${gold(reward_max)}.` };
   }
-  if (f.mode === 1) {
-    return { code: "STACK", message: "Adding gold to an existing bounty arrives in a later Bounty Board update." };
-  }
   if (now - f.createdAt > expiry_days * 86400) {
     return { code: "EXPIRED", message: "That bounty code is too old. Make a new one in game." };
   }

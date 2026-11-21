@@ -109,9 +109,11 @@ ns.L = {
 
   -- menu
   MENU_SET_BOUNTY = "Set Bounty...",
+  MENU_ADD = "Add to Bounty...",
 
   -- amount box
   SET_BOUNTY = "SET BOUNTY",
+  ADD_TO_BOUNTY = "ADD TO BOUNTY",
   REWARD_LABEL = "Reward (gold):",
   NOTE_LABEL = "Note (optional):",
   LIMITS = "Min %s · Max %s",
@@ -120,6 +122,7 @@ ns.L = {
 
   -- code popup
   BOUNTY_READY = "BOUNTY READY",
+  STACK_READY = "GOLD ADDED",
   LINK_READY = "LINK YOUR CHARACTER",
   POST_THIS = "Post this in the Discord Bounty Line chat:",
   POST_LINK = "Post this in the Discord Bounty Line chat once, so your kills count for you:",
