@@ -57,31 +57,31 @@ end
 
 -- Draws the code into a frame from ns.NewQR and shows it. Returns false (and hides the frame)
 -- if the code can't be drawn. Also used by the relay (Relay.lua).
-function ns.DrawQR(qr, code)
+function ns.DrawQR(box, code)
   local runs, n = ns.QRRuns(code)
   if not runs then
-    qr:Hide()
+    box:Hide()
     return false
   end
   -- A whole number of screen pixels per module, so every module is the same size.
   local _, screenHeight = GetPhysicalScreenSize()
-  local unitPx = (screenHeight or 768) / 768 * qr:GetEffectiveScale()
+  local unitPx = (screenHeight or 768) / 768 * box:GetEffectiveScale()
   local m = math.max(3, math.floor(QR_BOX * unitPx / (n + QR_QUIET * 2))) / unitPx
-  qr:SetSize(m * (n + QR_QUIET * 2), m * (n + QR_QUIET * 2))
+  box:SetSize(m * (n + QR_QUIET * 2), m * (n + QR_QUIET * 2))
   for i, run in ipairs(runs) do
-    local t = qr.pool[i]
+    local t = box.pool[i]
     if not t then
-      t = qr:CreateTexture(nil, "ARTWORK")
+      t = box:CreateTexture(nil, "ARTWORK")
       t:SetColorTexture(0, 0, 0, 1)
-      qr.pool[i] = t
+      box.pool[i] = t
     end
     t:ClearAllPoints()
     t:SetPoint("TOPLEFT", m * (QR_QUIET + run[1] - 1), -m * (QR_QUIET + run[2] - 1))
     t:SetSize(m * run[3], m)
     t:Show()
   end
-  for i = #runs + 1, #qr.pool do qr.pool[i]:Hide() end
-  qr:Show()
+  for i = #runs + 1, #box.pool do box.pool[i]:Hide() end
+  box:Show()
   return true
 end
 
