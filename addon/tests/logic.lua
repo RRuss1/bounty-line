@@ -530,9 +530,9 @@ do
   check("and matches the shared matrix", qtext:find(table.concat(rows, "/"), 1, true) ~= nil)
   -- The stamp draws black runs: together they must cover exactly the black modules.
   loadAddon("UI/Stamp.lua")
-  local runs, n = ns.QRRuns(qcode)
+  local runs, side = ns.QRRuns(qcode)
   local black, covered = 0, 0
-  for y = 1, n do for x = 1, n do if tab[x][y] > 0 then black = black + 1 end end end
+  for y = 1, side do for x = 1, side do if tab[x][y] > 0 then black = black + 1 end end end
   for _, run in ipairs(runs) do
     for x = run[1], run[1] + run[3] - 1 do if tab[x][run[2]] > 0 then covered = covered + 1 end end
   end
