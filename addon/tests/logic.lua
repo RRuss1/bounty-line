@@ -520,10 +520,10 @@ do
   local realSend, realShow = Comms.Send, ns.RelayShow
   local sent, shown = {}, {}
   Comms.Send = function(kind, data) sent[#sent + 1] = { kind, data } end
-  ns.RelayShow = function(code) shown[#shown + 1] = code return true end
+  ns.RelayShow = function(c) shown[#shown + 1] = c return true end
   ns.RelayHide = function() end
   local relayed = {}
-  ns.CodeRelayed = function(code, who) relayed[#relayed + 1] = code .. " by " .. who end
+  ns.CodeRelayed = function(c, who) relayed[#relayed + 1] = c .. " by " .. who end
   local function from(sender, kind, data)
     for _, line in ipairs(Comms.Split(kind, data, "beef02", #sent + #shown + 40)) do Comms.Receive(line, "GUILD", sender) end
   end
@@ -534,7 +534,8 @@ do
 
   check("the sender must be the poster named in the code",
     Comms.SenderIsPoster("Slac-Jaw", "Slac Jaw") and Comms.SenderIsPoster("Slac", "Slac Jaw")
-    and not Comms.SenderIsPoster("Evil", "Slac Jaw") and not Comms.SenderIsPoster(nil, "Slac Jaw") and not Comms.SenderIsPoster("Slac", nil))
+    and not Comms.SenderIsPoster("Evil", "Slac Jaw") and not Comms.SenderIsPoster(nil, "Slac Jaw")
+    and not Comms.SenderIsPoster("Slac", nil))
 
   reset()
   BountyLineDB.settings.relay = true
