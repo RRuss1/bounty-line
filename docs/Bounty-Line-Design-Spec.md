@@ -356,7 +356,7 @@ The same component is used for the bounty-post popup (5.4), the kill popup (5.7)
 
 ### 5.8 Guild comms protocol (addon channel)
 
-Prefix: `BountyLine` (≤16 chars). Messages are serialized and chunked with **AceComm** (which uses ChatThrottleLib) to avoid server throttling.
+Prefix: `BountyLine` (≤16 chars). Messages are chunked (≤220 bytes of payload each, `type:sender:id:part/total:data`, no `|`) and paced (one send every 0.4s) by the addon's own `Comms.lua` instead of AceComm/ChatThrottleLib, to keep the addon free of extra libraries. Refused sends (encounter lockdown, throttling) are retried after a few seconds. Each session has a random sender id so clients ignore their own messages; sender names on Forever aren't reliable for that.
 
 | Message | Payload | Who sends |
 |---|---|---|
@@ -1085,6 +1085,7 @@ The same packager can upload to **Wago** (`-a <wago-id>`) and **WoWInterface** (
 16. **Nameplate skull:** the addon parents a texture to `C_NamePlate.GetNamePlateForUnit(unit)`. Check it appears over enemy players and that forbidden plates are skipped without errors.
 17. **Kill debugging:** `/bl debugkills` prints every `PARTY_KILL` (attacker, victim) and honor message, to settle items 1 and 3 on a real kill.
 18. **Spoiler copy line:** the code box holds `WANTED: **Name** · 500g ||BL1-B-…||` (Section 5.7b). In a WoW EditBox, `||` is how a literal `|` is stored. ✅ **Verified 2026-11-21:** Ctrl+C copies one `|` per `||` pair, so `||` pasted as single pipes. The addon now writes `||||` around the code, which pastes as `||…||`.
+19. **Guild sync on Forever:** check that `C_ChatInfo.SendAddonMessage(…, "GUILD")` delivers to guildies, what `CHAT_MSG_ADDON` reports as the sender ("First" or "First-Surname"), and that a 3,000-character pack (~14 chunks, ~6s) arrives intact. Two clients in the guild: import on one, `/bl` on the other.
 
 ---
 

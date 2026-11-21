@@ -28,4 +28,6 @@ read_globals = {
   -- hunting & kills
   "C_NamePlate", "TooltipDataProcessor", "Enum", "RaidNotice_AddMessage", "RaidWarningFrame", "ChatTypeInfo",
   "C_Timer", "Screenshot", "GetTime", "date",
+  -- guild sync & board
+  "C_ChatInfo", "IsInGuild", "IsShiftKeyDown", "C_CreatureInfo", "RAID_CLASS_COLORS",
 }

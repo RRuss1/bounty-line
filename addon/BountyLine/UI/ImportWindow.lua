@@ -35,6 +35,9 @@ local function import()
   ns.Print(L.IMPORTED:format(#pack.bounties, ns.BoardName()))
   if ns.PackOutdated() then ns.Print(L.OUTDATED) end
   ns.RefreshMarks()
+  ns.RefreshBoard()
+  ns.Comms.SharePack() -- everyone online in the guild gets it too
+  ns.Print(L.SHARED)
 end
 
 local function build()

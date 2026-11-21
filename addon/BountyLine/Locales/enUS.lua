@@ -8,6 +8,7 @@ ns.L = {
   -- slash
   HELP = {
     "|cffd4a017Bounty Line|r commands:",
+    "  /bl: open the in-game Bounty Board",
     "  /bl mark [gold] [note]: set a bounty on your target (or right-click their portrait)",
     "  /bl import: paste the Bounty Pack from #bounty-line",
     "  /bl list: open bounties",
@@ -18,7 +19,8 @@ ns.L = {
     "  /bl debugmenu: print the name of each right-click menu you open (on/off)",
     "  /bl minimap: show or hide the minimap button",
     "  /bl debugkills: print kill and honor events (on/off)",
-    "Guild sync and the in-game board arrive in a later update.",
+    "  /bl sync: share your Bounty Pack with the guild now",
+    "  /bl banners: turn guild banners on/off",
   },
   UNKNOWN_COMMAND = "Unknown command \"%s\". Type /bl help.",
   NO_LAST = "No code yet this session. Set a bounty or use /bl link first.",
@@ -26,7 +28,7 @@ ns.L = {
   DEBUGMENU_OFF = "Menu debug off.",
   DEBUGMENU_TAG = "menu |cff00ccff%s|r (unit: %s)",
 
-  MINIMAP_TIP = { "Left-click: show your last code", "Right-click: set a bounty on your target", "Drag: move this button" },
+  MINIMAP_TIP = { "Click: open the Bounty Board", "Shift-click: show your last code", "Right-click: set a bounty on your target", "Drag: move this button" },
   MINIMAP_HIDDEN = "Minimap button hidden. /bl minimap brings it back.",
   MINIMAP_SHOWN = "Minimap button shown.",
 
@@ -46,6 +48,30 @@ ns.L = {
   LIST_EMPTY = "No open bounties.",
   LIST_HEADER = "%d open bounties on the %s:",
   LIST_LINE = "  #%d |cffffffff%s|r · |cffffd100%s|r · by %s · until %s",
+
+  -- guild sync & banners
+  SYNCED = "Bounty Pack updated from a guildie (%d open bounties).",
+  SHARED = "Shared with everyone in your guild running Bounty Line.",
+  SYNC_SENT = "Sent your Bounty Pack to the guild.",
+  BANNERS_ON = "Guild banners on.",
+  BANNERS_OFF = "Guild banners off.",
+  BANNER_NEW = "New bounty: %s · %s. Go check the %s!",
+  BANNER_PENDING = "%s put a bounty on %s for %s. Watch the %s!",
+  BANNER_KILL = "%s collected the bounty on %s! Proof incoming on the %s.",
+
+  -- board window
+  BOARD_TITLE = "WANTED",
+  BOARD_SUMMARY = "%d open bounties · %s · pack from %s",
+  COL_TARGET = "Target",
+  COL_REWARD = "Reward",
+  COL_POSTER = "Posted by",
+  COL_SEEN = "Last seen",
+  COL_EXPIRES = "Until",
+  NOT_SEEN = "not seen yet",
+  AGO_NOW = "just now",
+  AGO_MIN = "%dm ago",
+  AGO_HOUR = "%dh ago",
+  AGO_DAY = "%dd ago",
 
   -- hunting
   TOOLTIP_WANTED = "WANTED: %s (Bounty #%d, posted by %s)",

@@ -19,16 +19,21 @@ function ns.ReadPack(text)
   if n == 0 then return nil, "EMPTY" end
   local r, err, message, received, total = ns.Codec.DecodePack(codes)
   if not r then return nil, err, message, received, total end
+  r.fields.codes = codes -- the original code text, so guild sync can pass it on unchanged
   return r.fields
 end
 
--- Saves a decoded pack. Returns true, or false and "OLDER" when the saved one is newer.
+-- Saves a decoded pack. Returns true and the bounties that weren't in the old pack (for
+-- banners), or false and "OLDER" when the saved one is newer.
 function ns.StorePack(p)
   local db = BountyLineDB
   local cur = db.pack
   if cur and cur.boardTag == p.boardTag and (cur.version or 0) > p.packVersion then return false, "OLDER" end
+  local old = cur and cur.bounties or {}
+  local added = {}
   local bounties = {}
   for _, b in ipairs(p.bounties) do
+    if cur and not old[b.targetGUID] then added[#added + 1] = b end
     bounties[b.targetGUID] = {
       id = b.bountyId, name = b.targetName, classID = b.targetClassID, faction = b.targetFaction,
       reward = b.rewardGold, poster = b.posterName, expires = b.expiresAt,
@@ -37,11 +42,11 @@ function ns.StorePack(p)
   db.pack = {
     version = p.packVersion, boardTag = p.boardTag, discordName = p.discordDisplayName,
     rewardMin = p.rewardMin, rewardMax = p.rewardMax, minAddon = p.minAddonVersion,
-    bounties = bounties, count = #p.bounties,
+    bounties = bounties, count = #p.bounties, codes = p.codes,
   }
   db.boardTag = p.boardTag
   db.discordName = p.discordDisplayName
-  return true
+  return true, added
 end
 
 function ns.PackOutdated()
@@ -74,4 +79,25 @@ end
 function ns.BoardName()
   local name = BountyLineDB.discordName
   return (name and name ~= "") and (name .. " Bounty Board") or "Discord Bounty Board"
+end
+
+function ns.GetBountyById(id)
+  local pack = BountyLineDB.pack
+  if not pack then return nil end
+  for _, b in pairs(pack.bounties) do
+    if b.id == id then return b end
+  end
+  return nil
+end
+
+-- Last sightings, from you or guildies (spec 5.6), keyed by bounty id. Newest wins.
+function ns.RecordSeen(id, mapID, t)
+  local seen = BountyLineDB.lastSeen
+  local cur = seen[id]
+  if cur and cur.t >= t then return end
+  seen[id] = { map = mapID, t = t }
+end
+
+function ns.LastSeen(id)
+  return BountyLineDB.lastSeen[id]
 end

@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.5.0 (unreleased): Phase 5, guild sync and the board
+
+- **Guild sync.** Import the Bounty Pack once and everyone in your guild running Bounty Line gets it. Guildies who log in later ask for it ("HELLO") and anyone with a newer pack answers; the newest pack wins. `/bl sync` shares yours right away.
+- **Banners.** When a guildie makes a bounty code, everyone online sees "*X put a bounty on Y for 500g*". New bounties arriving by sync and kills ("*X collected the bounty on Y!*") get a banner too. `/bl banners` turns them off.
+- **Last seen.** Spotting a wanted player tells the guild where and when; the board shows the latest sighting from anyone.
+- **The in-game Bounty Board.** `/bl` (or click the minimap button) lists open bounties: target (class-coloured), reward, poster, last seen and expiry, biggest reward first. Shift-click the minimap button for your last code.
+- Addon messages are paced and retried when the game blocks them (e.g. during dungeon or raid encounters).
+
+### Deployer notes
+
+- Nothing to change: Phase 5 is addon-only.
+
 ## v0.4.0 (2026-11-21): Phase 4, packs and the kill
 
 - **Bounty Pack.** The bot keeps a pinned **Bounty Pack** in `#bounty-line` with every open bounty, and updates it whenever one opens or closes (big packs split into parts). `/bl pack` refreshes it and links to it.
