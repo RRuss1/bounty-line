@@ -5,6 +5,7 @@ import { hasAdmin, reply, type CommandOption, type Interaction, type Interaction
 import type { Env } from "./env";
 import { gatewayState } from "./gateway";
 import { log } from "./log";
+import { refreshPack } from "./pack";
 import { codeLimiter } from "./ratelimit";
 import type { DiscordRest, ForumTag } from "./rest";
 import { audit, boardCounts, FORUM_TAGS, getTenant, patchConfig, upsertTenant, type ForumTagKey, type Tenant } from "./tenants";
@@ -43,8 +44,10 @@ export async function runCommand(
       return setup(interaction, env, rest, guildId, o, now);
     case "status":
       return { reply: await status(interaction, env, guildId) };
+    case "pack":
+      return { defer: () => pack(env, rest, guildId, now) };
     case "submit":
-      return { defer: () => submit(interaction, env, rest, guildId, o.code ?? "", now) };
+      return { defer: () => submit(interaction, env, rest, guildId, o.code ?? "", now, o.image) };
     default:
       return { reply: reply("I don't know that command. Try `/bl ping`.") };
   }
@@ -86,6 +89,11 @@ function setup(interaction: Interaction, env: Env, rest: DiscordRest, guildId: s
         warnings.push(`⚠️ I couldn't post the how-to in <#${tenant.bounty_line_ch}>. Check I can **View Channel** and **Send Messages** there.`);
       }
 
+      const fresh = await getTenant(env.DB, guildId);
+      if (fresh && !(await refreshPack(env, rest, fresh, now))) {
+        warnings.push(`⚠️ I couldn't post the Bounty Pack in <#${tenant.bounty_line_ch}>. Check I can **Send Messages** and **Pin Messages** there.`);
+      }
+
       log(env, "info", "setup", { tenant_id: guildId, outcome: created ? "created" : "updated", warnings: warnings.length });
       return [
         created ? "✅ **Your Bounty Board is set up!**" : "✅ **Bounty Board settings updated.**",
@@ -122,7 +130,9 @@ export function howToText(t: Tenant): string {
     "**Claim a bounty:** land the killing blow. Bounty Line screenshots the kill and gives you a kill code. Paste it here **with the screenshot** (newest file in `World of Warcraft\\_forever_\\Screenshots`).",
     "**Get paid:** the poster pays you in game, player to player (honor system).",
     `**Rules:** opposite faction only · no duels · killing blow only · rewards ${gold(t.config.reward_min)} to ${gold(t.config.reward_max)}.`,
-    "Pasting not working? Use `/bl submit`.",
+    "**See bounties in game:** copy the pinned **Bounty Pack** below and type `/bl import` in game. Wanted players get a skull and a WANTED tooltip.",
+    "**Get credit:** type `/bl link` in game once and paste that code here.",
+    "Pasting not working? Use `/bl submit` (attach the screenshot for kills).",
     `Install **Bounty Line** from CurseForge (WoW Forever). Board tag: **${t.board_tag}**`,
   ].join("\n");
 }
@@ -168,12 +178,21 @@ async function status(interaction: Interaction, env: Env, guildId: string): Prom
   );
 }
 
-async function submit(interaction: Interaction, env: Env, rest: DiscordRest, guildId: string, code: string, now: number): Promise<string> {
+async function pack(env: Env, rest: DiscordRest, guildId: string, now: number): Promise<string> {
+  const tenant = await getTenant(env.DB, guildId);
+  if (!tenant) return "This server isn't set up yet. An admin needs to run `/bl setup`.";
+  const link = await refreshPack(env, rest, tenant, now);
+  if (!link) return "❌ I couldn't update the Bounty Pack. An admin should check my permissions in the Bounty Line channel.";
+  return `📦 The Bounty Pack is up to date: ${link}\nIn game, type \`/bl import\` and paste it.`;
+}
+
+async function submit(interaction: Interaction, env: Env, rest: DiscordRest, guildId: string, code: string, now: number, imageId?: string): Promise<string> {
   const tenant = await getTenant(env.DB, guildId);
   if (!tenant) return "This server isn't set up yet. An admin needs to run `/bl setup`.";
   const user = actorOf(interaction);
   if (!codeLimiter.allow(`${guildId}:${user}`)) return "❌ Slow down a little: try again in a minute.";
-  const outcome = await processCode(env, rest, tenant, code, user, now);
+  const image = imageId ? interaction.data?.resolved?.attachments?.[imageId] : undefined;
+  const outcome = await processCode(env, rest, tenant, code, user, now, image ? [image] : []);
   if (outcome.ok === null) return "That's a Bounty Pack. Packs go into the addon with `/bl import`.";
   return outcome.ok ? outcome.message : `❌ ${outcome.message}`;
 }

@@ -26,6 +26,12 @@ local function addSection(tag, rootDescription, contextData)
 
   rootDescription:CreateDivider()
   rootDescription:CreateTitle(L.ADDON)
+  local existing = snap and ns.GetBounty(snap.guid)
+  if existing then
+    rootDescription:CreateButton(L.MENU_VIEW:format(existing.id, ns.FormatGold(existing.reward)), function()
+      ns.Print(L.TOOLTIP_WANTED:format(ns.FormatGold(existing.reward), existing.id, existing.poster))
+    end)
+  end
   local button = rootDescription:CreateButton(L.MENU_SET_BOUNTY, function()
     if snap then ns.OpenAmountEntry(snap) end
   end)

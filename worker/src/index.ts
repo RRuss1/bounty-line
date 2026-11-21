@@ -5,7 +5,9 @@
  *   allowlist check -> signature check -> rate limit -> work.
  * Nothing that touches D1, R2 or Workers AI runs before the allowlist check.
  */
-import { EPHEMERAL, InteractionType, ResponseType, isAllowedGuild, json, reply, verifySignature, type Interaction } from "./discord";
+import { EPHEMERAL, InteractionType, ResponseType, hasAdmin, isAllowedGuild, json, reply, verifySignature, type Interaction } from "./discord";
+import { reviewKill } from "./kills";
+import { getTenant } from "./tenants";
 import type { Env } from "./env";
 import { ensureGateway, gatewayState } from "./gateway";
 import { runCommand } from "./interactions";
@@ -103,5 +105,27 @@ async function interactions(request: Request, env: Env, ctx: ExecutionContext): 
       return json(reply(failed(e)));
     }
   }
+  if (interaction.type === InteractionType.MESSAGE_COMPONENT) return buttons(interaction, env, ctx);
   return json(reply("That interaction isn't supported yet."));
+}
+
+/** Approve / Deny on a kill claim's proof post. The work runs after a "deferred update". */
+async function buttons(interaction: Interaction & { application_id?: string }, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const m = /^kill:(approve|deny):(\d+)$/.exec(interaction.data?.custom_id ?? "");
+  if (!m) return json(reply("That button isn't supported."));
+  const tenant = await getTenant(env.DB, interaction.guild_id!);
+  if (!tenant) return json(reply("This server isn't set up yet. An admin needs to run `/bl setup`."));
+  const rest = new DiscordRest(env.DISCORD_TOKEN);
+  const appId = interaction.application_id ?? env.DISCORD_APP_ID;
+  const officer = { id: interaction.member?.user?.id ?? "unknown", roles: interaction.member?.roles ?? [], isAdmin: hasAdmin(interaction) };
+  ctx.waitUntil(
+    reviewKill(env, rest, tenant, m[1] as "approve" | "deny", Number(m[2]), officer, Math.floor(Date.now() / 1000))
+      .then((r) =>
+        r.ephemeral
+          ? rest.followup(appId, interaction.token, r.ephemeral)
+          : rest.editInteractionReply(appId, interaction.token, r.update!.content, { components: r.update!.components }),
+      )
+      .catch((e) => log(env, "error", "kill.review_failed", { tenant_id: interaction.guild_id, error: String(e) })),
+  );
+  return json({ type: ResponseType.DEFERRED_UPDATE_MESSAGE });
 }

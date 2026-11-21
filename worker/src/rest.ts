@@ -91,8 +91,35 @@ export class DiscordRest {
       post.image ? [{ name: "wanted-poster.png", data: post.image, type: "image/png" }] : [],
     );
 
+  /** A message with uploaded files (multipart). */
+  sendFiles = (channelId: string, payload: Record<string, unknown>, files: { name: string; data: Uint8Array; type: string }[]) =>
+    this.request<{ id: string }>(
+      "POST",
+      `/channels/${channelId}/messages`,
+      { ...payload, attachments: files.map((f, i) => ({ id: i, filename: f.name })) },
+      files,
+    );
+
+  setThreadTags = (threadId: string, tagIds: string[]) => this.request("PATCH", `/channels/${threadId}`, { applied_tags: tagIds });
+
+  /** Rewrites a wanted poster post; with an image, it replaces the old picture. */
+  editPost = (channelId: string, messageId: string, post: { content: string; embed: unknown; image?: Uint8Array }) =>
+    this.request(
+      "PATCH",
+      `/channels/${channelId}/messages/${messageId}`,
+      {
+        content: post.content,
+        embeds: [post.embed],
+        allowed_mentions: NO_PINGS,
+        ...(post.image ? { attachments: [{ id: 0, filename: "wanted-poster.png", description: "Wanted poster" }] } : {}),
+      },
+      post.image ? [{ name: "wanted-poster.png", data: post.image, type: "image/png" }] : [],
+    );
+
   // ---- guilds & interactions
   leaveGuild = (guildId: string) => this.request("DELETE", `/users/@me/guilds/${guildId}`);
-  editInteractionReply = (appId: string, token: string, content: string) =>
-    this.request("PATCH", `/webhooks/${appId}/${token}/messages/@original`, { content, allowed_mentions: NO_PINGS });
+  editInteractionReply = (appId: string, token: string, content: string, extra: Record<string, unknown> = {}) =>
+    this.request("PATCH", `/webhooks/${appId}/${token}/messages/@original`, { content, allowed_mentions: NO_PINGS, ...extra });
+  followup = (appId: string, token: string, content: string) =>
+    this.request("POST", `/webhooks/${appId}/${token}`, { content, flags: 64, allowed_mentions: NO_PINGS });
 }

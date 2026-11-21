@@ -17,6 +17,11 @@ export class RateLimiter {
     if (this.hits.size > 1000) for (const [k, v] of this.hits) if (v.every((t) => now - t >= this.windowMs)) this.hits.delete(k);
     return true;
   }
+
+  /** Forget everyone (tests). */
+  clear(): void {
+    this.hits.clear();
+  }
 }
 
 /** Codes per user per minute (Compendium 01 Section 3.4: rate limit before work). */

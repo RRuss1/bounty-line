@@ -9,7 +9,16 @@ import { boardName, className, escapeMd, factionName, gold, level, raceName, zon
 /** ☠ plus the emoji variation selector, so Discord draws the emoji, not the text glyph. */
 export const SKULL = "☠️";
 
-export function wantedPoster(b: BountyPost, opts: { id: number; expiresAt: number; postedBy: string; tenant: Tenant }) {
+const STATUS_LABEL: Record<PosterStatus, string> = {
+  open: "OPEN",
+  review: "CLAIMED: officer review",
+  awaiting_payment: "CLAIMED: awaiting payment",
+  paid: "PAID",
+  expired: "EXPIRED",
+  cancelled: "CANCELLED",
+};
+
+export function wantedPoster(b: BountyPost, opts: { id: number; expiresAt: number; postedBy: string; tenant: Tenant; status?: PosterStatus }) {
   const name = escapeMd(b.targetName || "Unknown");
   const color = Number.parseInt(opts.tenant.config.branding_color.replace("#", ""), 16);
   const embed = {
@@ -20,7 +29,7 @@ export function wantedPoster(b: BountyPost, opts: { id: number; expiresAt: numbe
       `**Reward: ${gold(b.rewardGold)}** (honor system, paid by ${escapeMd(b.posterName || "the poster")})`,
       `Marked${zoneName(b.mapID) ? ` in: ${zoneName(b.mapID)} ·` : ":"} <t:${b.createdAt}:f>`,
       `Bounty #${opts.id} · Expires <t:${opts.expiresAt}:D>`,
-      "Status: **OPEN**",
+      `Status: **${STATUS_LABEL[opts.status ?? "open"]}**`,
     ].join("\n"),
     fields: b.note ? [{ name: "Note", value: escapeMd(b.note) }] : [],
     footer: { text: `${boardName(opts.tenant.config.discord_display_name)} · board tag ${opts.tenant.board_tag}` },

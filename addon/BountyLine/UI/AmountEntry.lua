@@ -40,7 +40,7 @@ local function input(f, parent, width, maxLetters)
 end
 
 local function build()
-  local f = ns.CreateWindow("BountyLineAmountEntry", 440, 270, L.ADDON)
+  local f = ns.CreateWindow("BountyLineAmountEntry", 440, 292, L.ADDON)
   local c = f.content
 
   local heading = ns.Text(c, "heading")
@@ -70,7 +70,7 @@ local function build()
   f.limits:SetPoint("TOPLEFT", noteLabel, "BOTTOMLEFT", 0, -16)
   f.error = c:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
   f.error:SetTextColor(ns.COLORS.error[1], ns.COLORS.error[2], ns.COLORS.error[3])
-  f.error:SetPoint("LEFT", f.limits, "RIGHT", 12, 0)
+  f.error:SetPoint("TOPLEFT", f.limits, "BOTTOMLEFT", 0, -6) -- its own row
 
   f.set = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")
   f.set:SetSize(120, 24)

@@ -1079,7 +1079,10 @@ The same packager can upload to **Wago** (`-a <wago-id>`) and **WoWInterface** (
     - **Decision:** a verified table in the Worker (`worker/src/wow.ts`); unknown zones are left off the poster. Verified 2026-11-21: all 51 outdoor zones of Eastern Kingdoms, Kalimdor and the Forever additions (1411–1458, 2482 Mount Hyjal, 2521/2665 Zephras Isle, 2548 Riverglades, 2652 Shen'dralas).
 12. **Full character names:** ✅ **Verified 2026-11-21:** `UnitName(unit)` returns the first name and the **surname** as its two values ("Slac", "Jaw"); the surname sits where retail has the realm. `GetUnitName(unit, true)` and `UnitPVPName` also give "Slac Jaw"; `UnitFullName` and `UnitNameUnmodified` give the first name only. Codes use `UnitName`'s two values joined with a space.
 13. **"??" levels:** `UnitLevel` returns -1 for enemies far above you. B codes carry level 0 for that and the Bounty Board shows "Level ??". Confirm the -1 on Forever.
-14. **Copy button icon:** the popup uses `Interface\Buttons\UI-GuildButton-PublicNote-Up`. Confirm it exists on Forever (a missing texture shows as a green square).
+14. **Copy button icon:** the popup uses `Interface\Buttons\UI-GuildButton-PublicNote-Up`. ✅ Shows on Forever (2026-11-21).
+15. **Window art:** the metal frame is the `ButtonFrameTemplateNoPortrait` NineSlice layout (✅ shows on Forever). The client's `FrameGeneral\UI-Background-Rock/Marble` textures did **not** show, so backgrounds ship in `Media/` (dark crops of the poster parchment).
+16. **Nameplate skull:** the addon parents a texture to `C_NamePlate.GetNamePlateForUnit(unit)`. Check it appears over enemy players and that forbidden plates are skipped without errors.
+17. **Kill debugging:** `/bl debugkills` prints every `PARTY_KILL` (attacker, victim) and honor message, to settle items 1 and 3 on a real kill.
 
 ---
 
