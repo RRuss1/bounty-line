@@ -1,5 +1,5 @@
 // Non-code modules bundled by wrangler (module rules in wrangler.template.jsonc) and
-// loaded the same way in tests (vitest.config.ts).
+// replaced in tests by test/helpers/setup.ts.
 declare module "*.png" {
   const data: ArrayBuffer;
   export default data;
