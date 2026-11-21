@@ -47,5 +47,5 @@ committing.
 
 ## Credits
 
-- `parchment.png`: original AI-generated art by Rich Russell (Google Gemini / Nano Banana), released under the repo's MIT licence.
+- `parchment.png`: original AI-generated art by Slac Jaw from RP-PVP (Google Gemini / Nano Banana), released under the repo's MIT licence.
 - Fonts in `worker/assets/fonts/`: **Rye** (Sorkin Type Co) and **IM FELL English** (Igino Marini), both SIL Open Font License 1.1 (licence files alongside).
