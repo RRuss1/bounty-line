@@ -14,7 +14,7 @@ local function selectAll(selected)
 end
 
 local function build()
-  local f = ns.CreateWindow("BountyLineCodePopup", WIDTH, 232, L.ADDON)
+  local f = ns.CreateWindow("BountyLineCodePopup", WIDTH, 242, L.ADDON)
   local c = f.content
 
   f.heading = ns.Text(c, "heading")
@@ -63,8 +63,21 @@ local function build()
   end)
   copy:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-  f.hint = ns.Text(c, "muted", 13)
+  -- The one step the addon can't do for you: big, red and pulsing so nobody misses it.
+  f.hint = ns.Text(c, "body", 20)
+  local font = f.hint:GetFont()
+  f.hint:SetFont(font, 20, "OUTLINE")
+  f.hint:SetTextColor(1, 0.18, 0.12)
   f.hint:SetPoint("TOPLEFT", box, "BOTTOMLEFT", -6, -12)
+  local pulse = f.hint:CreateAnimationGroup()
+  pulse:SetLooping("BOUNCE")
+  local fade = pulse:CreateAnimation("Alpha")
+  fade:SetFromAlpha(1)
+  fade:SetToAlpha(0.35)
+  fade:SetDuration(0.7)
+  fade:SetSmoothing("IN_OUT")
+  f:HookScript("OnShow", function() pulse:Play() end)
+  f:HookScript("OnHide", function() pulse:Stop() end)
 
   local close = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")
   close:SetSize(100, 24)

@@ -75,10 +75,17 @@ function ns.CreateWindow(name, width, height, title)
   f:EnableMouse(true)
   f:SetMovable(true)
   f:SetClampedToScreen(true)
-  f:RegisterForDrag("LeftButton")
-  f:SetScript("OnDragStart", f.StartMoving)
-  f:SetScript("OnDragStop", f.StopMovingOrSizing)
   tinsert(UISpecialFrames, name) -- Escape closes it
+
+  -- Only the title bar drags the window, so clicks in the content never move it.
+  local bar = CreateFrame("Frame", nil, f)
+  bar:SetPoint("TOPLEFT")
+  bar:SetPoint("TOPRIGHT")
+  bar:SetHeight(31)
+  bar:EnableMouse(true)
+  bar:RegisterForDrag("LeftButton")
+  bar:SetScript("OnDragStart", function() f:StartMoving() end)
+  bar:SetScript("OnDragStop", function() f:StopMovingOrSizing() end)
 
   rect(f, "BACKGROUND", COLORS.bg):SetAllPoints()
   glow(f)
@@ -107,6 +114,7 @@ function ns.CreateWindow(name, width, height, title)
   local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
   close:SetSize(26, 26)
   close:SetPoint("RIGHT", header, "RIGHT", -2, 0)
+  close:SetFrameLevel(bar:GetFrameLevel() + 2) -- above the drag bar
   close:SetScript("OnClick", function() f:Hide() end)
 
   -- Inset content panel with a fine gold edge, like the Dungeon Journal's.

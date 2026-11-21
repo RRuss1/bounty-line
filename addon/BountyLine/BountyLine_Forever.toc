@@ -6,6 +6,9 @@
 ## SavedVariables: BountyLineDB
 ## SavedVariablesPerCharacter: BountyLineCharDB
 ## IconTexture: Interface\Icons\INV_Misc_Bone_HumanSkull_01
+## AddonCompartmentFunc: BountyLine_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: BountyLine_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: BountyLine_OnAddonCompartmentLeave
 
 Libs\LibStub\LibStub.lua
 Libs\LibDeflate\LibDeflate.lua
@@ -18,3 +21,4 @@ Debug.lua
 UI\Window.lua
 UI\CodePopup.lua
 UI\AmountEntry.lua
+UI\Minimap.lua
