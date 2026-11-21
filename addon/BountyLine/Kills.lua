@@ -199,8 +199,11 @@ events:SetScript("OnEvent", function(_, event, a, b)
     finish(true)
   elseif event == "SCREENSHOT_FAILED" then
     finish(false)
-  elseif a == addonName and pending then
-    -- The game refused something we called (b names it), most likely the screenshot in combat.
-    ns.Print(L.AUTO_SHOT_FAILED:format("blocked: " .. tostring(b)))
+  elseif a == addonName then
+    -- The game refused something Bounty Line called (b names it). Say what, so it can be fixed.
+    ns.Print(L.ACTION_BLOCKED:format(tostring(b)))
+  elseif debug then
+    -- Another addon was refused something; /bl debugkills shows which, to tell the two apart.
+    ns.Print(("blocked action: %s / %s"):format(tostring(a), tostring(b)))
   end
 end)
