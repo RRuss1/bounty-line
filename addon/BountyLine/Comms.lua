@@ -213,7 +213,8 @@ end
 function handlers.NEWB(data, senderName, senderId)
   local name, reward, poster = data:match("^(.-)\t(%d+)\t(.*)$")
   if not name or not Comms.AllowBanner(senderId, GetTime()) then return end
-  ns.Banner(L.BANNER_PENDING:format(poster ~= "" and poster or (senderName and senderName:match("^[^-]+")) or "?", name, ns.FormatGold(tonumber(reward)), ns.BoardName()))
+  local who = poster ~= "" and poster or (senderName and senderName:match("^[^-]+")) or "?"
+  ns.Banner(L.BANNER_PENDING:format(who, name, ns.FormatGold(tonumber(reward)), ns.BoardName()))
 end
 
 function handlers.SEEN(data)
