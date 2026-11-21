@@ -6,6 +6,9 @@
 --   NEWB   "<name>\t<reward>\t<poster>" a guildie just made a bounty code (pending on Discord)
 --   SEEN   "<bountyId>\t<mapID>\t<time>" a wanted player was spotted (1 per bounty per minute)
 --   KILL   "<bountyId>\t<killer>"       a guildie collected a bounty
+--   PEND   "<guid>\t<name>\t<classID>\t<faction>\t<reward>\t<poster>\t<time>"
+--                                       a guildie made a bounty code: hunt it before any pack lists it
+--   KILLP  "<guid>\t<killer>\t<name>"   a guildie collected a pending bounty
 --
 -- Self-contained instead of AceComm: messages over 240 bytes are chunked, sends are paced, and
 -- anything the client refuses (addon comms are blocked during instance encounters) is retried
@@ -156,6 +159,15 @@ function Comms.NewBounty(name, reward, poster)
   Comms.Send("NEWB", ("%s\t%d\t%s"):format(name, reward, poster or ""))
 end
 
+-- Share a just-made bounty so guildies can hunt it before the next pack (Pack.lua, pending).
+function Comms.Pending(snap, reward, poster, t)
+  Comms.Send("PEND", table.concat({ snap.guid, snap.name, snap.classID or 0, snap.faction, reward, poster or "", t }, "\t"))
+end
+
+function Comms.KillPending(guid, killer, name)
+  Comms.Send("KILLP", ("%s\t%s\t%s"):format(guid, killer or "", name or ""))
+end
+
 function Comms.Kill(bountyId, killer)
   Comms.Send("KILL", ("%d\t%s"):format(bountyId, killer or ""))
 end
@@ -215,6 +227,30 @@ function handlers.NEWB(data, senderName, senderId)
   if not name or not Comms.AllowBanner(senderId, GetTime()) then return end
   local who = poster ~= "" and poster or (senderName and senderName:match("^[^-]+")) or "?"
   ns.Banner(L.BANNER_PENDING:format(who, name, ns.FormatGold(tonumber(reward)), ns.BoardName()))
+end
+
+-- guid, name, classID, faction (1 or 2), reward, poster, time
+local PEND_PATTERN = "^([^\t]+)\t([^\t]*)\t(%d+)\t([12])\t(%d+)\t([^\t]*)\t(%d+)$"
+
+function handlers.PEND(data, _, senderId)
+  local guid, name, classID, faction, reward, poster, t = data:match(PEND_PATTERN)
+  if not guid or not Comms.AllowBanner("pend:" .. senderId, GetTime()) then return end
+  -- Never trust a sender's clock for how long it lives.
+  local at = math.min(tonumber(t), GetServerTime())
+  if ns.AddPending(guid, name, tonumber(classID), tonumber(faction), tonumber(reward), poster, at) then
+    ns.RefreshMarks()
+    if ns.RefreshBoard then ns.RefreshBoard() end
+  end
+end
+
+function handlers.KILLP(data, _, senderId)
+  local guid, killer, name = data:match("^([^\t]+)\t([^\t]*)\t([^\t]*)$")
+  if not guid then return end
+  ns.DropPending(guid)
+  ns.RefreshMarks()
+  if ns.RefreshBoard then ns.RefreshBoard() end
+  if not Comms.AllowBanner(senderId, GetTime()) then return end
+  ns.Banner(L.BANNER_KILL:format(killer ~= "" and killer or "?", name ~= "" and name or "?", ns.BoardName()))
 end
 
 function handlers.SEEN(data)

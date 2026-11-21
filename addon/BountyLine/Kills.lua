@@ -86,17 +86,22 @@ local function finish(shot)
   ns.HideStamp()
   local popup = {
     title = k.practice and L.PRACTICE_TITLE or L.KILL_TITLE,
-    subtitle = ("%s · %s · Bounty #%d"):format(k.bounty.name, ns.FormatGold(k.bounty.reward), k.bounty.id),
+    subtitle = ("%s · %s · %s"):format(k.bounty.name, ns.FormatGold(k.bounty.reward), ns.BountyLabel(k.bounty)),
     instructions = k.practice and L.PRACTICE_POST or L.KILL_POST,
     code = k.code,
-    line = not k.practice and { "K", k.bounty.name, ("Bounty #%d"):format(k.bounty.id) } or nil,
+    line = not k.practice and { "K", k.bounty.name, ns.BountyLabel(k.bounty) } or nil,
     note = shot and L.SCREENSHOT_SAVED or L.SCREENSHOT_FAILED,
   }
   if not k.practice then
     -- Claimed: no more skull, and a second kill on them won't make a second code.
-    ns.MarkClaimed(k.bounty.id, k.killedAt)
+    if k.bounty.pending then
+      ns.DropPending(k.victimGUID)
+      ns.Comms.KillPending(k.victimGUID, ns.FullName("player"), k.bounty.name)
+    else
+      ns.MarkClaimed(k.bounty.id, k.killedAt)
+      ns.Comms.Kill(k.bounty.id, ns.FullName("player"))
+    end
     ns.RefreshMarks()
-    ns.Comms.Kill(k.bounty.id, ns.FullName("player"))
     ns.Banner(L.BANNER_KILL:format(ns.FullName("player"), k.bounty.name, ns.BoardName()))
     local kills = BountyLineCharDB.kills
     table.insert(kills, 1, {

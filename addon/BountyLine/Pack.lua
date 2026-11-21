@@ -72,6 +72,10 @@ function ns.StorePack(p)
   for id, t in pairs(db.claimed) do
     if not ids[id] or t < p.packVersion then db.claimed[id] = nil end
   end
+  -- Pending bounties the pack now lists (they have a number) or that timed out.
+  for guid, pend in pairs(db.pending or {}) do
+    if bounties[guid] or pend.expires <= now then db.pending[guid] = nil end
+  end
   return true, added
 end
 
@@ -92,18 +96,63 @@ function ns.IsClaimed(id)
   return claimed ~= nil and claimed[id] ~= nil
 end
 
--- The open bounty on this GUID, if any (expired and just-claimed ones don't count).
+-- ---------------------------------------------------------------- pending bounties
+--
+-- A bounty a guildie just made a code for, before any pack lists it (the pack only reaches
+-- the game when someone imports it). Shared over guild sync so everyone can hunt it at once.
+-- It has no bounty number yet (id 0): a kill on it makes a K code with bountyId 0, and the
+-- Bounty Board finds the bounty by the victim (Compendium 02 Section 3.2).
+
+local PENDING_TTL = 48 * 3600
+local MAX_PENDING = 50
+
+function ns.AddPending(guid, name, classID, faction, reward, poster, t)
+  if type(guid) ~= "string" or guid == "" or ns.GetBounty(guid) then return false end
+  local db = BountyLineDB
+  db.pending = db.pending or {}
+  local n = 0
+  for _ in pairs(db.pending) do n = n + 1 end
+  if n >= MAX_PENDING then return false end
+  db.pending[guid] = {
+    id = 0, pending = true, name = name, classID = classID, faction = faction, reward = reward, poster = poster,
+    t = t, expires = t + PENDING_TTL,
+  }
+  return true
+end
+
+function ns.DropPending(guid)
+  if BountyLineDB.pending then BountyLineDB.pending[guid] = nil end
+end
+
+-- "Bounty #12", or "new bounty" for one that has no number yet.
+function ns.BountyLabel(b)
+  return b.pending and ns.L.BOUNTY_PENDING or ("Bounty #%d"):format(b.id)
+end
+
+-- The open bounty on this GUID, if any (expired and just-claimed ones don't count): from the
+-- pack, or else a pending one.
 function ns.GetBounty(guid)
   if not guid or ns.IsSecret(guid) then return nil end
+  local now = GetServerTime()
   local pack = BountyLineDB and BountyLineDB.pack
   local b = pack and pack.bounties[guid]
-  if b and b.expires > GetServerTime() and not ns.IsClaimed(b.id) then return b end
+  if b and b.expires > now and not ns.IsClaimed(b.id) then return b end
+  local p = BountyLineDB and BountyLineDB.pending and BountyLineDB.pending[guid]
+  if p and p.expires > now then return p end
   return nil
+end
+
+local function pendingList()
+  local out, now = {}, GetServerTime()
+  for guid, p in pairs(BountyLineDB.pending or {}) do
+    if p.expires > now and ns.GetBounty(guid) == p then out[#out + 1] = setmetatable({ guid = guid }, { __index = p }) end
+  end
+  return out
 end
 
 -- Bounties for the board, biggest reward first. Just-claimed ones are listed with claimed = true.
 function ns.ListBounties()
-  local list = {}
+  local list = pendingList()
   local pack = BountyLineDB.pack
   if not pack then return list end
   local now = GetServerTime()

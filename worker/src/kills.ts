@@ -87,8 +87,24 @@ export async function claimKill(
 ): Promise<Result> {
   // 1. Code and bounty (spec 9.3 checks 1-3).
   if (k.boardTag !== "0000" && k.boardTag !== tenant.board_tag) return fail("BOARD", "That code belongs to a different Bounty Board.");
-  const b = await env.DB.prepare("SELECT * FROM bounties WHERE id = ?1 AND tenant_id = ?2").bind(k.bountyId, tenant.id).first<BountyRow>();
-  if (!b) return fail("CLOSED", `Bounty #${k.bountyId} isn't on this Bounty Board.`);
+  // bountyId 0: the hunter's addon knew the bounty only from guild sync (no pack listed it
+  // yet), so there was no number to put in the code. Find it by the victim.
+  const b =
+    k.bountyId === 0
+      ? await env.DB.prepare(
+          "SELECT * FROM bounties WHERE tenant_id = ?1 AND target_guid = ?2 AND status IN ('open', 'review', 'awaiting_payment') ORDER BY id DESC LIMIT 1",
+        )
+          .bind(tenant.id, k.victimGUID)
+          .first<BountyRow>()
+      : await env.DB.prepare("SELECT * FROM bounties WHERE id = ?1 AND tenant_id = ?2").bind(k.bountyId, tenant.id).first<BountyRow>();
+  if (!b) {
+    return fail(
+      "CLOSED",
+      k.bountyId === 0
+        ? "There's no open bounty on that player here yet. If the bounty code was only just made, it has to be posted in the Bounty Line channel first; then paste your kill code again."
+        : `Bounty #${k.bountyId} isn't on this Bounty Board.`,
+    );
+  }
   if (b.status === "review") return fail("CLOSED", `Bounty #${b.id} already has a kill claim waiting for the officers.`);
   if (b.status !== "open" || b.expires_at <= now) return fail("CLOSED", `Bounty #${b.id} is no longer open.`);
   if (k.victimGUID !== b.target_guid) return fail("MISMATCH", `That kill wasn't on ${escapeMd(b.target_name ?? "the target")} (bounty #${b.id}).`);

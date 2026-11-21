@@ -24,8 +24,9 @@ function ns.ShouldAlert(id, now)
 end
 
 local function alert(b)
-  ns.Comms.Seen(b.id, ns.PlayerMapID(), GetServerTime()) -- last-seen, shared with the guild
-  if not ns.ShouldAlert(b.id, GetTime()) then return end
+  -- Last-seen is shared with the guild (pending bounties have no number to share it under).
+  if not b.pending then ns.Comms.Seen(b.id, ns.PlayerMapID(), GetServerTime()) end
+  if not ns.ShouldAlert(b.pending and ("new:" .. b.name) or b.id, GetTime()) then return end
   local text = L.SPOTTED:format(b.name, ns.FormatGold(b.reward))
   if RaidNotice_AddMessage and RaidWarningFrame then
     RaidNotice_AddMessage(RaidWarningFrame, text, ChatTypeInfo.RAID_WARNING)
@@ -66,7 +67,9 @@ local function onTooltip(tooltip, data)
   if not guid or ns.IsSecret(guid) then return end
   local b = ns.GetBounty(guid)
   if not b then return end
-  tooltip:AddLine(L.TOOLTIP_WANTED:format(ns.FormatGold(b.reward), b.id, b.poster), 1, 0.2, 0.15)
+  local text = b.pending and L.TOOLTIP_PENDING:format(ns.FormatGold(b.reward), b.poster)
+    or L.TOOLTIP_WANTED:format(ns.FormatGold(b.reward), b.id, b.poster)
+  tooltip:AddLine(text, 1, 0.2, 0.15)
 end
 
 local events = CreateFrame("Frame")

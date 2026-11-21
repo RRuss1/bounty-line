@@ -115,6 +115,18 @@ describe("kill claims", () => {
     expect(replies().at(-1)).toContain(message);
   });
 
+  it("bountyId 0 (the addon only knew the bounty from guild sync): found by the victim", async () => {
+    await say(kill({ bountyId: 0 }), [image], HUNTER_USER);
+    expect(kills()[0]).toMatchObject({ bounty_id: bountyId, verdict: "pending" });
+    expect(bountyStatus()).toBe("review");
+  });
+
+  it("bountyId 0 with no bounty on that player explains what to do", async () => {
+    await say(kill({ bountyId: 0, victimGUID: "Player-4395-99999999" }), [image], HUNTER_USER);
+    expect(kills()).toHaveLength(0);
+    expect(replies().at(-1)).toContain("no open bounty on that player here yet");
+  });
+
   it("rejects the same code twice, and the same screenshot on a second code", async () => {
     const code = kill();
     await say(code, [image], HUNTER_USER);

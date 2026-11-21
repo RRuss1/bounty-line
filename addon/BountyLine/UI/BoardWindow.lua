@@ -103,27 +103,29 @@ function ns.RefreshBoard()
   local list = ns.ListBounties()
   local pack = BountyLineDB.pack
   if pack then
-    frame.summary:SetText(L.BOARD_SUMMARY:format(#list, ns.BoardName(), ns.Ago(pack.version)))
+    -- A pack more than a day old is probably missing bounties: nudge a re-import.
+    local stale = GetServerTime() - pack.version > 86400 and L.PACK_STALE or ""
+    frame.summary:SetText(L.BOARD_SUMMARY:format(#list, ns.BoardName(), ns.Ago(pack.version)) .. stale)
   else
     frame.summary:SetText("")
   end
-  frame.empty:SetText(pack and (#list == 0 and L.LIST_EMPTY or "") or L.NO_PACK)
+  frame.empty:SetText(#list > 0 and "" or pack and L.LIST_EMPTY or L.NO_PACK)
 
   for i, b in ipairs(list) do
     local r = frame.rows[i] or row(frame.list, i)
     frame.rows[i] = r
-    local seen = ns.LastSeen(b.id)
+    local seen = not b.pending and ns.LastSeen(b.id) or nil
     -- The bounty opened from "View Bounty" is highlighted in gold.
     if b.id == frame.focusId then r.shade:SetColorTexture(1, 0.82, 0.25, 0.22) else r.shade:SetColorTexture(0, 0, 0, r.stripe) end
     r:SetAlpha(b.claimed and 0.5 or 1)
-    r.cells[1]:SetText(b.id)
+    r.cells[1]:SetText(b.pending and L.NEW_SHORT or b.id)
     r.cells[2]:SetText(b.name)
     r.cells[2]:SetTextColor(classColor(b.classID))
     r.cells[3]:SetText(ns.FormatGold(b.reward))
     r.cells[3]:SetTextColor(1, 0.82, 0)
     r.cells[4]:SetText(b.poster)
     r.cells[5]:SetText(b.claimed and L.CLAIMED or seen and ("%s · %s"):format(zoneName(seen.map), ns.Ago(seen.t)) or L.NOT_SEEN)
-    r.cells[6]:SetText(date("%b %d", b.expires))
+    r.cells[6]:SetText(b.pending and L.PENDING or date("%b %d", b.expires))
     r:Show()
   end
   for i = #list + 1, #frame.rows do frame.rows[i]:Hide() end

@@ -27,7 +27,11 @@ local function addSection(tag, rootDescription, contextData)
   rootDescription:CreateDivider()
   rootDescription:CreateTitle(L.ADDON)
   local existing = snap and ns.GetBounty(snap.guid)
-  if existing then
+  if existing and existing.pending then
+    -- Just made, not numbered yet: nothing to add gold to, and no second bounty either.
+    rootDescription:CreateButton(L.MENU_VIEW_PENDING:format(ns.FormatGold(existing.reward)), function() ns.OpenBoard() end)
+    return
+  elseif existing then
     rootDescription:CreateButton(L.MENU_VIEW:format(existing.id, ns.FormatGold(existing.reward)), function()
       ns.OpenBoard(existing.id) -- opens the board with this bounty highlighted
     end)
