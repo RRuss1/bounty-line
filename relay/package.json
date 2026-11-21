@@ -1,0 +1,18 @@
+{
+  "name": "bounty-line-relay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Carries Bounty Packs and bounty codes between WoW: Forever and a Bounty Board, so nobody pastes.",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node relay.mjs",
+    "test": "node --test test/lib.test.mjs"
+  },
+  "dependencies": {
+    "jpeg-js": "0.4.4",
+    "jsqr": "1.4.0",
+    "pngjs": "7.0.0"
+  }
+}

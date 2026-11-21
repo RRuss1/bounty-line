@@ -42,3 +42,6 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - name: Relay program tests
+        working-directory: relay
+        run: npm ci && npm test

@@ -19,7 +19,7 @@
 - **Sounds per event** (all the game's own): a voice line when a bounty is created, coins when you add gold, an alarm when a wanted player is in sight, a PvP fanfare when you collect, a short PvP chime when a guildie collects, and a chime when your waiting kill code opens. `/bl debug sounds` plays each one.
 - **Claim a kill with just the screenshot.** The proof stamp shows the kill code as a QR code (under the band, on the left). Drop the screenshot into `#bounty-line` and the bot reads the code from it: nothing to paste. Pasting the code with the screenshot still works. Ordinary pictures in the channel are ignored.
 - Fixed: the proof stamp could stay on screen until you pressed Print Screen. The automatic screenshot is now called safely, the code always appears within 5 seconds, and a chat line tells you if the game refused the screenshot.
-- **Relay, server side (optional, for officers).** `/bl relay` hands an officer a private token for the upcoming relay program, which will deliver Bounty Packs into the game and post guildies' bounties without anyone pasting. The program itself and the addon side are still to come.
+- **Relay (optional, for officers).** A small program an officer runs while playing: it delivers Bounty Packs into the game (no more `/bl import`) and posts guildies' bounties to Discord (no more pasting). `/bl relay action: enable` gives the officer a private setup code. Setup: `docs/relay.md`. The addon side is still to come.
 - Sighting alerts repeat after you lose sight of a target for 10 minutes, not just once per session.
 - **View Bounty** in the right-click menu opens the board on that bounty. `/bl version`.
 - Old sightings and expired bounties are cleaned out of saved data.
