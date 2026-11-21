@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.7.0 (unreleased): Phase 7, deploy your own
+
+- **Bootstrap deployment** workflow for guilds running their own Bounty Board: a **dry run** checks every Secret and Variable, the Cloudflare token, the Discord app (token, app ID and public key from the same app; Public Bot; Message Content Intent) and the workers.dev subdomain, and explains how to fix each problem. The real run creates the database and screenshot storage if missing, deploys, stores the bot secrets, applies migrations, registers commands, sets Discord's Interactions Endpoint URL, waits for `/health` and lists the next steps with the invite link. It never deletes anything and is safe to re-run.
+- **[docs/deploy-your-own.md](docs/deploy-your-own.md)**: a click-by-click guide for people new to this, with a troubleshooting table.
+- Addon on **CurseForge** (beta builds upload automatically from tags).
+
+### Deployer notes
+
+- **Deploy Worker** now only needs `WORKER_NAME` and `ALLOWED_GUILD_IDS`: `D1_NAME` defaults to the Worker name, `R2_BUCKET` to `<WORKER_NAME>-proofs`, and `D1_ID` is looked up by name. Existing deployments with these set are unchanged.
+- Add the `DISCORD_PUBLIC_KEY` **Secret** to GitHub if it isn't there yet; Bootstrap needs it.
+
 ## v0.6.0 (unreleased): Phase 6, automation
 
 - **AI proof check.** Workers AI reads the proof stamp in the kill screenshot and compares it with the kill code (same code, or same bounty number and target). The result is listed on the proof post. Capped at `AI_DAILY_CAP` calls a day; over the cap, switched off or failing, claims simply go to officers.
