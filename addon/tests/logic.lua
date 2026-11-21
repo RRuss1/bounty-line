@@ -24,9 +24,9 @@ local SECRET = setmetatable({}, { __tostring = function() return "<secret>" end 
 
 local function reset()
   units = {
-    player = { guid = "Player-4395-00FFEE11", name = "Slac Jaw", faction = "Alliance", player = true,
+    player = { guid = "Player-4395-00FFEE11", name = "Slac", surname = "Jaw", faction = "Alliance", player = true,
       class = { "Warrior", "WARRIOR", 1 }, race = { "Human", "Human", 1 }, level = 60 },
-    target = { guid = "Player-4395-0A1B2C3D", name = "Grimlok Ashveil", faction = "Horde", player = true,
+    target = { guid = "Player-4395-0A1B2C3D", name = "Grimlok", surname = "Ashveil", faction = "Horde", player = true,
       class = { "Warrior", "WARRIOR", 1 }, race = { "Orc", "Orc", 2 }, level = 42 },
   }
   BountyLineDB = { settings = {} }
@@ -35,7 +35,8 @@ end
 local function u(unit) return units[unit] end
 function UnitExists(unit) return u(unit) ~= nil end
 function UnitGUID(unit) return u(unit) and u(unit).guid end
-function UnitName(unit) return u(unit) and u(unit).name end
+-- Forever: UnitName returns the first name and the surname (where retail has the realm).
+function UnitName(unit) if u(unit) then return u(unit).name, u(unit).surname end end
 function UnitFactionGroup(unit) return u(unit) and u(unit).faction end
 function UnitIsPlayer(unit) return u(unit) and u(unit).player end
 function UnitIsUnit(a, b) return u(a) == u(b) end
@@ -110,6 +111,14 @@ eq("snapshot faction", snap.faction, 2)
 eq("snapshot class", snap.classID, 1)
 eq("snapshot race", snap.raceID, 2)
 eq("describe", ns.Describe(snap), "Grimlok Ashveil · Orc Warrior 42 · Horde")
+
+reset()
+units.target.surname = nil
+eq("no surname: first name only", ns.SnapshotUnit("target").name, "Grimlok")
+units.target.surname = ""
+eq("empty surname: first name only", ns.SnapshotUnit("target").name, "Grimlok")
+units.target.surname = SECRET
+eq("secret surname: first name only", ns.SnapshotUnit("target").name, "Grimlok")
 
 reset()
 units.target.level = -1

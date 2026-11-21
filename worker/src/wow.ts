@@ -55,7 +55,10 @@ export const factionName = (id: number) => (id === 1 ? "Alliance" : id === 2 ? "
  * B codes carry only a uiMapID; names need a verified Forever map table (spec Section 23,
  * filled in from `/bl debug` in Phase 3). Unknown zones are left off rather than shown as numbers.
  */
-const ZONES: Record<number, string> = {};
+/** Verified on Forever with /bl debug (uiMapID → name). Add more as players report them. */
+const ZONES: Record<number, string> = {
+  1437: "Wetlands",
+};
 export const zoneName = (mapId: number): string | null => ZONES[mapId] ?? null;
 
 /** "Grief Bounty Board", or just "Bounty Board" before a name is set. */

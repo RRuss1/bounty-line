@@ -50,7 +50,7 @@ end
 local function link()
   local code, err, message = ns.BuildLinkCode()
   if not code then return ns.Print(err == "NEUTRAL" and message or L.CODE_FAILED:format(message or err)) end
-  ns.ShowCode({ title = L.LINK_READY, subtitle = UnitName("player"), instructions = L.POST_LINK, code = code })
+  ns.ShowCode({ title = L.LINK_READY, subtitle = ns.FullName("player"), instructions = L.POST_LINK, code = code })
 end
 
 local COMMANDS = {
