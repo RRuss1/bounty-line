@@ -1,0 +1,122 @@
+name: Bootstrap deployment
+
+# One-click first deploy of your own Bounty Board from a fork (docs/deploy-your-own.md,
+# Compendium 01 Section 4.3). Start with the dry run: it checks every setting and account and
+# changes nothing. Safe to re-run any time: it only creates what's missing and never deletes.
+# The summary page of each run says exactly what happened and what to do next.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: check everything, change nothing (untick to deploy)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-deploy # never at the same time as Deploy Worker
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    env:
+      WORKER_NAME: ${{ vars.WORKER_NAME }}
+      D1_NAME: ${{ vars.D1_NAME }}
+      R2_BUCKET: ${{ vars.R2_BUCKET }}
+      ALLOWED_GUILD_IDS: ${{ vars.ALLOWED_GUILD_IDS }}
+      READ_CHAT: ${{ vars.READ_CHAT }}
+      AI_CHECK: ${{ vars.AI_CHECK }}
+      AI_DAILY_CAP: ${{ vars.AI_DAILY_CAP }}
+      AI_MODEL: ${{ vars.AI_MODEL }}
+      PROOF_RETENTION_DAYS: ${{ vars.PROOF_RETENTION_DAYS }}
+      LOG_LEVEL: ${{ vars.LOG_LEVEL }}
+      POSTER_IMAGE: ${{ vars.POSTER_IMAGE }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+
+      # No secrets here: package install scripts never see them.
+      - name: Install
+        run: npm ci
+
+      - name: Check settings and accounts ${{ inputs.dry_run && '(dry run, nothing changes)' || 'and create storage' }}
+        id: pre
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          DISCORD_APP_ID: ${{ secrets.DISCORD_APP_ID }}
+          DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
+        run: npx tsx scripts/bootstrap.ts preflight ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      - name: Build the bot's config
+        if: ${{ !inputs.dry_run }}
+        env:
+          D1_NAME: ${{ steps.pre.outputs.d1_name }}
+          D1_ID: ${{ steps.pre.outputs.d1_id }}
+          R2_BUCKET: ${{ steps.pre.outputs.r2_bucket }}
+        run: npm run render-config
+
+      - name: Set up the database
+        if: ${{ !inputs.dry_run }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler d1 migrations apply DB --remote
+
+      - name: Deploy the bot
+        if: ${{ !inputs.dry_run }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if ! npx wrangler deploy; then
+            echo "::error title=Deploy failed::Read the red lines just above. Most often the Cloudflare API token is missing a permission: it needs Workers Scripts Edit, D1 Edit, Workers R2 Storage Edit and Workers AI Read on your account (guide step 2). Without Workers Paid, set Variables AI_CHECK=false and POSTER_IMAGE=false. Then run Bootstrap again."
+            exit 1
+          fi
+
+      - name: Store the bot's secrets in Cloudflare
+        if: ${{ !inputs.dry_run }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          DISCORD_APP_ID: ${{ secrets.DISCORD_APP_ID }}
+          DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
+        run: |
+          file="$RUNNER_TEMP/bot-secrets.json"
+          node -e 'const e=process.env; require("fs").writeFileSync(process.argv[1], JSON.stringify({DISCORD_TOKEN:e.DISCORD_TOKEN, DISCORD_APP_ID:e.DISCORD_APP_ID, DISCORD_PUBLIC_KEY:e.DISCORD_PUBLIC_KEY}))' "$file"
+          status=0
+          npx wrangler secret bulk "$file" || status=$?
+          rm -f "$file"
+          exit $status
+
+      - name: Register slash commands
+        if: ${{ !inputs.dry_run }}
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          DISCORD_APP_ID: ${{ secrets.DISCORD_APP_ID }}
+        run: |
+          if ! npm run register-commands; then
+            echo "::warning title=Slash commands not registered yet::That's normal before the bot is invited to your server. After inviting it, run the Deploy Worker workflow once (Actions tab) to register them."
+          fi
+
+      - name: Check the bot is up and connect Discord
+        if: ${{ !inputs.dry_run }}
+        env:
+          WORKER_URL: ${{ steps.pre.outputs.worker_url }}
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          DISCORD_APP_ID: ${{ secrets.DISCORD_APP_ID }}
+          DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
+        run: npx tsx scripts/bootstrap.ts finish

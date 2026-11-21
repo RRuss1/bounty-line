@@ -60,30 +60,27 @@ Every guild ties **its own Worker to its own Discord**. You host it on your Clou
 - A **Discord server** where you're an admin, with Developer Mode on.
 - A **GitHub** account.
 
-### Steps (about 30 minutes)
-1. **Fork** this repo.
-2. **Create a Discord application** at discord.com/developers:
-   - Bot → copy the token, turn **Public Bot OFF**, turn **Message Content Intent ON** (skip in budget mode).
-   - Copy the **Application ID** and **Public Key**.
-3. **Create a Cloudflare API token** ("Edit Cloudflare Workers" template; make sure **Workers: Edit**, **Workers Scripts: Edit**, **D1: Edit** and **Workers R2 Storage: Edit** are ticked; remove the zone policy; limit it to your account).
-4. In **your fork** → Settings → Secrets and variables → Actions:
+### Steps (about 30–45 minutes)
+
+**👉 Follow the step-by-step guide: [docs/deploy-your-own.md](docs/deploy-your-own.md).** It assumes no experience. The short version:
+
+1. **Fork** this repo and enable Actions in your fork.
+2. Collect seven values from Cloudflare and Discord (the guide shows exactly where) and add them to your fork → Settings → Secrets and variables → Actions:
 
    | Type | Name | Value |
    |---|---|---|
-   | Secret | `CLOUDFLARE_API_TOKEN` | your API token |
+   | Secret | `CLOUDFLARE_API_TOKEN` | API token (Workers Scripts, D1, Workers R2 Storage: Edit; Workers AI: Read) |
    | Secret | `CLOUDFLARE_ACCOUNT_ID` | your account ID |
    | Secret | `DISCORD_TOKEN` | bot token |
    | Secret | `DISCORD_PUBLIC_KEY` | public key |
    | Secret | `DISCORD_APP_ID` | application ID |
    | Variable | `WORKER_NAME` | e.g. `bounty-board-myguild` |
-   | Variable | `D1_NAME` / `R2_BUCKET` | e.g. `bounty-board-myguild` / `bounty-proofs-myguild` |
    | Variable | `ALLOWED_GUILD_IDS` | your Discord server ID |
-   | Variable (optional) | `READ_CHAT`, `AI_CHECK`, `POSTER_IMAGE`, `AI_DAILY_CAP` | `false`/`false`/`false` for budget mode |
+   | Variable (optional) | `READ_CHAT`, `AI_CHECK`, `POSTER_IMAGE` | `false` each for budget mode (Cloudflare Free plan) |
 
-5. Actions → **Bootstrap deployment** → *Run workflow*. It creates the database and bucket, deploys, and registers commands.
-6. Discord portal → **Interactions Endpoint URL** = `https://<WORKER_NAME>.<your-subdomain>.workers.dev/interactions`
-7. Invite your bot (OAuth2 URL with `bot` + `applications.commands`), then run **`/bl setup`** in your server.
-8. Tell your guild to install Bounty Line and `/bl import` the pinned pack.
+3. Actions → **Bootstrap deployment** → *Run workflow* with **Dry run** ticked. It checks every value and account and tells you how to fix anything wrong. Changes nothing.
+4. Run it again with **Dry run** unticked. It creates the database and screenshot storage, deploys the bot, stores its secrets, sets Discord's Interactions Endpoint URL and checks the bot is up. Safe to re-run; it never deletes anything.
+5. Follow the run summary's next steps: invite the bot, run **Deploy Worker** once, then **`/bl setup`** in your server.
 
 ### Staying up to date
 Click **Sync fork** on GitHub. Your deploy workflow applies database migrations and redeploys automatically. Check [CHANGELOG.md](CHANGELOG.md) → *Deployer notes* for anything that needs action.

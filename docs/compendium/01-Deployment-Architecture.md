@@ -144,7 +144,7 @@ Same repo. Rich sets **Actions Variables** (`WORKER_NAME`, `D1_NAME`, `D1_ID`, `
 ### 4.3 Another guild's deployment
 1. **Fork** the repo (or "Use this template").
 2. In *their* fork: set the same Variables/Secrets with *their* values.
-3. Run the **"Bootstrap deployment"** workflow (manual trigger). It creates D1 + R2 if missing, applies migrations, deploys, and registers slash commands.
+3. Run the **"Bootstrap deployment"** workflow (manual trigger), first as a **dry run** (checks every value and account, changes nothing), then for real. It creates D1 + R2 if missing, applies migrations, deploys, stores the bot secrets, registers slash commands, sets the Interactions Endpoint URL and checks `/health`. Logic lives in `worker/scripts/bootstrap.ts` (unit-tested); the beginner guide is `docs/deploy-your-own.md`.
 4. Invite their bot, run `/bl setup`.
 
 ### 4.4 Staying up to date
