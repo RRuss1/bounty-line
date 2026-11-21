@@ -129,8 +129,19 @@ local function metalBorder(f)
 end
 
 -- Returns a movable window; put things in f.content.
+local windows = {}
+
+-- Puts every window back where it opens by default (Settings > Reset window positions).
+function ns.ResetWindows()
+  for _, w in ipairs(windows) do
+    w:ClearAllPoints()
+    w:SetPoint("CENTER", 0, 120)
+  end
+end
+
 function ns.CreateWindow(name, width, height, title)
   local f = CreateFrame("Frame", name, UIParent)
+  windows[#windows + 1] = f
   f:SetSize(width, height)
   f:SetPoint("CENTER", 0, 120)
   f:SetFrameStrata("DIALOG")

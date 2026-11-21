@@ -24,6 +24,8 @@
 
 ## Commands
 
+You don't need to remember any of these: **right-click the minimap button** for a menu of everything, and **left-click** it for the Bounty Board (with tabs for your bounties and your kill codes, and a Settings button).
+
 | Command | What it does |
 |---|---|
 | `/bl mark [gold] [note]` | Set a bounty on your target (same as right-click → Set Bounty…) |
@@ -32,6 +34,7 @@
 | `/bl last` | Show your last code again |
 | `/bl link` | Link your character to your Discord account so kills are credited to you |
 | `/bl test` | Practice run: stamp, screenshot and kill code on a pretend target |
+| `/bl options` | Settings: alerts, sounds, nameplate skull, guild sync and more |
 | `/bl minimap` | Show or hide the minimap button |
 
 ## What you need

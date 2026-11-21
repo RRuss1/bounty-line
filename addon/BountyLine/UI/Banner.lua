@@ -58,5 +58,5 @@ function ns.Banner(text)
   frame:SetAlpha(1)
   frame:Show()
   frame.anim:Play()
-  PlaySound(SOUNDKIT.RAID_WARNING)
+  ns.Sound(SOUNDKIT.RAID_WARNING)
 end
