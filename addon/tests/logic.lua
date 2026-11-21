@@ -199,8 +199,8 @@ check("whole pinned message imports", pack ~= nil)
 eq("pack board tag", pack.boardTag, single.fields.boardTag)
 eq("pack bounty count", #pack.bounties, #single.fields.bounties)
 
-local _, err, _, received, total = ns.ReadPack(parts[1] .. NL .. parts[3])
-check("two of three parts: incomplete", err == "INCOMPLETE" and #received == 2 and total == 3, tostring(err))
+local _, partErr, _, received, total = ns.ReadPack(parts[1] .. NL .. parts[3])
+check("two of three parts: incomplete", partErr == "INCOMPLETE" and #received == 2 and total == 3, tostring(partErr))
 check("all parts in any order", ns.ReadPack(parts[3] .. NL .. parts[1] .. NL .. parts[2]) ~= nil)
 eq("no code: EMPTY", select(2, ns.ReadPack("hello")), "EMPTY")
 
@@ -228,7 +228,9 @@ check("expired bounty ignored", ns.GetBounty(first.targetGUID) == nil)
 local function withBounty(faction)
   reset()
   BountyLineDB.pack = { boardTag = "K7QF", version = 1, bounties = {
-    ["Player-4395-0A1B2C3D"] = { id = 7, name = "Grimlok Ashveil", faction = faction or 2, reward = 500, poster = "Slac Jaw", expires = 1795300000 },
+    ["Player-4395-0A1B2C3D"] = {
+      id = 7, name = "Grimlok Ashveil", faction = faction or 2, reward = 500, poster = "Slac Jaw", expires = 1795300000,
+    },
   } }
   BountyLineDB.boardTag = "K7QF"
   ns.SetDuel(false, -1000)
