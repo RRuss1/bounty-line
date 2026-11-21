@@ -53,12 +53,12 @@ local function edge(parent, layer, color, out, sublevel)
   return lines
 end
 
--- The red glow grows inward from the metal's inner edge with rounded corners: four corner pieces
+-- The red glow grows inward from the metal's inner edge with square corners (matching the metal): four corner pieces
 -- and four edge strips (Media/glow-*.tga, white with a soft falloff), tinted red, additive. It has
 -- its own margin, so it never covers the title or content. Pulses slowly.
 local GLOW_SIZE = 16
 -- px from the window edge to the inside of the metal; the glow starts there.
-local BORDER_INSET = 9
+local BORDER_INSET = 12
 -- Title bar and content start here: past the metal and the whole glow, so nothing overlaps.
 local MARGIN = BORDER_INSET + GLOW_SIZE + 2
 local MEDIA = "Interface\\AddOns\\BountyLine\\Media\\"
@@ -124,7 +124,7 @@ local function metalBorder(f)
   local border = CreateFrame("Frame", nil, f, "BackdropTemplate")
   border:SetAllPoints()
   border:SetFrameLevel(f:GetFrameLevel() + 3)
-  border:SetBackdrop({ edgeFile = BORDER, edgeSize = 32 })
+  border:SetBackdrop({ edgeFile = BORDER, edgeSize = 42 })
 end
 
 -- Returns a movable window; put things in f.content.

@@ -40,7 +40,7 @@ local function input(f, parent, width, maxLetters)
 end
 
 local function build()
-  local f = ns.CreateWindow("BountyLineAmountEntry", 472, 338, L.ADDON)
+  local f = ns.CreateWindow("BountyLineAmountEntry", 478, 344, L.ADDON)
   local c = f.content
 
   local heading = ns.Text(c, "heading")

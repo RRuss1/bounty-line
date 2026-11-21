@@ -38,7 +38,7 @@ local function import()
 end
 
 local function build()
-  local f = ns.CreateWindow("BountyLineImport", 572, 376, L.ADDON)
+  local f = ns.CreateWindow("BountyLineImport", 578, 382, L.ADDON)
   local c = f.content
 
   local heading = ns.Text(c, "heading")
