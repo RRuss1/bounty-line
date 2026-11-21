@@ -53,10 +53,14 @@ local function edge(parent, layer, color, out, sublevel)
   return lines
 end
 
--- The red glow grows inward from the window's edge with rounded corners: four corner pieces
--- and four edge strips (Media/glow-*.tga, white with a soft falloff), tinted red and added on
--- top of the metal so it shows through red-hot. Pulses slowly.
+-- The red glow grows inward from the metal's inner edge with rounded corners: four corner pieces
+-- and four edge strips (Media/glow-*.tga, white with a soft falloff), tinted red, additive. It has
+-- its own margin, so it never covers the title or content. Pulses slowly.
 local GLOW_SIZE = 16
+-- px from the window edge to the inside of the metal; the glow starts there.
+local BORDER_INSET = 9
+-- Title bar and content start here: past the metal and the whole glow, so nothing overlaps.
+local MARGIN = BORDER_INSET + GLOW_SIZE + 2
 local MEDIA = "Interface\\AddOns\\BountyLine\\Media\\"
 local function glowPiece(holder, file, coords)
   local t = holder:CreateTexture(nil, "OVERLAY")
@@ -68,7 +72,9 @@ local function glowPiece(holder, file, coords)
 end
 local function glow(f, level)
   local holder = CreateFrame("Frame", nil, f)
-  holder:SetAllPoints() -- the border sits exactly on the window edges
+  -- Inside the metal, fading inward into its own margin.
+  holder:SetPoint("TOPLEFT", BORDER_INSET, -BORDER_INSET)
+  holder:SetPoint("BOTTOMRIGHT", -BORDER_INSET, BORDER_INSET)
   holder:SetFrameLevel(level)
   local G = GLOW_SIZE
   -- Corners: the texture's outer corner is its top-left; mirror it for the other three.
@@ -113,7 +119,6 @@ end
 -- The classic grey, nicked metal dialog border. It's symmetric and sits exactly on the
 -- window's edges, so the background and glow line up with it without any measuring.
 local BORDER = "Interface\\DialogFrame\\UI-DialogBox-Border"
-local BORDER_INSET = 9 -- px from the window edge to the inside of the metal
 
 local function metalBorder(f)
   local border = CreateFrame("Frame", nil, f, "BackdropTemplate")
@@ -143,8 +148,8 @@ function ns.CreateWindow(name, width, height, title)
 
   -- Title bar: tall enough that the metal never cuts through the title. Only the bar drags.
   local bar = CreateFrame("Frame", nil, f)
-  bar:SetPoint("TOPLEFT", BORDER_INSET + 2, -BORDER_INSET - 1)
-  bar:SetPoint("TOPRIGHT", -BORDER_INSET - 2, -BORDER_INSET - 1)
+  bar:SetPoint("TOPLEFT", MARGIN, -MARGIN)
+  bar:SetPoint("TOPRIGHT", -MARGIN, -MARGIN)
   bar:SetHeight(38)
   bar:SetFrameLevel(f:GetFrameLevel() + 4)
   bar:EnableMouse(true)
@@ -181,8 +186,8 @@ function ns.CreateWindow(name, width, height, title)
 
   -- Inset panel with a fine gold edge, like the Dungeon Journal's.
   local content = CreateFrame("Frame", nil, f)
-  content:SetPoint("TOPLEFT", BORDER_INSET + 6, -BORDER_INSET - 46)
-  content:SetPoint("BOTTOMRIGHT", -BORDER_INSET - 6, BORDER_INSET + 6)
+  content:SetPoint("TOPLEFT", MARGIN + 4, -MARGIN - 46)
+  content:SetPoint("BOTTOMRIGHT", -MARGIN - 4, MARGIN + 4)
   image(content, "BACKGROUND", PANEL_BG):SetAllPoints()
   edge(content, "BORDER", COLORS.goldEdge, 0)
 
