@@ -3,6 +3,7 @@
 ## Notes: Guild PvP bounties: mark targets, hunt them, prove the kill on your Discord Bounty Board.
 ## Author: Slac Jaw from RP-PVP
 ## Version: @project-version@
+## X-Curse-Project-ID: 1820212
 ## SavedVariables: BountyLineDB
 ## SavedVariablesPerCharacter: BountyLineCharDB
 ## IconTexture: Interface\Icons\INV_Misc_Bone_HumanSkull_01
