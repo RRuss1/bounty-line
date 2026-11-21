@@ -53,17 +53,48 @@ local function edge(parent, layer, color, out, sublevel)
   return lines
 end
 
--- The red glow grows inward: ten 1px rings from the metal's outer edge toward the middle,
--- added on top of the metal (additive, so the metal shows through red-hot), pulsing slowly.
-local GLOW = { 0.9, 0.75, 0.6, 0.47, 0.36, 0.27, 0.19, 0.13, 0.08, 0.04 }
+-- The red glow grows inward from the window's edge with rounded corners: four corner pieces
+-- and four edge strips (Media/glow-*.tga, white with a soft falloff), tinted red and added on
+-- top of the metal so it shows through red-hot. Pulses slowly.
+local GLOW_SIZE = 16
+local MEDIA = "Interface\\AddOns\\BountyLine\\Media\\"
+local function glowPiece(holder, file, coords)
+  local t = holder:CreateTexture(nil, "OVERLAY")
+  t:SetTexture(MEDIA .. file)
+  t:SetTexCoord(unpack(coords))
+  t:SetVertexColor(COLORS.red[1], COLORS.red[2], COLORS.red[3], 0.95)
+  t:SetBlendMode("ADD")
+  return t
+end
 local function glow(f, level)
   local holder = CreateFrame("Frame", nil, f)
   holder:SetAllPoints() -- the border sits exactly on the window edges
   holder:SetFrameLevel(level)
-  local r, g, b = COLORS.red[1], COLORS.red[2], COLORS.red[3]
-  for i, alpha in ipairs(GLOW) do
-    for _, t in ipairs(edge(holder, "OVERLAY", { r, g, b, alpha }, -(i - 1))) do t:SetBlendMode("ADD") end
+  local G = GLOW_SIZE
+  -- Corners: the texture's outer corner is its top-left; mirror it for the other three.
+  for point, coords in pairs({
+    TOPLEFT = { 0, 1, 0, 1 }, TOPRIGHT = { 1, 0, 0, 1 }, BOTTOMLEFT = { 0, 1, 1, 0 }, BOTTOMRIGHT = { 1, 0, 1, 0 },
+  }) do
+    local c = glowPiece(holder, "glow-corner", coords)
+    c:SetSize(G, G)
+    c:SetPoint(point)
   end
+  local left = glowPiece(holder, "glow-edge-v", { 0, 1, 0, 1 })
+  left:SetPoint("TOPLEFT", 0, -G)
+  left:SetPoint("BOTTOMLEFT", 0, G)
+  left:SetWidth(G)
+  local right = glowPiece(holder, "glow-edge-v", { 1, 0, 0, 1 })
+  right:SetPoint("TOPRIGHT", 0, -G)
+  right:SetPoint("BOTTOMRIGHT", 0, G)
+  right:SetWidth(G)
+  local top = glowPiece(holder, "glow-edge-h", { 0, 1, 0, 1 })
+  top:SetPoint("TOPLEFT", G, 0)
+  top:SetPoint("TOPRIGHT", -G, 0)
+  top:SetHeight(G)
+  local bottom = glowPiece(holder, "glow-edge-h", { 0, 1, 1, 0 })
+  bottom:SetPoint("BOTTOMLEFT", G, 0)
+  bottom:SetPoint("BOTTOMRIGHT", -G, 0)
+  bottom:SetHeight(G)
 
   local pulse = holder:CreateAnimationGroup()
   pulse:SetLooping("BOUNCE")
