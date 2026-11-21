@@ -9,11 +9,11 @@ const input = (p: Partial<PosterInput> = {}): PosterInput => ({
   subtitle: "Night Elf Monk · Level 57 · Alliance",
   rewardGold: 500,
   postedBy: "Slac Jaw",
-  zone: "Zone #1434",
+  zone: null,
   markedAt: 1795200000,
   bountyId: 12,
   expiresAt: 1795200000 + 14 * 86400,
-  boardTag: "MT8H",
+  boardName: "Grief Bounty Board",
   status: "open",
   ...p,
 });
@@ -28,9 +28,14 @@ const fontSize = (svg: string, text: string) => Number(new RegExp(`font-size="(\
 describe("wanted-poster layout", () => {
   it("prints the facts and an OPEN stamp", () => {
     const svg = posterSvg(input());
-    for (const s of ["WANTED", "VEXA NIGHTWHISPER", "REWARD 500g", "paid by Slac Jaw", "Bounty #12 · Expires Dec 4, 2026", "Board MT8H", ">OPEN<"]) {
+    for (const s of ["WANTED", "VEXA NIGHTWHISPER", "REWARD 500g", "paid by Slac Jaw", "Bounty #12 · Expires Dec 4, 2026", ">Grief Bounty Board<", "Marked Nov 20, 2026", ">OPEN<"]) {
       expect(svg).toContain(s);
     }
+  });
+
+  it("names the zone once it's known", () => {
+    expect(posterSvg(input({ zone: "Stranglethorn Vale" }))).toContain("Marked in Stranglethorn Vale · Nov 20, 2026");
+    expect(posterSvg(input())).not.toContain("Zone #");
   });
 
   it("escapes player-supplied text", () => {
@@ -72,7 +77,7 @@ describe("wantedPosterImage", () => {
   });
 
   const b = { targetName: "Vexa", targetRaceID: 4, targetClassID: 10, targetLevel: 57, targetFaction: 1, rewardGold: 1, posterName: "Slac Jaw", mapID: 1434, createdAt: 0 } as BountyPost;
-  const tenant = { id: "1", board_tag: "MT8H" } as Tenant;
+  const tenant = { id: "1", board_tag: "MT8H", config: { discord_display_name: "Grief" } } as Tenant;
   const env = (POSTER_IMAGE?: string) => ({ LOG_LEVEL: "error", POSTER_IMAGE }) as never;
 
   it("is off when POSTER_IMAGE=false", async () => {
