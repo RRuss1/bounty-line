@@ -1084,7 +1084,7 @@ The same packager can upload to **Wago** (`-a <wago-id>`) and **WoWInterface** (
 15. **Window art:** the border is the classic `DialogFrame\UI-DialogBox-Border` (the NineSlice `ButtonFrameTemplateNoPortrait` layout sat ~10px off the frame on Forever and was dropped). The client's `FrameGeneral\UI-Background-Rock/Marble` textures did **not** show, so backgrounds ship in `Media/` (dark crops of the poster parchment).
 16. **Nameplate skull:** the addon parents a texture to `C_NamePlate.GetNamePlateForUnit(unit)`. Check it appears over enemy players and that forbidden plates are skipped without errors.
 17. **Kill debugging:** `/bl debugkills` prints every `PARTY_KILL` (attacker, victim) and honor message, to settle items 1 and 3 on a real kill.
-18. **Spoiler copy line:** the code box holds `WANTED: **Name** · 500g ||BL1-B-…||` (Section 5.7b). In a WoW EditBox, `||` is how a literal `|` is stored. Check that Ctrl+C → paste in Discord gives `||…||` (a spoiler bar). If it pastes single pipes, write `||||` instead.
+18. **Spoiler copy line:** the code box holds `WANTED: **Name** · 500g ||BL1-B-…||` (Section 5.7b). In a WoW EditBox, `||` is how a literal `|` is stored. ✅ **Verified 2026-11-21:** Ctrl+C copies one `|` per `||` pair, so `||` pasted as single pipes. The addon now writes `||||` around the code, which pastes as `||…||`.
 
 ---
 

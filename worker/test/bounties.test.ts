@@ -93,6 +93,7 @@ describe("posting a bounty from #bounty-line", () => {
 
     expect(reactions()).toEqual(["✅"]);
     expect(replies()[0]).toContain(`Bounty #${row!.id}`);
+    expect(replies()[0]).toMatch(/\[Bounty Pack\]\(https:\/\/discord\.com\/channels\/\d+\/\d+\/\d+\) updated/); // links the pinned pack
     expect(later).toEqual([]); // success replies stay
   });
 
