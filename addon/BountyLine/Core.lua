@@ -101,6 +101,7 @@ local COMMANDS = {
   test = function() ns.PracticeKill() end,
   sync = function()
     ns.Comms.Hello()
+    ns.Comms.Version()
     ns.Comms.SharePack()
     ns.Print(L.SYNC_SENT)
   end,
@@ -116,8 +117,14 @@ local COMMANDS = {
   end,
   debug = function() ns.Debug() end,
   version = function()
-    local get = C_AddOns and C_AddOns.GetAddOnMetadata
-    ns.Print(L.VERSION:format(get and get(addonName, "Version") or "?", ns.Codec.PREFIX))
+    ns.Print(L.VERSION:format(ns.AddonVersion() or L.VERSION_DEV, ns.Codec.PREFIX))
+    local newer = ns.NewerVersion()
+    if newer then ns.Print(L.UPDATE_AVAILABLE:format(newer, ns.AddonVersion() or "?")) end
+    local names = {}
+    for name, v in pairs(ns.OlderGuildies()) do names[#names + 1] = ("%s (%s)"):format(name, v) end
+    table.sort(names)
+    if #names > 0 then ns.Print(L.VERSION_OLDER:format(table.concat(names, ", "))) end
+    if not newer and #names == 0 then ns.Print(L.VERSION_OK) end
   end,
   minimap = function() ns.ToggleMinimap() end,
   options = function() ns.OpenOptions() end,

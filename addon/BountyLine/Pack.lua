@@ -3,8 +3,39 @@
 -- and looked up by target GUID.
 local _, ns = ...
 
--- major*1000 + minor. Packs say which addon version they need (minAddonVersion).
-ns.ADDON_VERSION_CODE = 4
+-- ---------------------------------------------------------------- addon version
+
+-- The installed version, as the release wrote it into the TOC ("v0.8.0-beta2"). A copy run
+-- straight from the source has no real version; then this returns nil.
+function ns.AddonVersion()
+  local get = C_AddOns and C_AddOns.GetAddOnMetadata
+  local v = get and get("BountyLine", "Version")
+  if v and ns.ParseVersion(v) then return v end
+  return nil
+end
+
+-- "v0.8.0", "0.8.0-beta2", "v0.8.0-beta2-3-gabc123" -> a number that sorts by release order
+-- (alpha < beta < release). nil if it isn't a version.
+function ns.ParseVersion(text)
+  if type(text) ~= "string" or #text > 40 then return nil end
+  local major, minor, patch, rest = text:match("^v?(%d+)%.(%d+)%.(%d+)(.*)$")
+  if not major then return nil end
+  local stage = 999
+  local beta, alpha = rest:match("^%-beta(%d*)"), rest:match("^%-alpha(%d*)")
+  if beta then
+    stage = 500 + (tonumber(beta) or 0)
+  elseif alpha then
+    stage = tonumber(alpha) or 0
+  end
+  return ((tonumber(major) * 1000 + tonumber(minor)) * 1000 + tonumber(patch)) * 1000 + stage
+end
+
+-- major*1000 + minor, for the pack's minAddonVersion. FALLBACK is for source copies.
+local FALLBACK_VERSION_CODE = 8
+function ns.AddonVersionCode()
+  local key = ns.ParseVersion(ns.AddonVersion() or "")
+  return key and math.floor(key / 1000000) or FALLBACK_VERSION_CODE
+end
 
 -- A pack's version is the time the bot made it. One dated further ahead than this is forged
 -- or broken: accepting it would block every real pack ("newest wins").
@@ -81,7 +112,7 @@ end
 
 function ns.PackOutdated()
   local pack = BountyLineDB.pack
-  return pack ~= nil and (pack.minAddon or 0) > ns.ADDON_VERSION_CODE
+  return pack ~= nil and (pack.minAddon or 0) > ns.AddonVersionCode()
 end
 
 -- A kill on this bounty was just claimed (by you or a guildie): stop hunting it until the
