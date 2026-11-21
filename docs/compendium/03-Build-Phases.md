@@ -181,7 +181,7 @@ Tag each phase `v0.<phase>.0` (e.g. `v0.2.0`).
 ## Phase 7: Release pipeline & "Deploy your own"
 
 **Deliverables**
-- CurseForge project created (spec Section 19); `X-Curse-Project-ID` in TOC; `CF_API_KEY` secret.
+- CurseForge project created (spec Section 19); `X-Curse-Project-ID` in TOC; `CF_API_TOKEN` secret.
 - `addon-release.yml` with BigWigs packager; tags `v*-beta*` → Beta, `v*` → Release.
 - `bootstrap.yml` (manual): create D1/R2 if missing, migrate, deploy, register commands. Works in any fork.
 - README: features, GIF, install, **Deploy your own Bounty Board** (Compendium 01 Section 9), compatibility matrix, privacy.
