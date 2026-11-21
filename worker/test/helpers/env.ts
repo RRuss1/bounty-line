@@ -30,6 +30,9 @@ export function fakeR2(): R2Bucket & { objects: Map<string, { bytes: Uint8Array;
       objects.set(key, { bytes: new Uint8Array(value), contentType: opts?.httpMetadata?.contentType });
       return {} as R2Object;
     },
+    async delete(key: string) {
+      objects.delete(key);
+    },
   } as unknown as R2Bucket & { objects: typeof objects };
 }
 

@@ -1,17 +1,21 @@
 # Changelog
 
-## v0.6.0 (unreleased): Phase 6a, automation
+## v0.6.0 (unreleased): Phase 6, automation
 
 - **AI proof check.** Workers AI reads the proof stamp in the kill screenshot and compares it with the kill code (same code, or same bounty number and target). The result is listed on the proof post. Capped at `AI_DAILY_CAP` calls a day; over the cap, switched off or failing, claims simply go to officers.
 - **Trust and auto-approve.** Five approved kills in a row make a hunter **trusted** (a denial resets it). With the default `auto_approve = trusted_only`, a trusted hunter's claim with all checks green (stamp matches, posted in time, character not linked to someone else) is approved automatically and goes straight to payment. Officers keep a **Deny** button until it's paid.
 - `/bl leaderboard` (top hunters, most wanted, biggest payers), `/bl me` (your record, trust progress, open bounties, what you owe and are owed), `/bl cancel id` (poster or officer).
+- **Add to Bounty.** Right-click a wanted player → **Add to Bounty…** to stack your gold on their open bounty. The poster shows the new total ("paid by Slac Jaw +1"), and on payment **each contributor pays their own share** (every one of them clicks **Paid**). Contributors can't claim it. Admins can turn stacking off.
+- `/bl config` (admins): rewards, expiry, proof window, auto-approve mode, trust threshold, stacking, weekly recap and its channel. No redeploy needed.
+- `/bl forget-me`: deletes your character links and stats; your name comes off closed bounties and your old kill screenshots are deleted. Open bounties and unpaid rewards stay.
+- Proof screenshots are deleted from storage `PROOF_RETENTION_DAYS` (180) after their bounty closes.
 - **Scheduled jobs.** Hourly: bounties past their expiry move to *Expired*. Sundays 17:00 UTC: a weekly recap in the hall-of-fame channel (or `#bounty-line`) with most wanted, the week's top hunters and a gentle list of unpaid bounties.
 
 ### Deployer notes
 
-- New D1 migration (`0003_ai_and_trust.sql`); the deploy applies it.
+- New D1 migrations (`0003_ai_and_trust.sql`, `0004_stacking_and_cleanup.sql`); the deploy applies them. Existing bounties get their poster as the first contributor.
 - New binding: **Workers AI** (`AI`). It needs Workers AI on your Cloudflare account (Workers Paid). Budget mode: set `AI_CHECK=false`. Optional Variable `AI_MODEL` to try another vision model.
-- Two new crons (hourly, and Sundays 17:00 UTC) and three new slash commands; the deploy registers them.
+- Two new crons (hourly, and Sundays 17:00 UTC) and five new slash commands; the deploy registers them.
 - Your Cloudflare API token needs **Workers AI: Read** if the deploy complains about the AI binding.
 
 ## v0.5.0 (unreleased): Phase 5, guild sync and the board

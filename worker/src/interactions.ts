@@ -6,7 +6,7 @@ import type { Env } from "./env";
 import { gatewayState } from "./gateway";
 import { log } from "./log";
 import { refreshPack } from "./pack";
-import { cancel, leaderboard, me } from "./stats";
+import { cancel, configure, forgetMe, leaderboard, me } from "./stats";
 import { codeLimiter } from "./ratelimit";
 import type { DiscordRest, ForumTag } from "./rest";
 import { audit, boardCounts, FORUM_TAGS, getTenant, patchConfig, upsertTenant, type ForumTagKey, type Tenant } from "./tenants";
@@ -56,6 +56,22 @@ export async function runCommand(
         defer: async () => {
           const tenant = await getTenant(env.DB, guildId);
           return tenant ? me(env, tenant, actorOf(interaction)) : "This server isn't set up yet.";
+        },
+      };
+    case "config":
+      if (!hasAdmin(interaction)) return { reply: reply("Only server admins (Manage Server) can change settings.") };
+      return {
+        defer: async () => {
+          const tenant = await getTenant(env.DB, guildId);
+          return tenant ? configure(env, rest, tenant, o, now) : "This server isn't set up yet. Run `/bl setup` first.";
+        },
+      };
+    case "forget-me":
+      if (o.confirm !== "true") return { reply: reply("Nothing deleted. Run it again with `confirm: True` to delete your data.") };
+      return {
+        defer: async () => {
+          const tenant = await getTenant(env.DB, guildId);
+          return tenant ? forgetMe(env, tenant, actorOf(interaction), now) : "This server isn't set up yet.";
         },
       };
     case "cancel":

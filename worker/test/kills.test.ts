@@ -221,7 +221,8 @@ describe("payment", () => {
     const prompt = discord.find("POST", new RegExp(`/channels/${threadId}/messages$`)).at(-1)!.body as {
       content: string; components: { components: { custom_id: string }[] }[]; allowed_mentions: { users: string[] };
     };
-    expect(prompt.content).toContain(`<@${POSTER_USER}> pays <@${HUNTER_USER}> **500g**`);
+    expect(prompt.content).toContain(`<@${HUNTER_USER}> collects **500g**`);
+    expect(prompt.content).toContain(`⬜ <@${POSTER_USER}> pays **500g**`);
     expect(prompt.components[0]!.components.map((c) => c.custom_id)).toEqual([`pay:paid:${id}`, `pay:received:${id}`, `pay:close:${id}`]);
     expect(prompt.allowed_mentions.users.sort()).toEqual([HUNTER_USER, POSTER_USER].sort());
   });
@@ -229,7 +230,8 @@ describe("payment", () => {
   it("Paid then Received: PAID in full, tag and stamp, hunter credited, thread closed", async () => {
     const id = await approved();
     await call(env, button(`pay:paid:${id}`, POSTER_USER));
-    expect(String(lastEdit().content)).toContain("✅ Paid (poster) · ⬜ Received (hunter)");
+    expect(String(lastEdit().content)).toContain(`✅ <@${POSTER_USER}> pays **500g**`);
+    expect(String(lastEdit().content)).toContain("⬜ Received (hunter)");
     expect(bountyStatus()).toBe("awaiting_payment");
 
     await call(env, button(`pay:received:${id}`, HUNTER_USER));

@@ -27,16 +27,17 @@ end
 -- ---------------------------------------------------------------- posting
 
 -- Shows the B code for a snapshot and reward (spec 5.4).
-function ns.PostBounty(snap, reward, note)
-  local code, err, message = ns.BuildBountyCode(snap, reward, note)
+-- existingId: add the gold to that open bounty instead of starting a new one.
+function ns.PostBounty(snap, reward, note, existingId)
+  local code, err, message = ns.BuildBountyCode(snap, reward, note, existingId)
   if not code then return ns.Print(L.CODE_FAILED:format(message or err)) end
-  ns.Comms.NewBounty(snap.name, reward, ns.FullName("player")) -- guildies see a "pending" banner
+  if not existingId then ns.Comms.NewBounty(snap.name, reward, ns.FullName("player")) end -- guildies see a "pending" banner
   ns.ShowCode({
-    title = L.BOUNTY_READY,
+    title = existingId and L.STACK_READY or L.BOUNTY_READY,
     subtitle = ("%s · %s"):format(ns.Describe(snap), ns.FormatGold(reward)),
     instructions = L.POST_THIS,
     code = code,
-    line = { "B", snap.name, ns.FormatGold(reward) },
+    line = { existingId and "A" or "B", snap.name, ns.FormatGold(reward) },
   })
 end
 

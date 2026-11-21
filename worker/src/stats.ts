@@ -7,7 +7,8 @@ import type { Env } from "./env";
 import { setBountyStatus, type BountyRow } from "./kills";
 import { log } from "./log";
 import type { DiscordRest } from "./rest";
-import { audit, getTenant, type Tenant } from "./tenants";
+import { refreshPack } from "./pack";
+import { audit, getTenant, patchConfig, type Tenant } from "./tenants";
 import { escapeMd, gold } from "./wow";
 
 const medal = (i: number) => ["🥇", "🥈", "🥉"][i] ?? `${i + 1}.`;
@@ -30,7 +31,9 @@ export async function leaderboard(env: Env, tenant: Tenant, now: number): Promis
       "SELECT discord_user_id AS who, gold_earned AS gold, approved AS n FROM hunters WHERE tenant_id = ?1 AND (gold_earned > 0 OR approved > 0) ORDER BY gold_earned DESC, approved DESC LIMIT 5",
     ).bind(tenant.id),
     env.DB.prepare(
-      "SELECT poster_discord_id AS who, SUM(reward_gold) AS gold, COUNT(*) AS n FROM bounties WHERE tenant_id = ?1 AND status = 'paid' AND poster_discord_id IS NOT NULL GROUP BY poster_discord_id ORDER BY gold DESC LIMIT 5",
+      `SELECT c.poster_discord_id AS who, SUM(c.reward_gold) AS gold, COUNT(*) AS n FROM contributions c
+       JOIN bounties b ON b.id = c.bounty_id AND b.tenant_id = c.tenant_id
+       WHERE c.tenant_id = ?1 AND b.status = 'paid' AND c.poster_discord_id IS NOT NULL GROUP BY c.poster_discord_id ORDER BY gold DESC LIMIT 5`,
     ).bind(tenant.id),
   ]);
   const wanted = await mostWanted(env, tenant, now);
@@ -58,8 +61,10 @@ export async function me(env: Env, tenant: Tenant, user: string): Promise<string
   const [posted, owe, owed] = await env.DB.batch<{ id: number; target_name: string | null; reward_gold: number; who?: string }>([
     env.DB.prepare("SELECT id, target_name, reward_gold FROM bounties WHERE tenant_id = ?1 AND poster_discord_id = ?2 AND status IN ('open', 'review') ORDER BY id").bind(tenant.id, user),
     env.DB.prepare(
-      `SELECT b.id, b.target_name, b.reward_gold, k.killer_discord_id AS who FROM bounties b JOIN kills k ON k.bounty_id = b.id AND k.tenant_id = b.tenant_id
-       WHERE b.tenant_id = ?1 AND b.poster_discord_id = ?2 AND b.status = 'awaiting_payment' AND k.verdict IN ('approved', 'auto') AND k.paid_at IS NULL`,
+      `SELECT b.id, b.target_name, c.reward_gold, k.killer_discord_id AS who FROM contributions c
+       JOIN bounties b ON b.id = c.bounty_id AND b.tenant_id = c.tenant_id
+       JOIN kills k ON k.bounty_id = b.id AND k.tenant_id = b.tenant_id AND k.verdict IN ('approved', 'auto')
+       WHERE c.tenant_id = ?1 AND c.poster_discord_id = ?2 AND c.paid_at IS NULL AND b.status = 'awaiting_payment'`,
     ).bind(tenant.id, user),
     env.DB.prepare(
       `SELECT b.id, b.target_name, b.reward_gold, b.poster_discord_id AS who FROM bounties b JOIN kills k ON k.bounty_id = b.id AND k.tenant_id = b.tenant_id
@@ -129,7 +134,109 @@ export async function expirySweep(env: Env, rest: DiscordRest, now: number): Pro
     }
   }
   if (n) log(env, "info", "cron.expired", { count: n });
+  await proofCleanup(env, now);
   return n;
+}
+
+/**
+ * Proof screenshots are deleted from R2 PROOF_RETENTION_DAYS after their bounty closes
+ * (Compendium 01 Section 7). Runs with the hourly sweep, a batch at a time.
+ */
+export async function proofCleanup(env: Env, now: number): Promise<number> {
+  const days = Number(env.PROOF_RETENTION_DAYS ?? 180);
+  const { results } = await env.DB.prepare(
+    `SELECT k.id, k.image_r2_key FROM kills k JOIN bounties b ON b.id = k.bounty_id AND b.tenant_id = k.tenant_id
+     WHERE k.image_r2_key IS NOT NULL AND b.closed_at IS NOT NULL AND b.closed_at <= ?1 LIMIT 50`,
+  )
+    .bind(now - days * DAY)
+    .all<{ id: number; image_r2_key: string }>();
+  for (const k of results) {
+    await env.PROOFS.delete(k.image_r2_key);
+    await env.DB.prepare("UPDATE kills SET image_r2_key = NULL WHERE id = ?1").bind(k.id).run();
+  }
+  if (results.length) log(env, "info", "cron.proofs_deleted", { count: results.length });
+  return results.length;
+}
+
+// ---------------------------------------------------------------- /bl forget-me (spec 13)
+
+/**
+ * Deletes a user's character links and hunter stats. On closed bounties their name comes off
+ * the record and their kill screenshots are deleted; open bounties and pending payments stay,
+ * so nobody is left unpaid.
+ */
+export async function forgetMe(env: Env, tenant: Tenant, user: string, now: number): Promise<string> {
+  const closed = "('paid', 'expired', 'cancelled')";
+  const { results: shots } = await env.DB.prepare(
+    `SELECT k.id, k.image_r2_key FROM kills k JOIN bounties b ON b.id = k.bounty_id AND b.tenant_id = k.tenant_id
+     WHERE k.tenant_id = ?1 AND k.killer_discord_id = ?2 AND k.image_r2_key IS NOT NULL AND b.status IN ${closed}`,
+  )
+    .bind(tenant.id, user)
+    .all<{ id: number; image_r2_key: string }>();
+  for (const s of shots) await env.PROOFS.delete(s.image_r2_key);
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM characters WHERE tenant_id = ?1 AND discord_user_id = ?2").bind(tenant.id, user),
+    env.DB.prepare("DELETE FROM hunters WHERE tenant_id = ?1 AND discord_user_id = ?2").bind(tenant.id, user),
+    env.DB.prepare(
+      `UPDATE kills SET killer_discord_id = NULL, killer_name = NULL, killer_guid = NULL, image_r2_key = NULL
+       WHERE tenant_id = ?1 AND killer_discord_id = ?2 AND bounty_id IN (SELECT id FROM bounties WHERE tenant_id = ?1 AND status IN ${closed})`,
+    ).bind(tenant.id, user),
+    env.DB.prepare(
+      `UPDATE contributions SET poster_discord_id = NULL, poster_name = NULL, poster_guid = NULL
+       WHERE tenant_id = ?1 AND poster_discord_id = ?2 AND bounty_id IN (SELECT id FROM bounties WHERE tenant_id = ?1 AND status IN ${closed})`,
+    ).bind(tenant.id, user),
+    env.DB.prepare(
+      `UPDATE bounties SET poster_discord_id = NULL, poster_name = NULL, poster_guid = NULL
+       WHERE tenant_id = ?1 AND poster_discord_id = ?2 AND status IN ${closed}`,
+    ).bind(tenant.id, user),
+  ]);
+  await audit(env.DB, tenant.id, "forget-me", "user.forget", { screenshots: shots.length }, now);
+  return `🧹 Done. Your character links and stats are deleted, and your name is off closed bounties (${shots.length} screenshot${shots.length === 1 ? "" : "s"} deleted). Open bounties and unpaid rewards are kept so nobody loses gold.`;
+}
+
+// ---------------------------------------------------------------- /bl config (admins)
+
+const AUTO = ["off", "trusted_only", "all_clean"] as const;
+
+export async function configure(env: Env, rest: DiscordRest, tenant: Tenant, o: Record<string, string>, now: number): Promise<string> {
+  const c = tenant.config;
+  const patch: Record<string, unknown> = {};
+  const errors: string[] = [];
+  const int = (key: string, min: number, max: number) => {
+    if (o[key] === undefined) return;
+    const v = Number(o[key]);
+    if (!Number.isInteger(v) || v < min || v > max) errors.push(`\`${key}\` must be ${min} to ${max}.`);
+    else patch[key] = v;
+  };
+  int("reward_min", 1, 1_000_000);
+  int("reward_max", 1, 1_000_000);
+  int("expiry_days", 1, 60);
+  int("proof_window_hours", 1, 168);
+  int("trust_threshold", 1, 50);
+  if (o.auto_approve !== undefined) {
+    if ((AUTO as readonly string[]).includes(o.auto_approve)) patch.auto_approve = o.auto_approve;
+    else errors.push("`auto_approve` must be off, trusted_only or all_clean.");
+  }
+  for (const key of ["allow_stacking", "weekly_recap"]) if (o[key] !== undefined) patch[key] = o[key] === "true";
+  const min = (patch.reward_min as number | undefined) ?? c.reward_min;
+  const max = (patch.reward_max as number | undefined) ?? c.reward_max;
+  if (min > max) errors.push("`reward_min` can't be above `reward_max`.");
+  if (errors.length) return `❌ ${errors.join(" ")}`;
+
+  if (Object.keys(patch).length) await patchConfig(env.DB, tenant.id, patch);
+  if (o.hall_of_fame !== undefined) {
+    await env.DB.prepare("UPDATE tenants SET hall_of_fame_ch = ?1 WHERE id = ?2").bind(o.hall_of_fame, tenant.id).run();
+  }
+  const fresh = (await getTenant(env.DB, tenant.id))!;
+  if (patch.reward_min !== undefined || patch.reward_max !== undefined) await refreshPack(env, rest, fresh, now); // limits travel in the pack
+  if (Object.keys(patch).length || o.hall_of_fame !== undefined) await audit(env.DB, tenant.id, "admin", "config", { ...patch, hall_of_fame: o.hall_of_fame }, now);
+  const f = fresh.config;
+  return [
+    Object.keys(patch).length || o.hall_of_fame !== undefined ? "✅ **Settings saved.**" : "**Bounty Board settings**",
+    `Rewards: ${gold(f.reward_min)} to ${gold(f.reward_max)} · bounties last ${f.expiry_days} days · kill proof within ${f.proof_window_hours}h`,
+    `Auto-approve: **${f.auto_approve}** · trusted after ${f.trust_threshold} approved kills in a row`,
+    `Stacking: ${f.allow_stacking ? "on" : "off"} · weekly recap: ${f.weekly_recap ? "on" : "off"} in ${fresh.hall_of_fame_ch ? `<#${fresh.hall_of_fame_ch}>` : `<#${fresh.bounty_line_ch}>`}`,
+  ].join("\n");
 }
 
 /** Weekly (Sunday): Most Wanted, the week's top hunters, and a gentle unpaid-bounty nudge. */

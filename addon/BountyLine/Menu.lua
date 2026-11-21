@@ -31,6 +31,7 @@ local function addSection(tag, rootDescription, contextData)
     rootDescription:CreateButton(L.MENU_VIEW:format(existing.id, ns.FormatGold(existing.reward)), function()
       ns.Print(L.TOOLTIP_WANTED:format(ns.FormatGold(existing.reward), existing.id, existing.poster))
     end)
+    rootDescription:CreateButton(L.MENU_ADD, function() ns.OpenAmountEntry(snap, nil, nil, existing.id) end)
   end
   local button = rootDescription:CreateButton(L.MENU_SET_BOUNTY, function()
     if snap then ns.OpenAmountEntry(snap) end

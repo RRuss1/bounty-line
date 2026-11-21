@@ -26,7 +26,7 @@ local function submit()
   if not reward then return end
   local snap, note = frame.snap, frame.note:GetText()
   frame:Hide()
-  ns.PostBounty(snap, reward, note)
+  ns.PostBounty(snap, reward, note, frame.existingId)
 end
 
 local function input(f, parent, width, maxLetters)
@@ -44,6 +44,7 @@ local function build()
   local c = f.content
 
   local heading = ns.Text(c, "heading")
+  f.heading = heading
   heading:SetPoint("TOPLEFT", 16, -12)
   heading:SetText(L.SET_BOUNTY)
 
@@ -87,9 +88,12 @@ local function build()
   return f
 end
 
-function ns.OpenAmountEntry(snap, amount, note)
+-- existingId: "Add to Bounty…" on that open bounty.
+function ns.OpenAmountEntry(snap, amount, note, existingId)
   frame = frame or build()
   frame.snap = snap
+  frame.existingId = existingId
+  frame.heading:SetText(existingId and L.ADD_TO_BOUNTY or L.SET_BOUNTY)
   local min, max = ns.RewardLimits()
   frame.target:SetText(ns.Describe(snap))
   frame.limits:SetText(L.LIMITS:format(ns.FormatGold(min), ns.FormatGold(max)))

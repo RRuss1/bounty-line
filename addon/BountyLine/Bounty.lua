@@ -116,7 +116,8 @@ end
 
 local function nonce() return math.random(0, 65535) end
 
-function ns.BuildBountyCode(snap, reward, note)
+-- existingId: "Add to Bounty…" (stacks gold on that open bounty; Compendium 02 mode 1).
+function ns.BuildBountyCode(snap, reward, note, existingId)
   local myFaction = FACTION_ID[UnitFactionGroup("player")]
   return ns.Codec.Encode("B", {
     schema = 1,
@@ -135,8 +136,8 @@ function ns.BuildBountyCode(snap, reward, note)
     createdAt = GetServerTime(),
     nonce = nonce(),
     note = note or "",
-    mode = 0,
-    existingBountyId = 0,
+    mode = existingId and 1 or 0,
+    existingBountyId = existingId or 0,
   })
 end
 
@@ -150,6 +151,7 @@ local COPY = {
   B = "WANTED: **%s** · %s " .. SPOILER .. "%s" .. SPOILER,
   K = "CLAIMED: **%s** · %s " .. SPOILER .. "%s" .. SPOILER,
   L = "LINK: **%s** " .. SPOILER .. "%s" .. SPOILER,
+  A = "ADDED: **%s** · +%s " .. SPOILER .. "%s" .. SPOILER,
 }
 function ns.CopyLine(kind, name, detail, code)
   if kind == "L" then return COPY.L:format(name, code) end
@@ -157,7 +159,7 @@ function ns.CopyLine(kind, name, detail, code)
 end
 
 -- The tidy label shown over the (invisible) code box in game: the line without the code.
-local DISPLAY = { B = "WANTED: %s · %s", K = "CLAIMED: %s · %s", L = "LINK: %s" }
+local DISPLAY = { B = "WANTED: %s · %s", K = "CLAIMED: %s · %s", L = "LINK: %s", A = "ADDED: %s · +%s" }
 function ns.DisplayLine(line)
   if not line then return "" end
   return DISPLAY[line[1]]:format(line[2], line[3]) .. "  "
