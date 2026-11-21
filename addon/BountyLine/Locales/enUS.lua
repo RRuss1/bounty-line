@@ -28,7 +28,10 @@ ns.L = {
   DEBUGMENU_OFF = "Menu debug off.",
   DEBUGMENU_TAG = "menu |cff00ccff%s|r (unit: %s)",
 
-  MINIMAP_TIP = { "Click: open the Bounty Board", "Shift-click: show your last code", "Right-click: set a bounty on your target", "Drag: move this button" },
+  MINIMAP_TIP = {
+    "Click: open the Bounty Board", "Shift-click: show your last code",
+    "Right-click: set a bounty on your target", "Drag: move this button",
+  },
   MINIMAP_HIDDEN = "Minimap button hidden. /bl minimap brings it back.",
   MINIMAP_SHOWN = "Minimap button shown.",
 
