@@ -52,12 +52,61 @@ export const className = (id: number) => CLASSES[id] ?? `Class #${id}`;
 export const raceName = (id: number) => RACES[id] ?? `Race #${id}`;
 export const factionName = (id: number) => (id === 1 ? "Alliance" : id === 2 ? "Horde" : `Faction #${id}`);
 /**
- * B codes carry only a uiMapID; names need a verified Forever map table (spec Section 23,
- * filled in from `/bl debug` in Phase 3). Unknown zones are left off rather than shown as numbers.
+ * B codes carry only a uiMapID (spec Section 23 item 11). This table was read from C_Map on the
+ * Forever client (1.60.1, 2026-11-21). Unknown zones are left off rather than shown as numbers.
  */
-/** Verified on Forever with /bl debug (uiMapID → name). Add more as players report them. */
 const ZONES: Record<number, string> = {
+  1411: "Durotar",
+  1412: "Mulgore",
+  1413: "The Barrens",
+  1416: "Alterac Mountains",
+  1417: "Arathi Highlands",
+  1418: "Badlands",
+  1419: "Blasted Lands",
+  1420: "Tirisfal Glades",
+  1421: "Silverpine Forest",
+  1422: "Western Plaguelands",
+  1423: "Eastern Plaguelands",
+  1424: "Hillsbrad Foothills",
+  1425: "The Hinterlands",
+  1426: "Dun Morogh",
+  1427: "Searing Gorge",
+  1428: "Burning Steppes",
+  1429: "Elwynn Forest",
+  1430: "Deadwind Pass",
+  1431: "Duskwood",
+  1432: "Loch Modan",
+  1433: "Redridge Mountains",
+  1434: "Stranglethorn Vale",
+  1435: "Swamp of Sorrows",
+  1436: "Westfall",
   1437: "Wetlands",
+  1438: "Teldrassil",
+  1439: "Darkshore",
+  1440: "Ashenvale",
+  1441: "Thousand Needles",
+  1442: "Stonetalon Mountains",
+  1443: "Desolace",
+  1444: "Feralas",
+  1445: "Dustwallow Marsh",
+  1446: "Tanaris",
+  1447: "Azshara",
+  1448: "Felwood",
+  1449: "Un'Goro Crater",
+  1450: "Moonglade",
+  1451: "Silithus",
+  1452: "Winterspring",
+  1453: "Stormwind City",
+  1454: "Orgrimmar",
+  1455: "Ironforge",
+  1456: "Thunder Bluff",
+  1457: "Darnassus",
+  1458: "Undercity",
+  2482: "Mount Hyjal",
+  2521: "Zephras Isle",
+  2548: "Riverglades",
+  2652: "Shen'dralas",
+  2665: "Zephras Isle",
 };
 export const zoneName = (mapId: number): string | null => ZONES[mapId] ?? null;
 
