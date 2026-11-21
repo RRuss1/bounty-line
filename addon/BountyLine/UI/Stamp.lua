@@ -41,7 +41,7 @@ end
 function ns.ShowStamp(k)
   frame = frame or build()
   frame.title:SetText(k.practice and L.STAMP_PRACTICE or L.STAMP_TITLE)
-  frame.target:SetText(("%s · %s · Bounty #%d"):format(k.bounty.name, ns.FormatGold(k.bounty.reward), k.bounty.id))
+  frame.target:SetText(("%s · %s · %s"):format(k.bounty.name, ns.FormatGold(k.bounty.reward), ns.BountyLabel(k.bounty)))
   local zone = ns.ZoneName() or ""
   frame.place:SetText(("%s%s%s"):format(zone, zone ~= "" and " · " or "", date("%Y-%m-%d %H:%M:%S", k.killedAt)))
   frame.code:SetText(k.code)

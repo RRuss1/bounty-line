@@ -35,7 +35,15 @@ end
 function ns.PostBounty(snap, reward, note, existingId)
   local code, err, message = ns.BuildBountyCode(snap, reward, note, existingId)
   if not code then return ns.Print(L.CODE_FAILED:format(message or err)) end
-  if not existingId then ns.Comms.NewBounty(snap.name, reward, ns.FullName("player")) end -- guildies see a "pending" banner
+  if not existingId then
+    -- Guildies get a banner and can hunt the target straight away, before any pack lists it.
+    local me, now = ns.FullName("player"), GetServerTime()
+    ns.Comms.NewBounty(snap.name, reward, me)
+    if ns.AddPending(snap.guid, snap.name, snap.classID, snap.faction, reward, me, now) then
+      ns.Comms.Pending(snap, reward, me, now)
+      ns.RefreshMarks()
+    end
+  end
   ns.ShowCode({
     title = existingId and L.STACK_READY or L.BOUNTY_READY,
     subtitle = ("%s · %s"):format(ns.Describe(snap), ns.FormatGold(reward)),

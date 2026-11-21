@@ -105,6 +105,8 @@ Every payload starts with **`u8 schema`**. Schema `0` is invalid. For a **newer*
 | 10 | flags | u8: bit0 honorCorroborated, bit1 petKill |
 | 11 | nonce | u16 |
 
+**`bountyId = 0`** means "the bounty on `victimGUID`": the hunter's addon learned of the bounty from guild sync before any pack gave it a number (design spec 5.8, pending bounties). The Worker then looks up the open bounty by victim. No layout change; schema stays 1.
+
 No victim name: the Worker already has it on the bounty (matched by `victimGUID`), and the proof stamp prints it separately. Leaving it out keeps K codes short for the stamp OCR.
 
 ### 3.3 `P`: bounty pack (Discord → addon)

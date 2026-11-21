@@ -365,6 +365,8 @@ Prefix: `BountyLine` (≤16 chars). Messages are chunked (≤220 bytes of payloa
 | `NEWB` | new bounty summary (from local `/bl mark`) | The poster (shown as a "pending, confirm on Discord" banner) |
 | `SEEN` | bounty id, zone, timestamp | Whoever spots a target (throttled: 1 per bounty per 60s) |
 | `KILL` | bounty id, killer name | The killer |
+| `PEND` | target GUID, name, class, faction, reward, poster, time | The poster, with `NEWB`. Guildies store a **pending bounty** (highlighted and huntable, no number yet) until a pack lists it or 48h pass |
+| `KILLP` | target GUID, killer name, target name | The killer of a pending bounty |
 
 **Trust rule:** only process messages arriving on `GUILD`. Optional setting: only accept `PACK` from guild ranks ≥ X (officer-only pack distribution).
 **Instance rule:** queue outgoing messages while addon comms are restricted (active instance encounters) and flush afterward.

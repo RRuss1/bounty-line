@@ -452,6 +452,43 @@ check("still in view: no repeat", not ns.ShouldAlert(50, 300))
 check("still in view later: no repeat", not ns.ShouldAlert(50, 800))
 check("after 10+ minutes unseen: alerts again", ns.ShouldAlert(50, 800 + 601))
 
+-- ---------------------------------------------------------------- pending bounties
+
+reset()
+serverTime = PACK_TIME
+local PGUID = "Player-4395-0C0C0C0C"
+check("no bounty before", ns.GetBounty(PGUID) == nil)
+receive("PEND", table.concat({ PGUID, "Vexa Nightwhisper", 4, 2, 250, "Grey Gnomelander", PACK_TIME + 999999 }, "\t"))
+local pend = ns.GetBounty(PGUID)
+check("a guildie's new bounty is huntable at once", pend ~= nil and pend.pending and pend.id == 0 and pend.reward == 250)
+eq("label has no number", ns.BountyLabel(pend), "new bounty")
+check("the sender's clock can't stretch its life", pend.expires <= PACK_TIME + 48 * 3600)
+eq("listed on the board with no pack", #ns.ListBounties(), 1)
+units.target.guid = PGUID
+eq("a kill on it counts", (ns.CheckKill(ME, PGUID, 5000) or {}).id, 0)
+eq("its kill code has bounty number 0", Codec.Decode(ns.BuildKillCode(0, PGUID, PACK_TIME, false, false)).fields.bountyId, 0)
+receive("PEND", "garbage")
+receive("PEND", table.concat({ "Player-4395-0D0D0D0D", "Bad Faction", 4, 7, 250, "X", 1 }, "\t"))
+check("malformed pending messages are ignored", ns.GetBounty("Player-4395-0D0D0D0D") == nil)
+
+-- A guildie collects it: gone for everyone.
+receive("KILLP", PGUID .. "\tHunter McHunterface\tVexa Nightwhisper")
+check("collected pending bounty is dropped", ns.GetBounty(PGUID) == nil)
+
+-- A pack that lists the target replaces the pending entry with the numbered bounty.
+local listedGuid = single.fields.bounties[1].targetGUID
+check("pending added", ns.AddPending(listedGuid, "Someone", 1, 2, 5, "Me", PACK_TIME))
+check("pack stored", ns.StorePack(ns.ReadPack(single.input)))
+eq("the numbered bounty wins", ns.GetBounty(listedGuid).id, single.fields.bounties[1].bountyId)
+check("pending entry removed", BountyLineDB.pending[listedGuid] == nil)
+check("no pending for a target that already has a bounty", not ns.AddPending(listedGuid, "Someone", 1, 2, 5, "Me", PACK_TIME))
+
+-- Pending bounties time out after 48 hours.
+check("pending added", ns.AddPending(PGUID, "Vexa Nightwhisper", 4, 2, 250, "Grey", PACK_TIME))
+serverTime = PACK_TIME + 49 * 3600
+check("gone after 48h", ns.GetBounty(PGUID) == nil)
+serverTime = PACK_TIME
+
 -- ---------------------------------------------------------------- kill queue and combat
 
 reset()

@@ -6,13 +6,15 @@
 - Kills in quick succession each get their own stamp, screenshot and code (they queue).
 - A bounty you or a guildie just killed shows as **claimed** and loses its skull until the next Bounty Pack, so nobody double-claims it.
 - Bounty Packs dated in the future are refused, so one bad sync can no longer block real packs. Banners are limited to 3 a minute per sender. Optional: accept synced packs from officers only.
+- **New bounties are huntable right away.** When a guildie makes a bounty code, everyone online gets it as a *pending* bounty: skull, tooltip and board entry, without waiting for someone to import the pack. A kill on a pending bounty still gives a kill code, and the Bounty Board matches it to the bounty by the victim.
+- The board warns when your Bounty Pack is more than a day old.
 - Sighting alerts repeat after you lose sight of a target for 10 minutes, not just once per session.
 - **View Bounty** in the right-click menu opens the board on that bounty. `/bl version`.
 - Old sightings and expired bounties are cleaned out of saved data.
 
 ### Deployer notes
 
-- Nothing to change yet (addon only so far).
+- Nothing to set. The Worker now accepts kill codes with bounty number 0 (matched by victim); it deploys as usual.
 
 ## v0.7.0 (unreleased): Phase 7, deploy your own
 

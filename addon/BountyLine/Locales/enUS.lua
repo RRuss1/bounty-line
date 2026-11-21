@@ -82,8 +82,14 @@ ns.L = {
 
   -- hunting
   TOOLTIP_WANTED = "WANTED: %s (Bounty #%d, posted by %s)",
+  TOOLTIP_PENDING = "WANTED: %s (new bounty by %s)",
+  BOUNTY_PENDING = "new bounty",
+  PENDING = "pending",
+  NEW_SHORT = "new",
+  PACK_STALE = " · |cffff6060old pack: import the pinned one again|r",
   SPOTTED = "WANTED: %s (%s) spotted nearby!",
   MENU_VIEW = "View Bounty (#%d · %s)",
+  MENU_VIEW_PENDING = "View Bounty (new · %s)",
 
   -- kills
   KILL_TITLE = "BOUNTY COLLECTED!",
