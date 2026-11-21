@@ -26,9 +26,32 @@ local function applyDefaults(t, defaults)
   return t
 end
 
--- Addon sounds, unless turned off in Settings.
-function ns.Sound(kit)
-  if (BountyLineDB.settings or {}).sounds ~= false then PlaySound(kit) end
+-- Addon sounds: all the game's own, played by name or file number (nothing is shipped).
+--   file: a sound file in the client (a voice line); kit: a name in the game's SOUNDKIT table.
+-- If the client doesn't have the file, the kit plays instead; an unknown kit falls back to the
+-- raid warning. /bl debug sounds plays each one and says what was found (spec 23 item 23).
+ns.SOUNDS = {
+  -- A bounty is created (yours, or a guildie's banner): Mage-Lord Urom, "A_UROMKILL03".
+  { "create", file = 554523, kit = "PVP_THROUGH_QUEUE" },
+  { "stack", kit = "LOOT_WINDOW_COIN_SOUND" },          -- you add gold to a bounty
+  { "sighting", kit = "ALARM_CLOCK_WARNING_3" },        -- a wanted player is in sight
+  { "kill", kit = "UI_PVP_HONOR_PRESTIGE_RANK_UP" },    -- you collect a bounty
+  { "guildKill", kit = "IG_PVP_UPDATE" },               -- a guildie collects one
+  { "codeReady", kit = "IG_QUEST_LIST_COMPLETE" },      -- your waiting kill code opens after the fight
+}
+local soundByName = {}
+for _, s in ipairs(ns.SOUNDS) do soundByName[s[1]] = s end
+
+-- Returns what played: "file", the kit's name, or "RAID_WARNING" (the fallback); nil if off.
+function ns.Sound(event, evenIfOff)
+  if not evenIfOff and (BountyLineDB.settings or {}).sounds == false then return nil end
+  local s = soundByName[event]
+  if not s then return nil end
+  if s.file and PlaySoundFile and PlaySoundFile(s.file, "Master") then return "file" end
+  local kit = s.kit and SOUNDKIT[s.kit]
+  if kit and PlaySound(kit) then return s.kit end
+  PlaySound(SOUNDKIT.RAID_WARNING)
+  return "RAID_WARNING"
 end
 
 function ns.Print(msg)
@@ -42,6 +65,7 @@ end
 function ns.PostBounty(snap, reward, note, existingId)
   local code, err, message = ns.BuildBountyCode(snap, reward, note, existingId)
   if not code then return ns.Print(L.CODE_FAILED:format(message or err)) end
+  ns.Sound(existingId and "stack" or "create")
   if not existingId then
     -- Guildies get a banner and can hunt the target straight away, before any pack lists it.
     local me, now = ns.FullName("player"), GetServerTime()
@@ -115,7 +139,10 @@ local COMMANDS = {
     s.debugKills = not s.debugKills
     ns.Print(s.debugKills and L.DEBUGKILLS_ON or L.DEBUGKILLS_OFF)
   end,
-  debug = function() ns.Debug() end,
+  debug = function(rest)
+    if rest == "sounds" then return ns.DebugSounds() end
+    ns.Debug()
+  end,
   version = function()
     ns.Print(L.VERSION:format(ns.AddonVersion() or L.VERSION_DEV, ns.Codec.PREFIX))
     local newer = ns.NewerVersion()

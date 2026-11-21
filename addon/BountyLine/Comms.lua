@@ -255,7 +255,7 @@ function handlers.KILLP(data, _, senderId)
   ns.RefreshMarks()
   if ns.RefreshBoard then ns.RefreshBoard() end
   if not Comms.AllowBanner(senderId, GetTime()) then return end
-  ns.Banner(L.BANNER_KILL:format(killer ~= "" and killer or "?", name ~= "" and name or "?", ns.BoardName()))
+  ns.Banner(L.BANNER_KILL:format(killer ~= "" and killer or "?", name ~= "" and name or "?", ns.BoardName()), "guildKill")
 end
 
 -- ---------------------------------------------------------------- version check
@@ -307,7 +307,7 @@ function handlers.KILL(data, _, senderId)
     if ns.RefreshBoard then ns.RefreshBoard() end
   end
   if not Comms.AllowBanner(senderId, GetTime()) then return end
-  ns.Banner(L.BANNER_KILL:format(killer ~= "" and killer or "?", b and b.name or ("bounty #" .. id), ns.BoardName()))
+  ns.Banner(L.BANNER_KILL:format(killer ~= "" and killer or "?", b and b.name or ("bounty #" .. id), ns.BoardName()), "guildKill")
 end
 
 function Comms.Receive(text, channel, senderName)

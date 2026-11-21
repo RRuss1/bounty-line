@@ -98,7 +98,6 @@ function ns.ShowKillToast(waiting)
   flash:Show()
   flash.fade:Stop()
   flash.fade:Play()
-  ns.Sound(SOUNDKIT.RAID_WARNING)
   box.count:SetText(waiting > 1 and waiting or "")
   -- The square appears as the flash ends.
   C_Timer.After(FLASH_SECONDS, function()

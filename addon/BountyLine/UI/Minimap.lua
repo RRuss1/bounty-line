@@ -69,6 +69,7 @@ function ns.OpenMainMenu(owner)
     root:CreateButton(entry(L.M_HIDE, "minimap"), function() ns.ToggleMinimap() end)
     local debug = root:CreateButton(L.M_DEBUG)
     debug:CreateButton(entry(L.M_DEBUG_INFO, "debug"), function() ns.Debug() end)
+    debug:CreateButton(entry(L.M_DEBUG_SOUNDS, "debug sounds"), function() ns.DebugSounds() end)
     debug:CreateCheckbox(entry(L.OPT_DEBUG_MENU, "debugmenu"), function() return s.debugMenu end,
       function() s.debugMenu = not s.debugMenu end)
     debug:CreateCheckbox(entry(L.OPT_DEBUG_KILLS, "debugkills"), function() return s.debugKills end,

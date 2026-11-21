@@ -320,6 +320,7 @@ serverTime = PACK_TIME
 local Comms = ns.Comms
 local banners, prints = {}, {}
 ns.Banner = function(text) banners[#banners + 1] = text end
+ns.Sound = function() end
 ns.Print = function(text) prints[#prints + 1] = text end
 ns.RefreshMarks = function() end
 ns.RefreshBoard = function() end

@@ -16,6 +16,7 @@
 - **Quieter `#bounty-line`.** A pasted code that works now gets only the ✅ reaction: no reply repeating the bounty. A code that fails gets ❌ and a one-line reason that deletes itself after a minute.
 - Settings window is wider, so the longest option no longer runs past the edge.
 - The minimap menu shows the slash command beside each entry, and gains Guild banners (on/off), Check version and Hide minimap button, so every command is in the menu.
+- **Sounds per event** (all the game's own): a voice line when a bounty is created, coins when you add gold, an alarm when a wanted player is in sight, a PvP fanfare when you collect, a short PvP chime when a guildie collects, and a chime when your waiting kill code opens. `/bl debug sounds` plays each one.
 - Sighting alerts repeat after you lose sight of a target for 10 minutes, not just once per session.
 - **View Bounty** in the right-click menu opens the board on that bounty. `/bl version`.
 - Old sightings and expired bounties are cleaned out of saved data.

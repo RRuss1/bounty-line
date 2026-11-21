@@ -35,6 +35,18 @@ local function describeUnit(unit)
   line("bounty allowed", snap and "yes" or ("no: " .. tostring(why)))
 end
 
+-- /bl debug sounds: plays every addon sound in turn and says what the client had for it.
+function ns.DebugSounds()
+  ns.Print("sounds (one every 4 seconds)")
+  for i, s in ipairs(ns.SOUNDS) do
+    C_Timer.After((i - 1) * 4, function()
+      local played = ns.Sound(s[1], true)
+      local wanted = s.file and ("file " .. s.file) or s.kit
+      line(s[1], wanted, played == "file" and "played the file" or ("played " .. tostring(played)))
+    end)
+  end
+end
+
 function ns.Debug()
   ns.Print("debug (paste this into bug reports)")
   local version, build, buildDate, toc = GetBuildInfo()

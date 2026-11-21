@@ -38,7 +38,7 @@ local function alert(b)
   if RaidNotice_AddMessage and RaidWarningFrame then
     RaidNotice_AddMessage(RaidWarningFrame, text, ChatTypeInfo.RAID_WARNING)
   end
-  ns.Sound(SOUNDKIT.RAID_WARNING)
+  ns.Sound("sighting")
   ns.Print(text)
 end
 
