@@ -201,6 +201,82 @@ describe("officer review", () => {
   });
 });
 
+describe("payment", () => {
+  const POSTER_USER = "700000000000000001"; // posted the bounty in beforeEach
+  const OFFICER = "500000000000000009";
+  const approved = async () => {
+    await say(kill(), [image], HUNTER_USER);
+    const id = Number(kills()[0]!.id);
+    await call(env, button(`kill:approve:${id}`, OFFICER, [ids.role]));
+    discord.calls = [];
+    return id;
+  };
+  const lastEdit = () => discord.find("PATCH", /\/webhooks\/.+\/button-token\/messages\/@original$/).at(-1)!.body!;
+  const closed = () => discord.find("PATCH", new RegExp(`^/channels/${threadId}$`)).some((c) => c.body!.archived === true);
+
+  it("approval posts Paid / Received / Force close in the thread, pinging poster and hunter", async () => {
+    await say(kill(), [image], HUNTER_USER);
+    const id = Number(kills()[0]!.id);
+    await call(env, button(`kill:approve:${id}`, OFFICER, [ids.role]));
+    const prompt = discord.find("POST", new RegExp(`/channels/${threadId}/messages$`)).at(-1)!.body as {
+      content: string; components: { components: { custom_id: string }[] }[]; allowed_mentions: { users: string[] };
+    };
+    expect(prompt.content).toContain(`<@${POSTER_USER}> pays <@${HUNTER_USER}> **500g**`);
+    expect(prompt.components[0]!.components.map((c) => c.custom_id)).toEqual([`pay:paid:${id}`, `pay:received:${id}`, `pay:close:${id}`]);
+    expect(prompt.allowed_mentions.users.sort()).toEqual([HUNTER_USER, POSTER_USER].sort());
+  });
+
+  it("Paid then Received: PAID in full, tag and stamp, hunter credited, thread closed", async () => {
+    const id = await approved();
+    await call(env, button(`pay:paid:${id}`, POSTER_USER));
+    expect(String(lastEdit().content)).toContain("✅ Paid (poster) · ⬜ Received (hunter)");
+    expect(bountyStatus()).toBe("awaiting_payment");
+
+    await call(env, button(`pay:received:${id}`, HUNTER_USER));
+    expect(String(lastEdit().content)).toContain("PAID IN FULL");
+    expect(lastEdit().components).toEqual([]);
+    expect(bountyStatus()).toBe("paid");
+    expect(kills()[0]!.paid_at).toBeTruthy();
+    expect(kills()[0]!.received_at).toBeTruthy();
+    expect(db.sqlite.prepare("SELECT gold_earned FROM hunters WHERE discord_user_id = ?").get(HUNTER_USER)).toEqual({ gold_earned: 500 });
+    expect(discord.find("PATCH", new RegExp(`^/channels/${threadId}$`)).map((c) => c.body)).toContainEqual({ applied_tags: [tagId("paid")] });
+    expect(JSON.stringify(discord.find("PATCH", new RegExp(`/channels/${threadId}/messages/${threadId}$`)).at(-1)!.body)).toContain("**PAID**");
+    expect(closed()).toBe(true);
+  });
+
+  it("works in either order", async () => {
+    const id = await approved();
+    await call(env, button(`pay:received:${id}`, HUNTER_USER));
+    await call(env, button(`pay:paid:${id}`, POSTER_USER));
+    expect(bountyStatus()).toBe("paid");
+  });
+
+  it("only the poster can click Paid, only the hunter Received", async () => {
+    const id = await approved();
+    await call(env, button(`pay:paid:${id}`, HUNTER_USER));
+    await call(env, button(`pay:received:${id}`, POSTER_USER));
+    expect(kills()[0]).toMatchObject({ paid_at: null, received_at: null });
+    expect(discord.find("POST", /\/webhooks\/\d+\/button-token$/)).toHaveLength(2);
+  });
+
+  it("officers can force-close; others can't", async () => {
+    const id = await approved();
+    await call(env, button(`pay:close:${id}`, POSTER_USER));
+    expect(bountyStatus()).toBe("awaiting_payment");
+    await call(env, button(`pay:close:${id}`, OFFICER, [ids.role]));
+    expect(bountyStatus()).toBe("paid");
+    expect(String(lastEdit().content)).toContain(`Closed by <@${OFFICER}>`);
+    expect(closed()).toBe(true);
+  });
+
+  it("a paid bounty can't be paid again", async () => {
+    const id = await approved();
+    await call(env, button(`pay:close:${id}`, OFFICER, [ids.role]));
+    await call(env, button(`pay:paid:${id}`, POSTER_USER));
+    expect(db.sqlite.prepare("SELECT gold_earned FROM hunters WHERE discord_user_id = ?").get(HUNTER_USER)).toEqual({ gold_earned: 500 });
+  });
+});
+
 describe("character links", () => {
   const link = () =>
     encode("L", { schema: 1, boardTag: tag, charGUID: HUNTER, charName: "Hunter McHunterface", faction: 1, guildName: "Grief", createdAt: NOW, nonce: 3 });

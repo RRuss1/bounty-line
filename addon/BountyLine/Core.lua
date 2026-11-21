@@ -31,6 +31,7 @@ function ns.PostBounty(snap, reward, note)
     subtitle = ("%s · %s"):format(ns.Describe(snap), ns.FormatGold(reward)),
     instructions = L.POST_THIS,
     code = code,
+    copy = ns.CopyLine("B", snap.name, ns.FormatGold(reward), code),
   })
 end
 
@@ -50,7 +51,8 @@ end
 local function link()
   local code, err, message = ns.BuildLinkCode()
   if not code then return ns.Print(err == "NEUTRAL" and message or L.CODE_FAILED:format(message or err)) end
-  ns.ShowCode({ title = L.LINK_READY, subtitle = ns.FullName("player"), instructions = L.POST_LINK, code = code })
+  local name = ns.FullName("player")
+  ns.ShowCode({ title = L.LINK_READY, subtitle = name, instructions = L.POST_LINK, code = code, copy = ns.CopyLine("L", name, nil, code) })
 end
 
 local COMMANDS = {

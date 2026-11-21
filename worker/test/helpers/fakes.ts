@@ -57,7 +57,8 @@ export class FakeDiscord {
 
     let m: RegExpExecArray | null;
     if (method === "GET" && (m = /^\/channels\/(\d+)$/.exec(path))) return ok({ id: m[1], type: 15, available_tags: this.forumTags });
-    if (method === "PATCH" && /^\/channels\/\d+$/.test(path) && body?.applied_tags) return ok({}); // thread tags
+    // Thread edits: tags, or archiving a finished bounty.
+    if (method === "PATCH" && /^\/channels\/\d+$/.test(path) && (body?.applied_tags || body?.archived !== undefined)) return ok({});
     if (method === "PATCH" && /^\/channels\/\d+$/.test(path)) {
       if (this.fail.forumPatch) return status(this.fail.forumPatch);
       this.forumTags = (body!.available_tags as ForumTag[]).map((t) => ({ ...t, id: t.id ?? this.newId() }));

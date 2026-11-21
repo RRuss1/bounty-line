@@ -11,6 +11,7 @@ import { FACTION } from "./codec";
 import type { Env } from "./env";
 import { log } from "./log";
 import { refreshPack } from "./pack";
+import { postPaymentPrompt } from "./payments";
 import { SKULL, wantedPoster, wantedPosterImage } from "./poster";
 import type { PosterStatus } from "./poster-image";
 import type { DiscordRest } from "./rest";
@@ -249,8 +250,10 @@ export function rowToPost(b: BountyRow) {
 export interface ReviewResult {
   /** Shown only to the clicker (permission problems, already reviewed). */
   ephemeral?: string;
-  /** The proof post, updated: buttons removed, verdict line added. */
+  /** The clicked message, updated: new text and buttons. */
   update?: { content: string; components: unknown[] };
+  /** Runs after the update (e.g. closing the thread). */
+  after?: () => Promise<unknown>;
 }
 
 export async function reviewKill(
@@ -283,13 +286,20 @@ export async function reviewKill(
       .bind(tenant.id, kill.killer_discord_id)
       .run();
   }
-  if (b && b.status === "review") await setBountyStatus(env, rest, tenant, b, action === "approve" ? "awaiting_payment" : "open", now);
+  if (b && b.status === "review") {
+    await setBountyStatus(env, rest, tenant, b, action === "approve" ? "awaiting_payment" : "open", now);
+    if (action === "approve") {
+      await postPaymentPrompt(rest, b, killId, kill.killer_discord_id).catch((e) =>
+        log(env, "warn", "bounty.payment_prompt_failed", { tenant_id: tenant.id, error: String(e) }),
+      );
+    }
+  }
   await audit(env.DB, tenant.id, officer.id, `kill.${verdict}`, { kill: killId, bounty: kill.bounty_id }, now);
   log(env, "info", "kill.reviewed", { tenant_id: tenant.id, kill_id: killId, outcome: verdict });
 
   const line =
     action === "approve"
-      ? `✅ **Approved** by <@${officer.id}>. <@${b?.poster_discord_id ?? ""}>, please pay ${b ? gold(b.reward_gold) : "the reward"} to <@${kill.killer_discord_id ?? ""}> in game.`
+      ? `✅ **Approved** by <@${officer.id}>. Payment instructions are below.`
       : `❌ **Denied** by <@${officer.id}>. The bounty is open again.`;
   return { update: { content: line, components: [] } };
 }

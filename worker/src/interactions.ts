@@ -1,5 +1,5 @@
 /** /bl slash command handlers. Only reached after the allowlist and signature checks. */
-import { processCode } from "./bounties";
+import { extractCodes, processCode } from "./bounties";
 import { PREFIX, SCHEMA } from "./codec";
 import { hasAdmin, reply, type CommandOption, type Interaction, type InteractionResponse } from "./discord";
 import type { Env } from "./env";
@@ -192,7 +192,10 @@ async function submit(interaction: Interaction, env: Env, rest: DiscordRest, gui
   const user = actorOf(interaction);
   if (!codeLimiter.allow(`${guildId}:${user}`)) return "❌ Slow down a little: try again in a minute.";
   const image = imageId ? interaction.data?.resolved?.attachments?.[imageId] : undefined;
-  const outcome = await processCode(env, rest, tenant, code, user, now, image ? [image] : []);
+  // Players paste the addon's whole line ("WANTED: **Name** · 500g ||BL1-B-...||"): find the code in it.
+  const [found] = extractCodes(code, 1);
+  if (!found) return "❌ I don't see a Bounty Line code in that. Copy it again in game with `/bl last`.";
+  const outcome = await processCode(env, rest, tenant, found, user, now, image ? [image] : []);
   if (outcome.ok === null) return "That's a Bounty Pack. Packs go into the addon with `/bl import`.";
   return outcome.ok ? outcome.message : `❌ ${outcome.message}`;
 }
