@@ -35,9 +35,12 @@ local function image(parent, layer, path)
 end
 
 -- 1px edge drawn as four lines, `out` pixels outside the frame.
+-- Returns the four lines. A negative `out` draws inside.
 local function edge(parent, layer, color, out, sublevel)
+  local lines = {}
   for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
     local t = rect(parent, layer, color, sublevel)
+    lines[#lines + 1] = t
     if side == "TOP" or side == "BOTTOM" then
       t:SetHeight(1)
       t:SetPoint(side .. "LEFT", -out, side == "TOP" and out or -out)
@@ -48,20 +51,20 @@ local function edge(parent, layer, color, out, sublevel)
       t:SetPoint("BOTTOM" .. side, side == "LEFT" and -out or out, -out)
     end
   end
+  return lines
 end
 
--- The red glow: ten fading 1px rings just outside the metal border, pulsing slowly.
--- Anchored to the window itself (the metal's corner pieces carry invisible padding, which
--- pushed the glow off-centre), starting GLOW_OUTSET px out so it hugs the visible metal.
-local GLOW = { 0.95, 0.85, 0.7, 0.55, 0.42, 0.31, 0.22, 0.14, 0.08, 0.04 }
-local GLOW_OUTSET = 1
-local function glow(f)
+-- The red glow grows inward: ten 1px rings from the metal's outer edge toward the middle,
+-- added on top of the metal (additive, so the metal shows through red-hot), pulsing slowly.
+local GLOW = { 0.9, 0.75, 0.6, 0.47, 0.36, 0.27, 0.19, 0.13, 0.08, 0.04 }
+local function glow(f, level)
   local holder = CreateFrame("Frame", nil, f)
-  holder:SetPoint("TOPLEFT", -GLOW_OUTSET, GLOW_OUTSET)
-  holder:SetPoint("BOTTOMRIGHT", GLOW_OUTSET, -GLOW_OUTSET)
-  holder:SetFrameLevel(math.max(0, f:GetFrameLevel() - 1))
+  holder:SetAllPoints() -- fitted to the visible metal by fitToMetal()
+  holder:SetFrameLevel(level)
   local r, g, b = COLORS.red[1], COLORS.red[2], COLORS.red[3]
-  for i, alpha in ipairs(GLOW) do edge(holder, "BACKGROUND", { r, g, b, alpha }, i) end
+  for i, alpha in ipairs(GLOW) do
+    for _, t in ipairs(edge(holder, "OVERLAY", { r, g, b, alpha }, -(i - 1))) do t:SetBlendMode("ADD") end
+  end
 
   local pulse = holder:CreateAnimationGroup()
   pulse:SetLooping("BOUNCE")
@@ -74,10 +77,11 @@ local function glow(f)
   pulse:Play()
   f:HookScript("OnShow", function() pulse:Play() end)
   f:HookScript("OnHide", function() pulse:Stop() end)
+  return holder
 end
 
--- Blizzard's metal frame (the one around the Dungeon Journal and most panels).
--- Returns the regions marking its outer corners, for the glow.
+-- Blizzard's metal frame (the one around the Dungeon Journal and most panels). Returns the
+-- NineSlice, or nil when it fell back to the classic dialog border.
 local function metalBorder(f)
   local slice
   local ok = pcall(function()
@@ -86,16 +90,29 @@ local function metalBorder(f)
     slice:SetFrameLevel(f:GetFrameLevel() + 3)
     NineSliceUtil.ApplyLayoutByName(slice, "ButtonFrameTemplateNoPortrait")
   end)
-  if ok and slice.TopLeftCorner and slice.BottomRightCorner then
-    return { topLeft = slice.TopLeftCorner, bottomRight = slice.BottomRightCorner }
-  end
+  if ok and slice.LeftEdge and slice.RightEdge and slice.TopEdge and slice.BottomEdge then return slice end
   if slice then slice:Hide() end
   local border = CreateFrame("Frame", nil, f, "BackdropTemplate")
-  border:SetPoint("TOPLEFT", -4, 4)
-  border:SetPoint("BOTTOMRIGHT", 4, -4)
+  border:SetAllPoints()
   border:SetFrameLevel(f:GetFrameLevel() + 3)
   border:SetBackdrop({ edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border", edgeSize = 24 })
-  return { topLeft = border, bottomRight = border }
+  return nil
+end
+
+-- The metal layout doesn't sit flush with the frame (it's inset ~10px on the left), so the
+-- background poked out past it and the glow sat off it. Once the window is on screen, fit
+-- both to the metal's visible edges. `inset` pulls a region that many px inside the metal.
+local function fitToMetal(f, slice, fits)
+  local l, r = slice.LeftEdge:GetLeft(), slice.RightEdge:GetRight()
+  local t, b = slice.TopEdge:GetTop(), slice.BottomEdge:GetBottom()
+  local fl, fr, ft, fb = f:GetLeft(), f:GetRight(), f:GetTop(), f:GetBottom()
+  if not (l and r and t and b and fl and fr and ft and fb) then return end
+  for _, fit in ipairs(fits) do
+    local region, inset = fit[1], fit[2]
+    region:ClearAllPoints()
+    region:SetPoint("TOPLEFT", f, "TOPLEFT", l - fl + inset, t - ft - inset)
+    region:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", r - fr - inset, b - fb + inset)
+  end
 end
 
 -- Returns a movable window; put things in f.content.
@@ -110,9 +127,16 @@ function ns.CreateWindow(name, width, height, title)
   f:SetClampedToScreen(true)
   tinsert(UISpecialFrames, name) -- Escape closes it
 
-  image(f, "BACKGROUND", WINDOW_BG):SetAllPoints()
-  metalBorder(f)
-  glow(f)
+  local bg = image(f, "BACKGROUND", WINDOW_BG)
+  bg:SetAllPoints()
+  local slice = metalBorder(f)
+  local halo = glow(f, f:GetFrameLevel() + 5) -- above the metal
+  if slice then
+    local fits = { { bg, 4 }, { halo, 0 } }
+    local function fit() fitToMetal(f, slice, fits) end
+    f:HookScript("OnShow", fit)
+    C_Timer.After(0, fit) -- first open: positions exist from the next frame
+  end
 
   -- Only the title bar drags the window, so clicks in the content never move it.
   local bar = CreateFrame("Frame", nil, f)
