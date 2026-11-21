@@ -13,6 +13,7 @@ ns.L = {
     "  /bl link: link this character to your Discord account",
     "  /bl debug: print what the game tells the addon (for bug reports)",
     "  /bl debugmenu: print the name of each right-click menu you open (on/off)",
+    "  /bl minimap: show or hide the minimap button",
     "The in-game board, /bl import and hunting arrive in later updates.",
   },
   UNKNOWN_COMMAND = "Unknown command \"%s\". Type /bl help.",
@@ -20,6 +21,10 @@ ns.L = {
   DEBUGMENU_ON = "Menu debug on: right-click portraits and I'll print each menu's name. /bl debugmenu again to stop.",
   DEBUGMENU_OFF = "Menu debug off.",
   DEBUGMENU_TAG = "menu |cff00ccff%s|r (unit: %s)",
+
+  MINIMAP_TIP = { "Left-click: show your last code", "Right-click: set a bounty on your target", "Drag: move this button" },
+  MINIMAP_HIDDEN = "Minimap button hidden. /bl minimap brings it back.",
+  MINIMAP_SHOWN = "Minimap button shown.",
 
   -- target checks
   NO_TARGET = "Target an enemy player first, or right-click their portrait.",
@@ -50,8 +55,8 @@ ns.L = {
   POST_THIS = "Post this in the Discord Bounty Line chat:",
   POST_LINK = "Post this in the Discord Bounty Line chat once, so your kills count for you:",
   COPY_TIP = "Copy code",
-  COPY_HINT = "Click the code, then press Ctrl+C",
-  SELECTED = "|TInterface\\RaidFrame\\ReadyCheck-Ready:14|t |cff33ff33Selected! Press Ctrl+C|r",
+  COPY_HINT = "Click the code, then press CTRL+C",
+  SELECTED = "Selected! Now press CTRL+C",
   CLOSE = "Close",
   LINK_NO_FACTION = "Your character needs a faction before it can be linked.",
   CODE_FAILED = "Couldn't make the code (%s). Please report this with /bl debug output.",

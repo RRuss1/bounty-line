@@ -2,7 +2,7 @@
 local addonName, ns = ...
 local L = ns.L
 
-local DB_DEFAULTS = { version = 1, settings = { debugMenu = false } }
+local DB_DEFAULTS = { version = 1, settings = { debugMenu = false, minimap = { angle = 200, hide = false } } }
 local CHAR_DEFAULTS = { version = 1, kills = {} }
 
 local function applyDefaults(t, defaults)
@@ -63,6 +63,7 @@ local COMMANDS = {
   end,
   link = link,
   debug = function() ns.Debug() end,
+  minimap = function() ns.ToggleMinimap() end,
   debugmenu = function()
     local s = BountyLineDB.settings
     s.debugMenu = not s.debugMenu
@@ -72,7 +73,7 @@ local COMMANDS = {
 
 SLASH_BOUNTYLINE1 = "/bl"
 SLASH_BOUNTYLINE2 = "/bountyline"
-SlashCmdList.BOUNTYLINE = function(input)
+function ns.RunCommand(input)
   local cmd, rest = (input or ""):match("^%s*(%S*)%s*(.-)%s*$")
   cmd = cmd:lower()
   if cmd == "" then cmd = "help" end -- the board window replaces this in Phase 5
@@ -80,6 +81,7 @@ SlashCmdList.BOUNTYLINE = function(input)
   if not fn then return ns.Print(L.UNKNOWN_COMMAND:format(cmd)) end
   fn(rest)
 end
+SlashCmdList.BOUNTYLINE = ns.RunCommand
 
 -- ---------------------------------------------------------------- startup
 
@@ -90,6 +92,7 @@ events:SetScript("OnEvent", function(self, event, name)
     BountyLineDB = applyDefaults(BountyLineDB or {}, DB_DEFAULTS)
     BountyLineCharDB = applyDefaults(BountyLineCharDB or {}, CHAR_DEFAULTS)
     ns.SetupMenus()
+    ns.SetupMinimap()
     self:UnregisterEvent("ADDON_LOADED")
   end
 end)

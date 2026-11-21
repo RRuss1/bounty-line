@@ -8,14 +8,18 @@ files["addon/tests/"] = { std = "lua51+luajit", globals = { "strmatch", "LibStub
   ignore = { "131" } }
 
 -- Globals the addon sets.
-globals = { "BountyLineDB", "BountyLineCharDB", "SLASH_BOUNTYLINE1", "SLASH_BOUNTYLINE2", "SlashCmdList" }
+globals = {
+  "BountyLineDB", "BountyLineCharDB", "SLASH_BOUNTYLINE1", "SLASH_BOUNTYLINE2", "SlashCmdList",
+  -- addon compartment callbacks named in the TOC
+  "BountyLine_OnAddonCompartmentClick", "BountyLine_OnAddonCompartmentEnter", "BountyLine_OnAddonCompartmentLeave",
+}
 
 -- WoW API the addon reads.
 read_globals = {
   "LibStub",
   -- frames & UI
   "CreateFrame", "UIParent", "UISpecialFrames", "GameTooltip", "GameTooltip_SetTitle", "DEFAULT_CHAT_FRAME",
-  "PlaySound", "SOUNDKIT", "Menu", "tinsert", "BreakUpLargeNumbers", "Mixin", "BackdropTemplateMixin", "C_Texture",
+  "Minimap", "GetCursorPosition", "PlaySound", "SOUNDKIT", "Menu", "tinsert", "BreakUpLargeNumbers", "Mixin", "BackdropTemplateMixin", "C_Texture",
   -- units
   "UnitExists", "UnitGUID", "UnitName", "UnitFullName", "GetUnitName", "UnitIsPlayer", "UnitIsUnit",
   "UnitFactionGroup", "UnitClass", "UnitRace", "UnitLevel", "issecretvalue", "UnitPVPName", "UnitNameUnmodified", "C_TooltipInfo",

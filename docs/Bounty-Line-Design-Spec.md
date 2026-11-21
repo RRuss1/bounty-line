@@ -151,7 +151,8 @@ addon/BountyLine/
 │   └── Options.lua                # Settings panel
 ├── Locales/enUS.lua               # all strings (ready for translation)
 ├── Media/                         # custom textures (.tga/.blp), Bounty Line logo
-└── Libs/                          # LibStub, CallbackHandler, AceComm, LibDataBroker, LibDBIcon
+├── UI/Minimap.lua                 # minimap button (self-contained, no LibDBIcon) + addon compartment entry
+└── Libs/                          # LibStub, LibDeflate (+ AceComm in Phase 5)
 ```
 
 ### 5.2 TOC
