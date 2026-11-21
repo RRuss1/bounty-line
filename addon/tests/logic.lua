@@ -341,7 +341,8 @@ eq("older pack ignored", BountyLineDB.pack.version, single.fields.packVersion + 
 -- Banners for a guildie's new bounty and kill.
 banners = {}
 receive("NEWB", "Grimlok Ashveil\t500\tSlac Jaw")
-check("pending-bounty banner", banners[1] and banners[1]:find("Slac Jaw put a bounty on Grimlok Ashveil", 1, true) ~= nil, tostring(banners[1]))
+check("pending-bounty banner",
+  banners[1] and banners[1]:find("Slac Jaw put a bounty on Grimlok Ashveil", 1, true) ~= nil, tostring(banners[1]))
 receive("KILL", ("%d\tHunter McHunterface"):format(single.fields.bounties[2].bountyId))
 check("kill banner names the hunter and the target",
   banners[2] and banners[2]:find("Hunter McHunterface collected the bounty on " .. single.fields.bounties[2].targetName, 1, true) ~= nil,
