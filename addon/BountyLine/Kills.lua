@@ -9,7 +9,7 @@
 -- still in combat the code popup is held back (it would grab the keyboard mid-fight):
 -- "BOUNTY KILLED" flashes, then a small logo square waits to be clicked after the fight
 -- (UI/KillToast.lua).
-local _, ns = ...
+local addonName, ns = ...
 local L = ns.L
 
 local FACTION_ID = { Alliance = 1, Horde = 2 }
@@ -137,10 +137,17 @@ local function capture(k)
     return nextKill()
   end
   k.code = code
-  ns.ShowStamp(k)
-  -- Give the stamp a frame to draw, then take the shot. Fall back if no screenshot event comes.
-  C_Timer.After(0.15, Screenshot)
+  -- The fallback is set first, so nothing below can leave the stamp stuck on screen: if no
+  -- screenshot event comes within 5 seconds, the code is shown anyway.
   C_Timer.After(5, function() if pending == k then finish(false) end end)
+  local drawn, drawError = pcall(ns.ShowStamp, k)
+  if not drawn then ns.Print(L.AUTO_SHOT_FAILED:format(tostring(drawError))) end
+  -- Give the stamp a frame to draw, then take the shot. Called from our own function: the
+  -- timer may not accept the game's Screenshot directly (spec 23 item 24).
+  C_Timer.After(0.15, function()
+    local shot, shotError = pcall(Screenshot)
+    if not shot then ns.Print(L.AUTO_SHOT_FAILED:format(tostring(shotError))) end
+  end)
 end
 
 begin = function(k)
@@ -170,7 +177,7 @@ ns._kills = { start = startKill, finish = finish, pending = function() return pe
 
 local events = CreateFrame("Frame")
 for _, e in ipairs({ "PARTY_KILL", "CHAT_MSG_COMBAT_HONOR_GAIN", "DUEL_REQUESTED", "DUEL_INBOUNDS", "DUEL_FINISHED",
-  "SCREENSHOT_SUCCEEDED", "SCREENSHOT_FAILED" }) do
+  "SCREENSHOT_SUCCEEDED", "SCREENSHOT_FAILED", "ADDON_ACTION_BLOCKED", "ADDON_ACTION_FORBIDDEN" }) do
   events:RegisterEvent(e)
 end
 events:SetScript("OnEvent", function(_, event, a, b)
@@ -192,5 +199,8 @@ events:SetScript("OnEvent", function(_, event, a, b)
     finish(true)
   elseif event == "SCREENSHOT_FAILED" then
     finish(false)
+  elseif a == addonName and pending then
+    -- The game refused something we called (b names it), most likely the screenshot in combat.
+    ns.Print(L.AUTO_SHOT_FAILED:format("blocked: " .. tostring(b)))
   end
 end)
