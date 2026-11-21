@@ -123,7 +123,7 @@ describe("verdicts", () => {
     expect(body.components[0]!.components.map((c) => c.custom_id)).toEqual([`kill:deny:${lastKill().id}`]);
     const prompts = discord.find("POST", new RegExp(`/channels/${threadId}/messages$`)).filter((c) => String(c.body!.content ?? "").includes("Payment for bounty"));
     expect(prompts).toHaveLength(1);
-    expect(replies().at(-1)).toContain("auto-approved");
+    expect(replies().filter((r) => r.includes("auto-approved"))).toEqual([]); // no chat reply on success
   });
 
   it("all_clean approves any clean claim; a stamp mismatch never auto-approves", async () => {
@@ -275,8 +275,7 @@ describe("stacking (Add to Bounty…)", () => {
     ]);
     expect(discord.find("PATCH", new RegExp(`^/channels/${threadId}$`)).map((c) => c.body)).toContainEqual({ name: "☠️ Grimlok Ashveil · 700g" });
     expect(JSON.stringify(discord.find("PATCH", new RegExp(`/channels/${threadId}/messages/${threadId}$`)).at(-1)!.body)).toContain("Slac Jaw +1");
-    expect(replies().at(-1)).toContain("added **200g** to bounty #1");
-    expect(replies().at(-1)).toContain("now **700g**");
+    expect(replies().filter((r) => r.includes("added"))).toEqual([]); // no chat reply on success
   });
 
   it("a second plain bounty on the same target points at Add to Bounty", async () => {

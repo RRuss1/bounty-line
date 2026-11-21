@@ -74,9 +74,9 @@ async function onMessage(deps: ChatDeps, m: MessageCreate): Promise<void> {
   if (relevant.length === 0) return;
 
   const failures = relevant.filter((o): o is Extract<Outcome, { ok: false }> => o.ok === false);
-  const successes = relevant.filter((o): o is Extract<Outcome, { ok: true }> => o.ok === true);
+  // Success is just the reaction: the poster, the thread and the pinned pack already say the rest,
+  // and a reply per code buries the channel. Failures get the reason, which deletes itself.
   await rest.react(m.channel_id, m.id, failures.length ? "❌" : "✅").catch(() => undefined);
-  if (successes.length) await rest.sendMessage(m.channel_id, successes.map((s) => s.message).join("\n"), m.id);
   if (failures.length) await replyError(deps, m, [...new Set(failures.map((f) => f.message))].join("\n"));
 }
 

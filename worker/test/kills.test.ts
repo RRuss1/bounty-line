@@ -97,7 +97,7 @@ describe("kill claims", () => {
     expect(discord.find("PATCH", new RegExp(`^/channels/${threadId}$`))[0]!.body).toEqual({ applied_tags: [tagId("review")] });
     const poster = discord.find("PATCH", new RegExp(`/channels/${threadId}/messages/${threadId}$`))[0]!;
     expect(JSON.stringify(poster.body)).toContain("CLAIMED: officer review");
-    expect(replies().at(-1)).toContain("Kill claim on **Grimlok Ashveil** received");
+    expect(replies().filter((r) => r.includes("Kill claim"))).toEqual([]); // the reaction is the answer
   });
 
   it.each([
@@ -300,7 +300,8 @@ describe("character links", () => {
     expect(db.sqlite.prepare("SELECT name, discord_user_id FROM characters WHERE guid = ?").get(HUNTER)).toEqual({
       name: "Hunter McHunterface", discord_user_id: HUNTER_USER,
     });
-    expect(replies().at(-1)).toContain("Linked **Hunter McHunterface**");
+    expect(discord.find("PUT", /\/reactions\//)).toHaveLength(1);
+    expect(replies().filter((r) => r.includes("Linked"))).toEqual([]);
   });
 
   it("then shows the link on kill claims, and flags a mismatch", async () => {
