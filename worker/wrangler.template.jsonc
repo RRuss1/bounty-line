@@ -12,6 +12,8 @@
   // they would be extra public copies of the Worker.
   "workers_dev": true,
   "preview_urls": false,
+  // Wanted-poster art and fonts (src/poster-assets.ts). .wasm is bundled by default.
+  "rules": [{ "type": "Data", "globs": ["**/*.png", "**/*.ttf"], "fallthrough": false }],
   "d1_databases": [
     { "binding": "DB", "database_name": "${D1_NAME}", "database_id": "${D1_ID}", "migrations_dir": "migrations" }
   ],
@@ -28,6 +30,8 @@
     "AI_CHECK": "${AI_CHECK:-true}",
     "AI_DAILY_CAP": "${AI_DAILY_CAP:-200}",
     "PROOF_RETENTION_DAYS": "${PROOF_RETENTION_DAYS:-180}",
-    "LOG_LEVEL": "${LOG_LEVEL:-info}"
+    "LOG_LEVEL": "${LOG_LEVEL:-info}",
+    // Draw parchment wanted posters (needs Workers Paid CPU time; set false on the Free plan).
+    "POSTER_IMAGE": "${POSTER_IMAGE:-true}"
   }
 }

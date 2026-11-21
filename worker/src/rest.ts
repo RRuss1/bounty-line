@@ -25,16 +25,24 @@ const NO_PINGS = { parse: [] as string[] };
 export class DiscordRest {
   constructor(private readonly token: string) {}
 
-  async request<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
+  /** JSON body, or multipart (`payload_json` + `files[n]`) when files are attached. */
+  async request<T = unknown>(method: string, path: string, body?: unknown, files: { name: string; data: Uint8Array; type: string }[] = []): Promise<T> {
     for (let attempt = 0; ; attempt++) {
+      let payload: string | FormData | undefined = body === undefined ? undefined : JSON.stringify(body);
+      if (files.length) {
+        const form = new FormData();
+        form.append("payload_json", payload ?? "{}");
+        files.forEach((f, i) => form.append(`files[${i}]`, new Blob([f.data], { type: f.type }), f.name));
+        payload = form;
+      }
       const res = await fetch(API + path, {
         method,
         headers: {
           Authorization: `Bot ${this.token}`,
           "User-Agent": `DiscordBot (bounty-board, ${VERSION})`,
-          ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+          ...(typeof payload === "string" ? { "Content-Type": "application/json" } : {}),
         },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: payload,
       });
       if (res.status === 429 && attempt < 2) {
         const retry = Number(((await res.json().catch(() => ({}))) as { retry_after?: number }).retry_after ?? 1);
@@ -64,13 +72,24 @@ export class DiscordRest {
   react = (channelId: string, messageId: string, emoji: string) =>
     this.request("PUT", `/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}/@me`);
 
-  createForumPost = (forumId: string, post: { name: string; tagIds: string[]; content: string; embed: unknown }) =>
-    this.request<{ id: string }>("POST", `/channels/${forumId}/threads`, {
-      name: post.name,
-      auto_archive_duration: 10080,
-      applied_tags: post.tagIds,
-      message: { content: post.content, embeds: [post.embed], allowed_mentions: NO_PINGS },
-    });
+  /** The image (if any) is a plain attachment, not inside the embed, so it becomes the card's cover. */
+  createForumPost = (forumId: string, post: { name: string; tagIds: string[]; content: string; embed: unknown; image?: Uint8Array }) =>
+    this.request<{ id: string }>(
+      "POST",
+      `/channels/${forumId}/threads`,
+      {
+        name: post.name,
+        auto_archive_duration: 10080,
+        applied_tags: post.tagIds,
+        message: {
+          content: post.content,
+          embeds: [post.embed],
+          allowed_mentions: NO_PINGS,
+          ...(post.image ? { attachments: [{ id: 0, filename: "wanted-poster.png", description: "Wanted poster" }] } : {}),
+        },
+      },
+      post.image ? [{ name: "wanted-poster.png", data: post.image, type: "image/png" }] : [],
+    );
 
   // ---- guilds & interactions
   leaveGuild = (guildId: string) => this.request("DELETE", `/users/@me/guilds/${guildId}`);

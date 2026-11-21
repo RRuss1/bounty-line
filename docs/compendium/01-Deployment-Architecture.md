@@ -85,7 +85,8 @@ Resource IDs that differ per deployment: D1 database ID, R2 bucket name, Worker 
     "AI_CHECK": "${AI_CHECK:-true}",
     "AI_DAILY_CAP": "${AI_DAILY_CAP:-200}",
     "PROOF_RETENTION_DAYS": "${PROOF_RETENTION_DAYS:-180}",
-    "LOG_LEVEL": "${LOG_LEVEL:-info}"
+    "LOG_LEVEL": "${LOG_LEVEL:-info}",
+    "POSTER_IMAGE": "${POSTER_IMAGE:-true}"
   }
 }
 ```
@@ -122,6 +123,7 @@ Changed live by admins with `/bl config`. No redeploy needed.
 | Var | Effect |
 |---|---|
 | `READ_CHAT=false` | **Budget mode:** no Gateway Durable Object, no Message Content intent. Players use `/bl submit`. |
+| `POSTER_IMAGE=false` | No parchment poster picture (it takes ~150 ms of CPU, over the Free plan's 10 ms). Posters are embed-only. |
 | `AI_CHECK=false` | No Workers AI calls. Officers review every claim. |
 | `AI_DAILY_CAP` | Max AI checks per day across the deployment, then fall back to officer review. |
 

@@ -168,3 +168,4 @@ worker/.deploy.env
 
 # Local packager output
 .release/
+worker/poster-preview.png

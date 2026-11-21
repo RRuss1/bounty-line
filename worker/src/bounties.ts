@@ -5,7 +5,7 @@
 import { decode, type BountyPost } from "./codec";
 import type { Env } from "./env";
 import { log } from "./log";
-import { SKULL, wantedPoster } from "./poster";
+import { SKULL, wantedPoster, wantedPosterImage } from "./poster";
 import type { DiscordRest } from "./rest";
 import { checkBountyPost, decodeErrorMessage } from "./rules";
 import { audit, type Tenant } from "./tenants";
@@ -93,6 +93,7 @@ async function postBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bounty
   }
 
   const poster = wantedPoster(b, { id, expiresAt, postedBy: authorId, tenant });
+  const image = await wantedPosterImage(env, b, { id, expiresAt, tenant });
   const openTag = tenant.config.forum_tags.open;
   let threadId: string;
   try {
@@ -101,6 +102,7 @@ async function postBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bounty
       tagIds: openTag ? [openTag] : [],
       content: poster.content,
       embed: poster.embed,
+      image,
     });
     threadId = thread.id;
   } catch (e) {

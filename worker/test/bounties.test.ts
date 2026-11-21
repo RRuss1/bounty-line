@@ -96,6 +96,27 @@ describe("posting a bounty from #bounty-line", () => {
     expect(later).toEqual([]); // success replies stay
   });
 
+  it("attaches the parchment poster as a plain attachment, so it becomes the forum card's cover", async () => {
+    env = { ...env, POSTER_IMAGE: "true" };
+    await say(code());
+    const [thread] = threads();
+    expect(thread!.files).toHaveLength(1);
+    const file = thread!.files![0]!;
+    expect(file).toMatchObject({ name: "wanted-poster.png", type: "image/png" });
+    expect(Array.from(file.bytes.slice(0, 4))).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    const message = thread!.body!.message as { attachments: unknown[]; embeds: { image?: unknown }[] };
+    expect(message.attachments).toEqual([{ id: 0, filename: "wanted-poster.png", description: "Wanted poster" }]);
+    expect(message.embeds[0]!.image).toBeUndefined(); // inside an embed it wouldn't be the cover
+    expect(reactions()).toEqual(["✅"]);
+  });
+
+  it("posts without a picture when POSTER_IMAGE=false (Free plan)", async () => {
+    await say(code());
+    expect(threads()[0]!.files).toBeUndefined();
+    expect(threads()[0]!.body!.message).not.toHaveProperty("attachments");
+    expect(reactions()).toEqual(["✅"]);
+  });
+
   it("accepts the 1g minimum and codes made before a board was linked (tag 0000)", async () => {
     await say(code({ rewardGold: 1, boardTag: "0000" }));
     expect(bountyRows()).toHaveLength(1);

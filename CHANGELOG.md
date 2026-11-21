@@ -8,12 +8,15 @@
 - `/bl setup` now also creates the forum tags and posts and pins a how-to in `#bounty-line`. It stays safe to re-run.
 - The bot leaves any server that isn't on the allowlist as soon as it joins.
 - `npm run test-code` prints valid bounty codes for testing before the addon exists.
+- Wanted posters are drawn as a parchment picture (WANTED, name, reward, bounty #, expiry, status stamp) and attached to the forum post, so the card on `#bounty-board` shows the poster. `npm run poster-preview` renders a sample.
 
 ### Deployer notes
 
 - **Discord:** keep **Message Content Intent** on (Bot tab). Without it the gateway stops with close code 4014 and `/bl status` shows chat reading as `error`.
 - **Forum permission:** give the bot **Manage Channels on the `#bounty-board` forum only** (forum settings → Permissions → add the bot's role), then run `/bl setup` again to create the tags and the pinned how-to.
 - New config (automatic): a `GatewayDO` Durable Object and a `*/1 * * * *` cron. Budget mode (`READ_CHAT=false`) never starts the gateway.
+- **Forum layout:** set `#bounty-board` to **Gallery view** (forum settings → Default Layout) so the poster pictures show as big cards.
+- **Free plan:** set the Actions Variable `POSTER_IMAGE=false`. Drawing a poster takes about 150 ms of CPU, more than the Free plan allows; posters then stay text-only.
 
 ## v0.1.0 (2026-11-20): Phase 1, Worker skeleton
 
