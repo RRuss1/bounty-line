@@ -171,7 +171,8 @@ eq("kill copy line", ns.CopyLine("K", "Grimlok Ashveil", "Bounty #7", "BL1-K-XYZ
 eq("link copy line", ns.CopyLine("L", "Slac Jaw", nil, "BL1-L-XYZ-ABCD"), "LINK: **Slac Jaw** ||||BL1-L-XYZ-ABCD||||")
 eq("in-game label hides the code", ns.DisplayLine({ "B", "Grimlok Ashveil", "500g" }), "WANTED: Grimlok Ashveil · 500g  ")
 eq("no line, no label text", ns.DisplayLine(nil), "")
-eq("stack copy line", ns.CopyLine("A", "Grimlok Ashveil", "200g", "BL1-B-XYZ-ABCD"), "ADDED: **Grimlok Ashveil** · +200g ||||BL1-B-XYZ-ABCD||||")
+eq("stack copy line", ns.CopyLine("A", "Grimlok Ashveil", "200g", "BL1-B-XYZ-ABCD"),
+  "ADDED: **Grimlok Ashveil** · +200g ||||BL1-B-XYZ-ABCD||||")
 
 -- Add to Bounty: a B code in mode 1 pointing at the existing bounty.
 local stacked = Codec.Decode(ns.BuildBountyCode(snap, 200, "", 12))
