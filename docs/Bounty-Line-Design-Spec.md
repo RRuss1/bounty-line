@@ -1064,7 +1064,7 @@ The same packager can upload to **Wago** (`-a <wago-id>`) and **WoWInterface** (
 ## 23. Open Items & Things to Verify on Day One
 
 1. **`Screenshot()` on Forever:** confirm it works from addon code and that `SCREENSHOT_SUCCEEDED` fires.
-2. **Secret values:** confirm `UnitGUID`/`UnitName` on enemy nameplates during combat. If secret, highlight from out-of-combat cache.
+2. **Secret values:** `issecretvalue` exists on Forever (verified 2026-11-21). Still to check: `UnitGUID`/`UnitName` on enemy nameplates during combat. If secret, highlight from out-of-combat cache.
 3. **`PARTY_KILL` payload on Forever:** confirm attacker/victim GUIDs as expected; confirm pet kills.
 4. **Guild chat from addon:** test whether a button-click `SendChatMessage(..., "GUILD")` is allowed. If blocked, drop "Announce to Guild" and rely on addon banners.
 5. **Right-click menu tags** for enemy players on Forever's target/focus/party frames, and whether the unit data is readable mid-combat (Section 5.4b).
@@ -1073,8 +1073,10 @@ The same packager can upload to **Wago** (`-a <wago-id>`) and **WoWInterface** (
 8. **Battleground/arena kills:** count or not? (Default proposal: open-world only.)
 9. **Duplicate posters:** stacking UX when two members mark the same GUID.
 10. **Player GUID shape on Forever:** confirm `UnitGUID` returns `Player-<serverID>-<8 hex>` with an unpadded decimal server ID ≤ 65535 (print a few with `/bl debug`). Codes use the 7-byte compact form for that shape; anything else still works through the raw fallback, just ~25 characters longer per GUID (Compendium 02 Section 2).
+    - ✅ **Verified 2026-11-21** (client 1.60.1 build 71037): `Player-6935-00156D68`, `Player-6935-007356CE`. Compact form applies.
 11. **Zone names on wanted posters:** B codes carry only `mapID`, so posters show "Zone #1434". Print `C_Map.GetBestMapForUnit("player")` and the zone name with `/bl debug` in a few zones, then either ship a verified mapID→name table in the Worker or add the zone name to a schema-2 B code.
-12. **Full character names:** codes use `UnitName(unit)`. Check with `/bl debug` (target an enemy) whether that includes the surname on Forever, or whether `GetUnitName(unit, true)` / `UnitFullName(unit)` is needed for "First Surname".
+    - **Decision:** a verified table in the Worker (`worker/src/wow.ts`); unknown zones are left off the poster. Verified so far: 1437 = Wetlands (mapType 3).
+12. **Full character names:** ✅ **Verified 2026-11-21:** `UnitName(unit)` returns the first name and the **surname** as its two values ("Slac", "Jaw"); the surname sits where retail has the realm. `GetUnitName(unit, true)` and `UnitPVPName` also give "Slac Jaw"; `UnitFullName` and `UnitNameUnmodified` give the first name only. Codes use `UnitName`'s two values joined with a space.
 13. **"??" levels:** `UnitLevel` returns -1 for enemies far above you. B codes carry level 0 for that and the Bounty Board shows "Level ??". Confirm the -1 on Forever.
 14. **Copy button icon:** the popup uses `Interface\Buttons\UI-GuildButton-PublicNote-Up`. Confirm it exists on Forever (a missing texture shows as a green square).
 

@@ -54,6 +54,15 @@ function ns.RewardError(reason, min, max)
   return L.REWARD_FORMAT
 end
 
+-- "First Surname". Forever has no realms: UnitName's second return (the realm on retail) is
+-- the surname (verified with /bl debug, spec Section 23 item 12).
+function ns.FullName(unit)
+  local first, surname = UnitName(unit)
+  if first == nil or ns.IsSecret(first) then return nil end
+  if surname and not ns.IsSecret(surname) and surname ~= "" then return first .. " " .. surname end
+  return first
+end
+
 local function playerMapID()
   local id = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
   if type(id) ~= "number" or id < 0 or id > 65535 then return 0 end
@@ -73,8 +82,8 @@ function ns.SnapshotUnit(unit)
   if not FACTION_ID[theirs] or not FACTION_ID[mine] then return nil, "NEUTRAL" end
   if theirs == mine then return nil, "SAME_FACTION" end
 
-  local name = UnitName(unit)
-  if ns.IsSecret(name) or not name then return nil, "SECRET" end
+  local name = ns.FullName(unit)
+  if not name then return nil, "SECRET" end
   local className, _, classID = UnitClass(unit)
   local raceName, _, raceID = UnitRace(unit)
   local level = UnitLevel(unit)
@@ -115,7 +124,7 @@ function ns.BuildBountyCode(snap, reward, note)
     posterFaction = myFaction,
     rewardGold = reward,
     posterGUID = UnitGUID("player"),
-    posterName = UnitName("player"),
+    posterName = ns.FullName("player"),
     mapID = playerMapID(),
     createdAt = GetServerTime(),
     nonce = nonce(),
@@ -132,7 +141,7 @@ function ns.BuildLinkCode()
     schema = 1,
     boardTag = ns.BoardTag(),
     charGUID = UnitGUID("player"),
-    charName = UnitName("player"),
+    charName = ns.FullName("player"),
     faction = faction,
     guildName = (GetGuildInfo("player")) or "",
     createdAt = GetServerTime(),

@@ -124,6 +124,15 @@ describe("posting a bounty from #bounty-line", () => {
     expect(message.embeds[0]!.description).toContain("Orc Warrior · Level ?? · Horde");
   });
 
+  it("names verified zones and leaves unknown ones off", async () => {
+    await say(code({ mapID: 1437 }));
+    await say(code({ mapID: 9999, targetGUID: "Player-4395-0A1B2C3E", nonce: 1 }));
+    const [known, unknown] = threads().map((t) => (t.body!.message as { embeds: { description: string }[] }).embeds[0]!.description);
+    expect(known).toContain("Marked in: Wetlands ·");
+    expect(unknown).toContain("Marked: <t:");
+    expect(unknown).not.toContain("9999");
+  });
+
   it("accepts the 1g minimum and codes made before a board was linked (tag 0000)", async () => {
     await say(code({ rewardGold: 1, boardTag: "0000" }));
     expect(bountyRows()).toHaveLength(1);
