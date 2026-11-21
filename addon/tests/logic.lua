@@ -578,11 +578,10 @@ do
   BountyLineDB.settings.relay = true
   prints = {}
   ns.RelayStart(serverTime - 30, single.input, serverTime)
-  check("the relay's pack is stored at login", BountyLineDB.pack ~= nil and #BountyLineDB.pack.bounties == #single.fields.bounties)
+  eq("the relay's pack is stored at login", (ns.PackVersion()), single.fields.packVersion)
   check("and announced", #prints >= 1)
-  local stored = BountyLineDB.pack.packVersion
   ns.RelayStart(serverTime - 30, "not a pack", serverTime)
-  eq("junk in the data file changes nothing", BountyLineDB.pack.packVersion, stored)
+  eq("junk in the data file changes nothing", (ns.PackVersion()), single.fields.packVersion)
 
   Comms.Send, ns.RelayShow = realSend, realShow
   ns.RelayStart(nil, nil, serverTime)
