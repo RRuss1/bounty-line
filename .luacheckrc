@@ -15,10 +15,10 @@ read_globals = {
   "LibStub",
   -- frames & UI
   "CreateFrame", "UIParent", "UISpecialFrames", "GameTooltip", "GameTooltip_SetTitle", "DEFAULT_CHAT_FRAME",
-  "PlaySound", "SOUNDKIT", "Menu", "tinsert", "BreakUpLargeNumbers",
+  "PlaySound", "SOUNDKIT", "Menu", "tinsert", "BreakUpLargeNumbers", "Mixin", "BackdropTemplateMixin", "C_Texture",
   -- units
   "UnitExists", "UnitGUID", "UnitName", "UnitFullName", "GetUnitName", "UnitIsPlayer", "UnitIsUnit",
-  "UnitFactionGroup", "UnitClass", "UnitRace", "UnitLevel", "issecretvalue",
+  "UnitFactionGroup", "UnitClass", "UnitRace", "UnitLevel", "issecretvalue", "UnitPVPName", "UnitNameUnmodified", "C_TooltipInfo",
   -- world & client
   "C_Map", "GetGuildInfo", "GetServerTime", "GetBuildInfo", "WOW_PROJECT_ID", "InCombatLockdown",
 }

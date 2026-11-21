@@ -5,6 +5,7 @@
 ## Version: @project-version@
 ## SavedVariables: BountyLineDB
 ## SavedVariablesPerCharacter: BountyLineCharDB
+## IconTexture: Interface\Icons\INV_Misc_Bone_HumanSkull_01
 
 Libs\LibStub\LibStub.lua
 Libs\LibDeflate\LibDeflate.lua
@@ -14,5 +15,6 @@ Bounty.lua
 Core.lua
 Menu.lua
 Debug.lua
+UI\Window.lua
 UI\CodePopup.lua
 UI\AmountEntry.lua

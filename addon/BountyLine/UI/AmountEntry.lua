@@ -13,8 +13,7 @@ end
 local function refresh()
   local reward, why = current()
   frame.set:SetEnabled(reward ~= nil)
-  local text = frame.amount:GetText()
-  if reward or text:match("^%s*$") then
+  if reward or frame.amount:GetText():match("^%s*$") then
     frame.error:SetText("")
   else
     local min, max = ns.RewardLimits()
@@ -30,76 +29,58 @@ local function submit()
   ns.PostBounty(snap, reward, note)
 end
 
-local function input(parent, width, maxLetters)
+local function input(f, parent, width, maxLetters)
   local box = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
-  box:SetSize(width, 24)
+  box:SetSize(width, 26)
   box:SetAutoFocus(false)
   box:SetMaxLetters(maxLetters)
-  box:SetScript("OnEscapePressed", function() parent:Hide() end)
+  box:SetScript("OnEscapePressed", function() f:Hide() end)
   box:SetScript("OnEnterPressed", submit)
   return box
 end
 
 local function build()
-  local f = CreateFrame("Frame", "BountyLineAmountEntry", UIParent, "BackdropTemplate")
-  f:SetSize(400, 200)
-  f:SetPoint("CENTER", 0, 120)
-  f:SetFrameStrata("DIALOG")
-  f:SetToplevel(true)
-  f:EnableMouse(true)
-  f:SetMovable(true)
-  f:RegisterForDrag("LeftButton")
-  f:SetScript("OnDragStart", f.StartMoving)
-  f:SetScript("OnDragStop", f.StopMovingOrSizing)
-  f:SetBackdrop({
-    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-    edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-    tile = true, tileSize = 32, edgeSize = 32,
-    insets = { left = 11, right = 12, top = 12, bottom = 11 },
-  })
-  tinsert(UISpecialFrames, "BountyLineAmountEntry")
+  local f = ns.CreateWindow("BountyLineAmountEntry", 440, 250, L.ADDON)
+  local c = f.content
 
-  local icon = f:CreateTexture(nil, "ARTWORK")
-  icon:SetSize(28, 28)
-  icon:SetPoint("TOPLEFT", 22, -20)
-  icon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
+  local heading = ns.Text(c, "GameFontNormalHuge")
+  heading:SetPoint("TOPLEFT", 58, -14)
+  heading:SetText(L.SET_BOUNTY)
 
-  local title = f:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-  title:SetPoint("LEFT", icon, "RIGHT", 8, 0)
-  title:SetText(L.SET_BOUNTY)
+  f.target = ns.Text(c, "GameFontHighlight", 14)
+  f.target:SetPoint("TOPLEFT", heading, "BOTTOMLEFT", 0, -6)
+  f.target:SetPoint("RIGHT", -16, 0)
 
-  f.target = f:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  f.target:SetPoint("TOPLEFT", icon, "BOTTOMLEFT", 0, -8)
-
-  local rewardLabel = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  rewardLabel:SetPoint("TOPLEFT", f.target, "BOTTOMLEFT", 0, -16)
+  local rewardLabel = ns.Text(c, "GameFontHighlight", 14)
+  rewardLabel:SetPoint("TOPLEFT", 22, -84)
   rewardLabel:SetText(L.REWARD_LABEL)
-  f.amount = input(f, 100, 12)
-  f.amount:SetPoint("LEFT", rewardLabel, "RIGHT", 14, 0)
+  f.amount = input(f, c, 110, 12)
+  f.amount:SetPoint("LEFT", rewardLabel, "LEFT", 130, 0)
   f.amount:SetScript("OnTextChanged", refresh)
 
-  local noteLabel = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  noteLabel:SetPoint("TOPLEFT", rewardLabel, "BOTTOMLEFT", 0, -16)
+  local noteLabel = ns.Text(c, "GameFontHighlight", 14)
+  noteLabel:SetPoint("TOPLEFT", rewardLabel, "BOTTOMLEFT", 0, -20)
   noteLabel:SetText(L.NOTE_LABEL)
-  f.note = input(f, 200, 80) -- 80 = the code's note limit (Compendium 02)
-  f.note:SetPoint("LEFT", noteLabel, "RIGHT", 14, 0)
+  f.note = input(f, c, 250, 80) -- 80 = the code's note limit (Compendium 02)
+  f.note:SetPoint("LEFT", noteLabel, "LEFT", 130, 0)
   f.amount:SetScript("OnTabPressed", function() f.note:SetFocus() end)
   f.note:SetScript("OnTabPressed", function() f.amount:SetFocus() end)
 
-  f.limits = f:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-  f.limits:SetPoint("TOPLEFT", noteLabel, "BOTTOMLEFT", 0, -12)
-  f.error = f:CreateFontString(nil, "ARTWORK", "GameFontRedSmall")
+  f.limits = ns.Text(c, "GameFontHighlight", 13)
+  f.limits:SetPoint("TOPLEFT", noteLabel, "BOTTOMLEFT", 0, -16)
+  f.error = c:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  f.error:SetTextColor(0.6, 0.05, 0.05)
   f.error:SetPoint("LEFT", f.limits, "RIGHT", 12, 0)
 
-  f.set = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  f.set:SetSize(110, 22)
-  f.set:SetPoint("BOTTOMRIGHT", f, "BOTTOM", -6, 18)
+  f.set = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")
+  f.set:SetSize(120, 24)
+  f.set:SetPoint("BOTTOMRIGHT", c, "BOTTOM", -6, 12)
   f.set:SetText(L.SET_BUTTON)
   f.set:SetScript("OnClick", submit)
 
-  local cancel = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  cancel:SetSize(110, 22)
-  cancel:SetPoint("BOTTOMLEFT", f, "BOTTOM", 6, 18)
+  local cancel = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")
+  cancel:SetSize(120, 24)
+  cancel:SetPoint("BOTTOMLEFT", c, "BOTTOM", 6, 12)
   cancel:SetText(L.CANCEL)
   cancel:SetScript("OnClick", function() f:Hide() end)
 

@@ -4,55 +4,33 @@
 local _, ns = ...
 local L = ns.L
 
-local WIDTH = 520
+local WIDTH = 540
 local frame
 
-local function selectAll(hint)
+local function selectAll(selected)
   frame.box:SetFocus()
   frame.box:HighlightText()
-  frame.hint:SetText(hint and L.SELECTED or L.COPY_HINT)
+  frame.hint:SetText(selected and L.SELECTED or L.COPY_HINT)
 end
 
 local function build()
-  local f = CreateFrame("Frame", "BountyLineCodePopup", UIParent, "BackdropTemplate")
-  f:SetSize(WIDTH, 190)
-  f:SetPoint("CENTER", 0, 120)
-  f:SetFrameStrata("DIALOG")
-  f:SetToplevel(true)
-  f:EnableMouse(true)
-  f:SetMovable(true)
-  f:RegisterForDrag("LeftButton")
-  f:SetScript("OnDragStart", f.StartMoving)
-  f:SetScript("OnDragStop", f.StopMovingOrSizing)
-  f:SetBackdrop({
-    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-    edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-    tile = true, tileSize = 32, edgeSize = 32,
-    insets = { left = 11, right = 12, top = 12, bottom = 11 },
-  })
-  tinsert(UISpecialFrames, "BountyLineCodePopup") -- Escape closes it
+  local f = ns.CreateWindow("BountyLineCodePopup", WIDTH, 210, L.ADDON)
+  local c = f.content
 
-  local icon = f:CreateTexture(nil, "ARTWORK")
-  icon:SetSize(28, 28)
-  icon:SetPoint("TOPLEFT", 22, -20)
-  icon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
+  f.heading = ns.Text(c, "GameFontNormalHuge")
+  f.heading:SetPoint("TOPLEFT", 58, -14)
 
-  f.title = f:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-  f.title:SetPoint("LEFT", icon, "RIGHT", 8, 0)
+  f.subtitle = ns.Text(c, "GameFontHighlight", 14)
+  f.subtitle:SetPoint("TOPLEFT", f.heading, "BOTTOMLEFT", 0, -6)
+  f.subtitle:SetPoint("RIGHT", -16, 0)
 
-  f.subtitle = f:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  f.subtitle:SetPoint("TOPLEFT", icon, "BOTTOMLEFT", 0, -8)
-  f.subtitle:SetPoint("RIGHT", -22, 0)
-  f.subtitle:SetJustifyH("LEFT")
+  f.instructions = ns.Text(c, "GameFontHighlight", 13)
+  f.instructions:SetPoint("TOPLEFT", 18, -74)
+  f.instructions:SetPoint("RIGHT", -16, 0)
 
-  f.instructions = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  f.instructions:SetPoint("TOPLEFT", f.subtitle, "BOTTOMLEFT", 0, -10)
-  f.instructions:SetPoint("RIGHT", -22, 0)
-  f.instructions:SetJustifyH("LEFT")
-
-  local box = CreateFrame("EditBox", nil, f, "InputBoxTemplate")
-  box:SetSize(WIDTH - 90, 24)
-  box:SetPoint("TOPLEFT", f.instructions, "BOTTOMLEFT", 6, -8)
+  local box = CreateFrame("EditBox", nil, c, "InputBoxTemplate")
+  box:SetSize(WIDTH - 90, 26)
+  box:SetPoint("TOPLEFT", f.instructions, "BOTTOMLEFT", 8, -8)
   box:SetAutoFocus(false)
   box:SetMaxLetters(0)
   box:SetFontObject("ChatFontNormal")
@@ -69,7 +47,7 @@ local function build()
   box:SetScript("OnEnterPressed", function() selectAll(true) end)
   f.box = box
 
-  local copy = CreateFrame("Button", nil, f)
+  local copy = CreateFrame("Button", nil, c)
   copy:SetSize(26, 26)
   copy:SetPoint("LEFT", box, "RIGHT", 8, 0)
   copy:SetNormalTexture("Interface\\Buttons\\UI-GuildButton-PublicNote-Up")
@@ -85,12 +63,12 @@ local function build()
   end)
   copy:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-  f.hint = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+  f.hint = ns.Text(c, "GameFontHighlight", 13)
   f.hint:SetPoint("TOPLEFT", box, "BOTTOMLEFT", -6, -10)
 
-  local close = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  close:SetSize(90, 22)
-  close:SetPoint("BOTTOMRIGHT", -20, 18)
+  local close = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")
+  close:SetSize(100, 24)
+  close:SetPoint("BOTTOMRIGHT", -14, 12)
   close:SetText(L.CLOSE)
   close:SetScript("OnClick", function() f:Hide() end)
 
@@ -102,7 +80,7 @@ function ns.ShowCode(opts)
   frame = frame or build()
   BountyLineCharDB.lastPopup = opts
   frame.code = opts.code
-  frame.title:SetText(opts.title)
+  frame.heading:SetText(opts.title)
   frame.subtitle:SetText(opts.subtitle or "")
   frame.instructions:SetText(opts.instructions or "")
   frame.box:SetText(opts.code)

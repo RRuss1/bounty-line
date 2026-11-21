@@ -21,6 +21,12 @@ local function describeUnit(unit)
   line("UnitName", UnitName(unit))
   line("GetUnitName(unit, true)", GetUnitName and GetUnitName(unit, true))
   line("UnitFullName", UnitFullName and UnitFullName(unit))
+  -- Forever characters have surnames (spec 23 item 12): find which API returns them.
+  line("UnitPVPName", UnitPVPName and UnitPVPName(unit))
+  line("UnitNameUnmodified", UnitNameUnmodified and UnitNameUnmodified(unit))
+  local tip = C_TooltipInfo and C_TooltipInfo.GetUnit and C_TooltipInfo.GetUnit(unit)
+  local lines = tip and tip.lines or {}
+  for i = 1, math.min(#lines, 3) do line("tooltip line " .. i, lines[i].leftText) end
   line("player / faction", UnitIsPlayer(unit), UnitFactionGroup(unit))
   line("UnitClass", UnitClass(unit))
   line("UnitRace", UnitRace(unit))
