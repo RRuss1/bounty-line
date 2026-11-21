@@ -46,6 +46,9 @@ const RACES: Record<number, string> = {
   70: "Dracthyr",
   84: "Earthen",
   85: "Earthen",
+  // WoW: Forever only: the Skyborne of Zephras Isle, one ID per faction.
+  95: "High Order Skyborne", // Alliance
+  96: "Windshaper Skyborne", // Horde
 };
 
 export const className = (id: number) => CLASSES[id] ?? `Class #${id}`;
