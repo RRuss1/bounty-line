@@ -29,7 +29,7 @@ read_globals = {
   "C_Map", "GetGuildInfo", "GetServerTime", "GetBuildInfo", "WOW_PROJECT_ID", "InCombatLockdown",
   -- hunting & kills
   "C_NamePlate", "TooltipDataProcessor", "Enum", "RaidNotice_AddMessage", "RaidWarningFrame", "ChatTypeInfo",
-  "C_Timer", "Screenshot", "GetTime", "date",
+  "C_Timer", "Screenshot", "GetTime", "date", "GetPhysicalScreenSize",
   -- guild sync & board
   "MenuUtil", "Settings", "TargetFrame",
   "C_ChatInfo", "IsInGuild", "GetNumGuildMembers", "GetGuildRosterInfo", "C_AddOns", "IsShiftKeyDown", "C_CreatureInfo", "RAID_CLASS_COLORS",

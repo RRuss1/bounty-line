@@ -14,6 +14,7 @@ end
 strmatch = string.match
 loadAddon("Libs/LibStub/LibStub.lua")
 loadAddon("Libs/LibDeflate/LibDeflate.lua")
+loadAddon("Libs/qrencode/qrencode.lua")
 loadAddon("Codec.lua")
 loadAddon("Locales/enUS.lua")
 
@@ -510,6 +511,36 @@ eq("by name", order("name", false), "1,2,3")
 eq("by expiry, latest first", order("expires", true), "3,2,1")
 eq("missing poster sorts first", order("poster", false), "2,1,3")
 eq("add-gold description without a unit", ns.Describe({ name = "Amy Vale", factionName = "Horde" }), "Amy Vale · Horde")
+
+-- ---------------------------------------------------------------- QR code on the stamp
+
+do
+  local qfh = assert(io.open(root .. "/shared/qr-vector.json", "rb"))
+  local qtext = qfh:read("*a")
+  qfh:close()
+  local qcode = qtext:match('"code": "([^"]+)"')
+  local ok, tab = ns.QR.qrcode(qcode, 2)
+  check("kill code encodes as a QR code", ok == true)
+  local rows = {}
+  for y = 1, #tab do
+    local r = {}
+    for x = 1, #tab do r[x] = tab[x][y] > 0 and "1" or "0" end
+    rows[y] = table.concat(r)
+  end
+  check("and matches the shared matrix", qtext:find(table.concat(rows, "/"), 1, true) ~= nil)
+  -- The stamp draws black runs: together they must cover exactly the black modules.
+  loadAddon("UI/Stamp.lua")
+  local runs, n = ns.QRRuns(qcode)
+  local black, covered = 0, 0
+  for y = 1, n do for x = 1, n do if tab[x][y] > 0 then black = black + 1 end end end
+  for _, run in ipairs(runs) do
+    for x = run[1], run[1] + run[3] - 1 do if tab[x][run[2]] > 0 then covered = covered + 1 end end
+  end
+  eq("stamp runs cover every black module", covered, black)
+  check("far fewer runs than modules", #runs < black / 2)
+  check("other text still encodes", ns.QRRuns("not a code") ~= nil)
+  check("no code, no QR", ns.QRRuns(nil) == nil)
+end
 
 -- ---------------------------------------------------------------- version check
 
