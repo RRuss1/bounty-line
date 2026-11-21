@@ -15,10 +15,15 @@ Libs\LibDeflate\LibDeflate.lua
 Codec.lua
 Locales\enUS.lua
 Bounty.lua
+Pack.lua
 Core.lua
 Menu.lua
+Detect.lua
+Kills.lua
 Debug.lua
 UI\Window.lua
 UI\CodePopup.lua
 UI\AmountEntry.lua
+UI\ImportWindow.lua
+UI\Stamp.lua
 UI\Minimap.lua

@@ -15,6 +15,8 @@ export class FakeDiscord {
   calls: Call[] = [];
   forumTags: ForumTag[] = [];
   messages = new Set<string>();
+  /** Screenshot bytes served at cdn.discordapp.com URLs. */
+  images = new Map<string, Uint8Array>();
   fail: Partial<Record<"forumPatch" | "threads" | "pin" | "send", number>> = {};
   private next = 900000000000000000n;
 
@@ -28,6 +30,12 @@ export class FakeDiscord {
   }
 
   private async handle(url: string, init?: RequestInit): Promise<Response> {
+    // Screenshot downloads from Discord's CDN.
+    if (new URL(url).hostname === "cdn.discordapp.com") {
+      this.calls.push({ method: "GET", path: url, body: undefined });
+      const image = this.images.get(url);
+      return image ? new Response(image, { status: 200, headers: { "content-type": "image/png" } }) : new Response("gone", { status: 404 });
+    }
     const path = new URL(url).pathname.replace(/^\/api\/v10/, "");
     const method = init?.method ?? "GET";
     let body: Record<string, unknown> | undefined;
@@ -49,6 +57,7 @@ export class FakeDiscord {
 
     let m: RegExpExecArray | null;
     if (method === "GET" && (m = /^\/channels\/(\d+)$/.exec(path))) return ok({ id: m[1], type: 15, available_tags: this.forumTags });
+    if (method === "PATCH" && /^\/channels\/\d+$/.test(path) && body?.applied_tags) return ok({}); // thread tags
     if (method === "PATCH" && /^\/channels\/\d+$/.test(path)) {
       if (this.fail.forumPatch) return status(this.fail.forumPatch);
       this.forumTags = (body!.available_tags as ForumTag[]).map((t) => ({ ...t, id: t.id ?? this.newId() }));
@@ -56,7 +65,9 @@ export class FakeDiscord {
     }
     if (method === "POST" && /^\/channels\/\d+\/threads$/.test(path)) {
       if (this.fail.threads) return status(this.fail.threads);
-      return ok({ id: this.newId() });
+      const id = this.newId();
+      this.messages.add(id); // a forum post's first message has the thread's id
+      return ok({ id });
     }
     if (method === "POST" && /^\/channels\/\d+\/messages$/.test(path)) {
       if (this.fail.send) return status(this.fail.send);
@@ -69,6 +80,7 @@ export class FakeDiscord {
     if (method === "PUT" && /\/reactions\//.test(path)) return noContent();
     if (method === "DELETE") return noContent();
     if (method === "PATCH" && /^\/webhooks\/.+\/messages\/@original$/.test(path)) return ok({});
+    if (method === "POST" && /^\/webhooks\/\d+\/[^/]+$/.test(path)) return ok({ id: this.newId() }); // ephemeral follow-up
     return status(404);
   }
 

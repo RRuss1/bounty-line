@@ -21,11 +21,23 @@ async function ensureKeys(): Promise<void> {
   publicKeyHex = Buffer.from(await crypto.subtle.exportKey("raw", keys.publicKey)).toString("hex");
 }
 
+/** In-memory R2: put() stores bytes and metadata under `objects`. */
+export function fakeR2(): R2Bucket & { objects: Map<string, { bytes: Uint8Array; contentType?: string }> } {
+  const objects = new Map<string, { bytes: Uint8Array; contentType?: string }>();
+  return {
+    objects,
+    async put(key: string, value: ArrayBuffer, opts?: { httpMetadata?: { contentType?: string } }) {
+      objects.set(key, { bytes: new Uint8Array(value), contentType: opts?.httpMetadata?.contentType });
+      return {} as R2Object;
+    },
+  } as unknown as R2Bucket & { objects: typeof objects };
+}
+
 export async function makeEnv(db: D1Database, overrides: Partial<Env> = {}): Promise<Env> {
   await ensureKeys();
   return {
     DB: db,
-    PROOFS: {} as R2Bucket,
+    PROOFS: fakeR2(),
     GATEWAY: fakeGateway().ns,
     ALLOWED_GUILD_IDS: `${GUILD_A}, ${GUILD_B}`,
     DISCORD_PUBLIC_KEY: publicKeyHex,

@@ -63,10 +63,16 @@ function ns.FullName(unit)
   return first
 end
 
-local function playerMapID()
+function ns.PlayerMapID()
   local id = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
   if type(id) ~= "number" or id < 0 or id > 65535 then return 0 end
   return id
+end
+
+function ns.ZoneName()
+  local id = ns.PlayerMapID()
+  local info = id ~= 0 and C_Map.GetMapInfo and C_Map.GetMapInfo(id)
+  return info and info.name or nil
 end
 
 -- Reads everything a bounty needs from a unit, at the moment it's called (spec 5.4b: the
@@ -125,7 +131,7 @@ function ns.BuildBountyCode(snap, reward, note)
     rewardGold = reward,
     posterGUID = UnitGUID("player"),
     posterName = ns.FullName("player"),
-    mapID = playerMapID(),
+    mapID = ns.PlayerMapID(),
     createdAt = GetServerTime(),
     nonce = nonce(),
     note = note or "",

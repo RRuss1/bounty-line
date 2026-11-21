@@ -14,8 +14,10 @@ Use with `CLAUDE.md`, the main spec, Compendium 01 (Deployment) and Compendium 0
 | 1 | Worker skeleton | Deployed Worker answers `/bl ping`, allowlist enforced |
 | 2 | Bounty posting | Paste a B code in #bounty-line → wanted poster in #bounty-board |
 | 3 | Addon core | Right-click → Set Bounty… → amount box → code popup with copy button |
-| 4 | Kill flow | Real kill → stamp → screenshot → K code → officer approves in Discord |
-| 5 | Packs & guild sync | Pack import, guild-wide sync, banners, highlighting |
+| 4 | Packs & kill flow | Pinned pack → `/bl import` → targets highlighted; real kill → stamp → screenshot → K code → officer approves in Discord |
+| 5 | Guild sync & hunting UI | Guild-wide pack sync, banners, last-seen, in-game board |
+
+> **Reordered 2026-11-21 (Rich):** pack generation, `/bl import` and target highlighting moved from Phase 5 into Phase 4, because a kill code needs the bounty number, which the addon only learns from the pack. Guild sync stays in Phase 5.
 | 6 | Automation | AI proof check, trust, Paid/Received, leaderboard, cron jobs |
 | 7 | Release pipeline | CurseForge beta via tag; "Deploy your own" docs + bootstrap workflow |
 | 8 | Guild beta | Officers → guild → Release |
@@ -112,9 +114,11 @@ Tag each phase `v0.<phase>.0` (e.g. `v0.2.0`).
 
 ---
 
-## Phase 4: The kill
+## Phase 4: Packs & the kill
 
 **Deliverables**
+- Worker: generate **P** packs (deflate, multi-part when needed), keep a pinned pack message updated on every change, `/bl pack`.
+- Addon: `/bl import` (multi-part aware, accepts the whole pinned message), `/bl list`; highlighting: nameplate skull, tooltip WANTED line, first-sighting alert + sound; "View Bounty" in the right-click menu.
 - `Kills.lua`: `PARTY_KILL` handling (you or your pet), honor-gain corroboration, **duel guard**, **faction guard**.
 - Proof stamp frame (spec 9.2) → `Screenshot()` → `SCREENSHOT_SUCCEEDED/FAILED` handling.
 - Kill popup with copy button + screenshot folder hint; `/bl last`; `/bl test` (simulated kill).
@@ -122,6 +126,7 @@ Tag each phase `v0.<phase>.0` (e.g. `v0.2.0`).
 - `/bl link` handling (L codes) so kills map to Discord users.
 
 **In-game tests**
+- [ ] `/bl import` the pinned pack → `/bl list` shows the open bounties; a bounty target shows the skull and WANTED tooltip.
 - [ ] `/bl test` → stamp → screenshot file appears → popup.
 - [ ] Real kill on an opposite-faction bounty target (1g test bounty) → full flow → officer approves.
 - [ ] Duel the same target and "win" → nothing happens.
@@ -134,12 +139,11 @@ Tag each phase `v0.<phase>.0` (e.g. `v0.2.0`).
 
 ---
 
-## Phase 5: Packs, guild sync, hunting UI
+## Phase 5: Guild sync, hunting UI
 
 **Deliverables**
-- Worker: generate **P** packs (deflate, multi-part when needed), keep a pinned pack message updated on every change, `/bl pack`.
-- Addon: `/bl import` (multi-part aware), store pack, **guild sync** via AceComm (`HELLO`/`PACK`/`NEWB`/`SEEN`/`KILL`), newest pack wins, outgoing queue when comms are restricted.
-- Highlighting: nameplate skull/glow, tooltip line, first-sighting alert + sound, last-seen sharing.
+- Addon: **guild sync** of the imported pack via AceComm (`HELLO`/`PACK`/`NEWB`/`SEEN`/`KILL`), newest pack wins, outgoing queue when comms are restricted.
+- Last-seen sharing; nameplate glow (the skull and tooltip shipped in Phase 4).
 - Banners: new bounty ("…go check the {name} Bounty Board!"), bounty collected.
 - In-game board window (`/bl`).
 - Optional "Announce to Guild" button (test whether allowed; remove if blocked).

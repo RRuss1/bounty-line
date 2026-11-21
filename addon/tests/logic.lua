@@ -47,9 +47,13 @@ function GetServerTime() return 1795200000 end
 function GetGuildInfo() return "Grief" end
 function issecretvalue(v) return v == SECRET end
 C_Map = { GetBestMapForUnit = function() return 1434 end }
+-- Kills.lua registers events at load; nothing fires in tests.
+function CreateFrame() return { RegisterEvent = function() end, SetScript = function() end } end
 
 reset()
 loadAddon("Bounty.lua")
+loadAddon("Pack.lua")
+loadAddon("Kills.lua")
 local Codec = ns.Codec
 
 -- ---------------------------------------------------------------- harness
@@ -174,6 +178,86 @@ BountyLineDB.pack = { rewardMin = 5, rewardMax = 500 }
 min, max = ns.RewardLimits()
 check("pack limits win", min == 5 and max == 500)
 eq("range message", ns.RewardError("RANGE", 1, 10000), "Reward must be between 1g and 10000g.")
+
+-- ---------------------------------------------------------------- Bounty Pack
+
+local JSON = assert(loadfile(here .. "/json.lua"))()
+local fh = assert(io.open(root .. "/shared/test-vectors.json", "rb"))
+local vectors = JSON.decode(fh:read("*a"))
+fh:close()
+local single = vectors.packs.cases[1]
+local parts = vectors.packs.parts
+
+local NL = "\n"
+local _, n = ns.ExtractPackCodes("**Bounty Pack** · 2 open bounties" .. NL .. "In game: type `/bl import`" .. NL .. "```" .. NL
+  .. single.input .. NL .. "```")
+eq("pack code found inside the pinned message text", n, 1)
+
+reset()
+local pack = ns.ReadPack("Bounty Pack, copied with its header:" .. NL .. "```" .. single.input .. "```")
+check("whole pinned message imports", pack ~= nil)
+eq("pack board tag", pack.boardTag, single.fields.boardTag)
+eq("pack bounty count", #pack.bounties, #single.fields.bounties)
+
+local _, err, _, received, total = ns.ReadPack(parts[1] .. NL .. parts[3])
+check("two of three parts: incomplete", err == "INCOMPLETE" and #received == 2 and total == 3, tostring(err))
+check("all parts in any order", ns.ReadPack(parts[3] .. NL .. parts[1] .. NL .. parts[2]) ~= nil)
+eq("no code: EMPTY", select(2, ns.ReadPack("hello")), "EMPTY")
+
+check("store pack", ns.StorePack(pack))
+eq("board tag adopted for new codes", ns.BoardTag(), "K7QF")
+local first = single.fields.bounties[1]
+local b = ns.GetBounty(first.targetGUID)
+check("bounty looked up by GUID", b ~= nil and b.id == first.bountyId and b.reward == first.rewardGold and b.poster == first.posterName)
+check("unknown GUID: no bounty", ns.GetBounty("Player-1-00000000") == nil)
+check("secret GUID: no bounty", ns.GetBounty(SECRET) == nil)
+eq("pack reward limits used", select(2, ns.RewardLimits()), single.fields.rewardMax)
+check("pack needing a newer addon is flagged", ns.PackOutdated()) -- vector needs 1.2
+eq("list biggest reward first", ns.ListBounties()[1].reward, 10000)
+
+local older = {}
+for k, v in pairs(pack) do older[k] = v end
+older.packVersion = pack.packVersion - 1
+check("older pack refused", select(2, ns.StorePack(older)) == "OLDER")
+
+BountyLineDB.pack.bounties[first.targetGUID].expires = 1795200000 - 1
+check("expired bounty ignored", ns.GetBounty(first.targetGUID) == nil)
+
+-- ---------------------------------------------------------------- kills
+
+local function withBounty(faction)
+  reset()
+  BountyLineDB.pack = { boardTag = "K7QF", version = 1, bounties = {
+    ["Player-4395-0A1B2C3D"] = { id = 7, name = "Grimlok Ashveil", faction = faction or 2, reward = 500, poster = "Slac Jaw", expires = 1795300000 },
+  } }
+  BountyLineDB.boardTag = "K7QF"
+  ns.SetDuel(false, -1000)
+end
+local VICTIM, ME, PET = "Player-4395-0A1B2C3D", "Player-4395-00FFEE11", "Pet-0-4395-1-12345-678-0000ABCDEF"
+
+withBounty()
+eq("my killing blow counts", (ns.CheckKill(ME, VICTIM, 100) or {}).id, 7)
+eq("someone else's kill doesn't", select(2, ns.CheckKill("Player-4395-99999999", VICTIM, 100)), "NOT_MINE")
+eq("no bounty on the victim", select(2, ns.CheckKill(ME, "Player-4395-12345678", 100)), "NO_BOUNTY")
+eq("secret GUIDs are ignored", select(2, ns.CheckKill(SECRET, VICTIM, 100)), "SECRET")
+units.pet = { guid = PET }
+eq("pet kills count", select(2, ns.CheckKill(PET, VICTIM, 100)), "PET")
+ns.SetDuel(true, 100)
+eq("never during a duel", select(2, ns.CheckKill(ME, VICTIM, 101)), "DUEL")
+ns.SetDuel(false, 100)
+eq("nor right after one", select(2, ns.CheckKill(ME, VICTIM, 105)), "DUEL")
+eq("fine 10s later", (ns.CheckKill(ME, VICTIM, 111) or {}).id, 7)
+withBounty(1)
+eq("same-faction bounty never pays out", select(2, ns.CheckKill(ME, VICTIM, 100)), "SAME_FACTION")
+
+withBounty()
+local kill = Codec.Decode(ns.BuildKillCode(7, VICTIM, 1795200100, true, true))
+check("K code decodes", kill ~= nil and kill.type == "K")
+for k, want in pairs({ boardTag = "K7QF", bountyId = 7, victimGUID = VICTIM, killerGUID = ME, killerName = "Slac Jaw",
+  killerFaction = 1, killedAt = 1795200100, mapID = 1434, flags = 3 }) do
+  eq("K field " .. k, kill.fields[k], want)
+end
+eq("K flags without honor or pet", Codec.Decode(ns.BuildKillCode(7, VICTIM, 1, false, false)).fields.flags, 0)
 
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

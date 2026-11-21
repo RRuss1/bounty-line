@@ -2,7 +2,7 @@
 local addonName, ns = ...
 local L = ns.L
 
-local DB_DEFAULTS = { version = 1, settings = { debugMenu = false, minimap = { angle = 200, hide = false } } }
+local DB_DEFAULTS = { version = 1, settings = { debugMenu = false, debugKills = false, minimap = { angle = 200, hide = false } } }
 local CHAR_DEFAULTS = { version = 1, kills = {} }
 
 local function applyDefaults(t, defaults)
@@ -62,6 +62,21 @@ local COMMANDS = {
     ns.ShowCode(last)
   end,
   link = link,
+  import = function() ns.OpenImport() end,
+  list = function()
+    local list = ns.ListBounties()
+    if #list == 0 then return ns.Print(BountyLineDB.pack and L.LIST_EMPTY or L.NO_PACK) end
+    ns.Print(L.LIST_HEADER:format(#list, ns.BoardName()))
+    for _, b in ipairs(list) do
+      DEFAULT_CHAT_FRAME:AddMessage(L.LIST_LINE:format(b.id, b.name, ns.FormatGold(b.reward), b.poster, date("%b %d", b.expires)))
+    end
+  end,
+  test = function() ns.PracticeKill() end,
+  debugkills = function()
+    local s = BountyLineDB.settings
+    s.debugKills = not s.debugKills
+    ns.Print(s.debugKills and L.DEBUGKILLS_ON or L.DEBUGKILLS_OFF)
+  end,
   debug = function() ns.Debug() end,
   minimap = function() ns.ToggleMinimap() end,
   debugmenu = function()
@@ -93,6 +108,7 @@ events:SetScript("OnEvent", function(self, event, name)
     BountyLineCharDB = applyDefaults(BountyLineCharDB or {}, CHAR_DEFAULTS)
     ns.SetupMenus()
     ns.SetupMinimap()
+    if ns.PackOutdated() then ns.Print(L.OUTDATED) end
     self:UnregisterEvent("ADDON_LOADED")
   end
 end)

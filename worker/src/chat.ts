@@ -4,6 +4,7 @@
  * limit -> database work (Compendium 01 Section 3.4).
  */
 import { extractCodes, processCode, type Outcome } from "./bounties";
+import type { Attachment } from "./kills";
 import { isAllowedGuild } from "./discord";
 import type { Env } from "./env";
 import { log } from "./log";
@@ -19,6 +20,7 @@ interface MessageCreate {
   guild_id?: string;
   content?: string;
   author?: { id: string; bot?: boolean };
+  attachments?: Attachment[];
   webhook_id?: string;
 }
 
@@ -62,7 +64,7 @@ async function onMessage(deps: ChatDeps, m: MessageCreate): Promise<void> {
   const outcomes: Outcome[] = [];
   for (const code of codes) {
     try {
-      outcomes.push(await processCode(env, rest, tenant, code, m.author.id, deps.now()));
+      outcomes.push(await processCode(env, rest, tenant, code, m.author.id, deps.now(), m.attachments ?? []));
     } catch (e) {
       log(env, "error", "code.failed", { tenant_id: tenant.id, error: String(e) });
       outcomes.push({ ok: false, code: "INTERNAL", message: "Something went wrong on the Bounty Board. Try again in a minute." });

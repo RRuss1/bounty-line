@@ -18,6 +18,8 @@ export const DEFAULT_CONFIG = {
   forum_tags: {} as Partial<Record<ForumTagKey, string>>,
   /** The pinned how-to message in #bounty-line. */
   howto_message_id: "",
+  /** The pinned Bounty Pack message(s) in #bounty-line, one per part. */
+  pack_message_ids: [] as string[],
 };
 
 /** Forum tags (spec Section 8.1), keyed by bounty status. */

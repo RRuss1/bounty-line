@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { decodePack } from "../src/codec";
 import { COMMANDS } from "../src/commands";
 import { isAllowedGuild } from "../src/discord";
 import worker from "../src/index";
@@ -99,11 +100,17 @@ describe("/bl setup", () => {
     expect(Object.keys(config.forum_tags).sort()).toEqual(Object.keys(FORUM_TAGS).sort());
     expect(discord.forumTags.map((t) => t.name)).toEqual(Object.values(FORUM_TAGS));
 
-    const howto = discord.find("POST", new RegExp(`/channels/${ids.line}/messages$`));
-    expect(howto).toHaveLength(1);
-    expect(String(howto[0]!.body!.content)).toContain(row.board_tag!);
-    expect(discord.find("PUT", /\/messages\/pins\//)).toHaveLength(1);
+    const [howto, pack] = discord.find("POST", new RegExp(`/channels/${ids.line}/messages$`));
+    expect(String(howto!.body!.content)).toContain(row.board_tag!);
+    expect(discord.find("PUT", /\/messages\/pins\//)).toHaveLength(2); // how-to + Bounty Pack
     expect(config.howto_message_id).toBeTruthy();
+    expect(config.pack_message_ids).toHaveLength(1);
+
+    // The first, empty Bounty Pack, for /bl import in game.
+    const packText = String(pack!.body!.content);
+    expect(packText).toContain("0 open bounties");
+    const decoded = decodePack(packText.match(/BL1-P-[0-9A-Z-]+/)![0]);
+    expect(decoded.ok && decoded.fields).toMatchObject({ boardTag: row.board_tag, bounties: [] });
 
     const [followup] = discord.followups();
     expect(followup).toContain(`Board tag: **${row.board_tag}**`);
@@ -125,8 +132,8 @@ describe("/bl setup", () => {
     expect(JSON.parse(row.config_json!).discord_display_name).toBe("Night Watch");
     expect(discord.forumTags.map((t) => t.name)).toEqual(["Hardcore", ...Object.values(FORUM_TAGS)]);
     expect(discord.find("PATCH", /^\/channels\/\d+$/)).toHaveLength(1); // tags created once
-    expect(discord.find("POST", new RegExp(`/channels/${ids.line}/messages$`))).toHaveLength(1); // how-to posted once...
-    expect(discord.find("PATCH", new RegExp(`/channels/${ids.line}/messages/\\d+$`))).toHaveLength(1); // ...then edited
+    expect(discord.find("POST", new RegExp(`/channels/${ids.line}/messages$`))).toHaveLength(2); // how-to and pack posted once...
+    expect(discord.find("PATCH", new RegExp(`/channels/${ids.line}/messages/\\d+$`))).toHaveLength(2); // ...then edited
     expect(discord.followups()[1]).toContain("updated");
   });
 

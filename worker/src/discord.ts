@@ -1,8 +1,8 @@
 /** Discord interaction primitives: signature checks, allowlist, response helpers. */
 import type { Env } from "./env";
 
-export const InteractionType = { PING: 1, APPLICATION_COMMAND: 2 } as const;
-export const ResponseType = { PONG: 1, CHANNEL_MESSAGE: 4 } as const;
+export const InteractionType = { PING: 1, APPLICATION_COMMAND: 2, MESSAGE_COMPONENT: 3 } as const;
+export const ResponseType = { PONG: 1, CHANNEL_MESSAGE: 4, DEFERRED_UPDATE_MESSAGE: 6 } as const;
 export const EPHEMERAL = 64;
 
 export const Permission = { ADMINISTRATOR: 1n << 3n, MANAGE_GUILD: 1n << 5n } as const;
@@ -20,9 +20,15 @@ export interface Interaction {
   token: string;
   guild_id?: string;
   channel_id?: string;
-  member?: { user?: { id: string; username?: string }; permissions?: string };
+  member?: { user?: { id: string; username?: string }; permissions?: string; roles?: string[] };
   user?: { id: string };
-  data?: { name: string; options?: CommandOption[] };
+  data?: {
+    name: string;
+    options?: CommandOption[];
+    /** buttons */
+    custom_id?: string;
+    resolved?: { attachments?: Record<string, { url: string; filename?: string; content_type?: string; size?: number }> };
+  };
 }
 
 export interface InteractionResponse {

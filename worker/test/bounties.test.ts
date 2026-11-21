@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { onDispatch, ERROR_REPLY_TTL_MS, type ChatDeps } from "../src/chat";
-import { _unsafe, encode, type BountyPost } from "../src/codec";
+import { _unsafe, decodePack, encode, type BountyPost } from "../src/codec";
 import type { Env } from "../src/env";
 import { DiscordRest } from "../src/rest";
 import { forbiddenDb, TestD1 } from "./helpers/d1";
@@ -185,15 +185,6 @@ describe("posting a bounty from #bounty-line", () => {
     expect(replies()[1]).toContain("already a bounty on Grimlok Ashveil");
   });
 
-  it("holds kill codes until kill claims open", async () => {
-    const k = encode("K", {
-      schema: 1, boardTag: tag, bountyId: 1, victimGUID: "Player-4395-0A1B2C3D", killerGUID: "Player-4395-01234567",
-      killerName: "Hunter", killerFaction: 1, killedAt: NOW, mapID: 1434, flags: 1, nonce: 1,
-    });
-    await say(k);
-    expect(replies()[0]).toContain("Kill claims open in the next");
-  });
-
   it("rolls back the bounty if the poster can't be created", async () => {
     discord.fail.threads = 403;
     await say(code());
@@ -285,5 +276,57 @@ describe("/bl submit", () => {
     db.sqlite.exec("DELETE FROM tenants");
     await call(env, command(GUILD_A, "submit", [{ name: "code", type: 3, value: code() }], "0"));
     expect(discord.followups().at(-1)).toContain("/bl setup");
+  });
+});
+
+describe("the Bounty Pack", () => {
+  const packEdits = () =>
+    discord.find("PATCH", new RegExp(`/channels/${ids.line}/messages/\\d+$`)).map((c) => String(c.body!.content));
+  /** Players copy the code block; pull the codes out of the message the way /bl import does. */
+  const packFrom = (text: string) => {
+    const r = decodePack((text.match(/BL1-P-[0-9A-Z-]+/g) ?? []).join("\n"));
+    if (!r.ok) throw new Error(r.message);
+    return r.fields;
+  };
+
+  it("is updated in place with every new bounty", async () => {
+    await say(code());
+    const [text] = packEdits();
+    expect(text).toContain("1 open bounty");
+    const pack = packFrom(text!);
+    expect(pack.boardTag).toBe(tag);
+    expect(pack.bounties).toEqual([
+      expect.objectContaining({ targetGUID: "Player-4395-0A1B2C3D", targetName: "Grimlok Ashveil", targetClassID: 1, targetFaction: 2, rewardGold: 500, posterName: "Slac Jaw" }),
+    ]);
+    expect(pack.bounties[0]!.bountyId).toBe(bountyRows()[0]!.id);
+    expect(pack.bounties[0]!.expiresAt).toBe(NOW + 14 * 86400);
+  });
+
+  it("leaves out bounties that aren't open", async () => {
+    await say(code());
+    await say(code({ targetGUID: "Player-4395-0A1B2C3E", nonce: 2 }));
+    db.sqlite.prepare("UPDATE bounties SET status = 'paid' WHERE target_guid = 'Player-4395-0A1B2C3D'").run();
+    const { buildPack } = await import("../src/pack");
+    const { getTenant } = await import("../src/tenants");
+    const { codes, count } = await buildPack(env, (await getTenant(env.DB, GUILD_A))!, NOW);
+    expect(count).toBe(1);
+    expect(packFrom(codes.join("\n")).bounties.map((b) => b.targetGUID)).toEqual(["Player-4395-0A1B2C3E"]);
+  });
+
+  it("splits into parts that each fit one Discord message, and posts the extra parts", async () => {
+    const insert = db.sqlite.prepare(
+      `INSERT INTO bounties (tenant_id, target_guid, target_name, class, faction, reward_gold, poster_name, expires_at, status)
+       VALUES (?, ?, ?, '1', 'Horde', 500, 'Slac Jaw', ?, 'open')`,
+    );
+    // Random names and GUIDs, so the pack doesn't compress away.
+    const hex = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+    for (let i = 0; i < 80; i++) insert.run(GUILD_A, `Player-4395-${hex()}`, `${hex()} ${hex()}`, NOW + 86400);
+    await call(env, command(GUILD_A, "pack", [], "0"));
+    const posts = [...packEdits(), ...discord.find("POST", new RegExp(`/channels/${ids.line}/messages$`)).slice(1).map((c) => String(c.body!.content))];
+    expect(posts.length).toBeGreaterThan(1);
+    for (const p of posts) expect(p.length).toBeLessThanOrEqual(2000);
+    expect(posts[0]).toContain("part 1 of");
+    expect(packFrom(posts.join("\n")).bounties).toHaveLength(80);
+    expect(discord.followups().at(-1)).toContain("Bounty Pack is up to date");
   });
 });

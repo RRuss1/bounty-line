@@ -14,7 +14,7 @@ local function selectAll(selected)
 end
 
 local function build()
-  local f = ns.CreateWindow("BountyLineCodePopup", WIDTH, 242, L.ADDON)
+  local f = ns.CreateWindow("BountyLineCodePopup", WIDTH, 268, L.ADDON)
   local c = f.content
 
   f.heading = ns.Text(c, "heading")
@@ -76,8 +76,13 @@ local function build()
   fade:SetToAlpha(0.35)
   fade:SetDuration(0.7)
   fade:SetSmoothing("IN_OUT")
+  pulse:Play() -- new frames start shown: OnShow won't fire for the first open
   f:HookScript("OnShow", function() pulse:Play() end)
   f:HookScript("OnHide", function() pulse:Stop() end)
+
+  f.note = ns.Text(c, "muted", 13)
+  f.note:SetPoint("TOPLEFT", f.hint, "BOTTOMLEFT", 0, -8)
+  f.note:SetPoint("RIGHT", -16, 0)
 
   local close = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")
   close:SetSize(100, 24)
@@ -88,7 +93,7 @@ local function build()
   return f
 end
 
--- opts: { title, subtitle, instructions, code }. Remembered for /bl last.
+-- opts: { title, subtitle, instructions, code, note? }. Remembered for /bl last.
 function ns.ShowCode(opts)
   frame = frame or build()
   BountyLineCharDB.lastPopup = opts
@@ -96,6 +101,7 @@ function ns.ShowCode(opts)
   frame.heading:SetText(opts.title)
   frame.subtitle:SetText(opts.subtitle or "")
   frame.instructions:SetText(opts.instructions or "")
+  frame.note:SetText(opts.note or "")
   frame.box:SetText(opts.code)
   frame.box:SetCursorPosition(0)
   frame:Show()

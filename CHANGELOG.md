@@ -1,6 +1,21 @@
 # Changelog
 
-## v0.3.0 (unreleased): Phase 3, addon core
+## v0.4.0 (unreleased): Phase 4, packs and the kill
+
+- **Bounty Pack.** The bot keeps a pinned **Bounty Pack** in `#bounty-line` with every open bounty, and updates it whenever one opens or closes (big packs split into parts). `/bl pack` refreshes it and links to it.
+- **See bounties in game.** `/bl import` takes the pinned pack (paste the whole message, or every part). Wanted players get a skull over their nameplate, a **WANTED** line in their tooltip, a "spotted nearby" alert the first time you see them, and **View Bounty** in the right-click menu. `/bl list` prints the open bounties.
+- **The kill.** Land the killing blow (or your pet does) on a bounty target: a proof stamp flashes up, Bounty Line takes a screenshot and gives you a kill code. Duels and same-faction kills never count. `/bl test` runs a practice kill.
+- **Claims in Discord.** Paste the kill code **with the screenshot** (or `/bl submit` with the image). The bot checks it, keeps the screenshot, posts the proof in the bounty's thread with **Approve / Deny** for officers, and tags the bounty *Claimed – Review*. Approve → *Awaiting Payment*; Deny → open again. The poster's stamp changes to match.
+- **Character links.** `/bl link` codes now link your character to your Discord account; kill claims show whether the character is linked.
+- Windows: Blizzard's metal frame, a thick pulsing red glow, textured backgrounds, a minimap button (drag it around; `/bl minimap` hides it) and an addon icon.
+
+### Deployer notes
+
+- New D1 migration (`0002_kill_review.sql`); the deploy workflow applies it.
+- Re-run `/bl setup` once so the pinned Bounty Pack and the new how-to are posted.
+- Slash commands changed (`/bl pack`, an image option on `/bl submit`); the deploy re-registers them.
+
+## v0.3.0 (2026-11-21): Phase 3, addon core
 
 - **Set a bounty from the game.** Right-click an opposite-faction player's portrait → **Set Bounty…**, type the gold (`500`, `500g`, `1.5k`) and an optional note. Or target them and use `/bl mark [gold] [note]`.
 - The code popup opens with the code already selected: press **Ctrl+C**, then paste it in `#bounty-line`. The copy button re-selects it, and the box can't be edited by accident.

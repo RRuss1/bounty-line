@@ -3,8 +3,10 @@
  * Callers have already passed the allowlist check and loaded the tenant.
  */
 import { decode, type BountyPost } from "./codec";
+import { claimKill, linkCharacter, type Attachment } from "./kills";
 import type { Env } from "./env";
 import { log } from "./log";
+import { refreshPack } from "./pack";
 import { SKULL, wantedPoster, wantedPosterImage } from "./poster";
 import type { DiscordRest } from "./rest";
 import { checkBountyPost, decodeErrorMessage } from "./rules";
@@ -12,7 +14,7 @@ import { audit, type Tenant } from "./tenants";
 import { escapeMd, gold } from "./wow";
 
 export type Outcome =
-  | { ok: true; bountyId: number; threadId: string; message: string }
+  | { ok: true; message: string; bountyId?: number; threadId?: string }
   | { ok: false; code: string; message: string }
   | { ok: null }; // ignored (packs pasted in chat)
 
@@ -28,14 +30,13 @@ export async function processCode(
   raw: string,
   authorId: string,
   now: number,
+  attachments: Attachment[] = [],
 ): Promise<Outcome> {
   const r = decode(raw);
   if (!r.ok) return { ok: false, ...decodeErrorMessage(r.error) };
   if (r.type === "P") return { ok: null };
-  if (r.type !== "B") {
-    const what = r.type === "K" ? "Kill claims" : "Character links";
-    return { ok: false, code: "NOT_YET", message: `${what} open in the next Bounty Board update. Keep your code; it'll still work.` };
-  }
+  if (r.type === "K") return claimKill(env, rest, tenant, r.fields, r.code, authorId, attachments, now);
+  if (r.type === "L") return linkCharacter(env, tenant, r.fields, authorId, now);
   return postBounty(env, rest, tenant, r.fields, r.code, authorId, now);
 }
 
@@ -119,6 +120,7 @@ async function postBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bounty
   await env.DB.prepare("UPDATE bounties SET thread_id = ?1 WHERE id = ?2 AND tenant_id = ?3").bind(threadId, id, tenant.id).run();
   await audit(env.DB, tenant.id, authorId, "bounty.create", { id, target: b.targetGUID, reward: b.rewardGold }, now);
   log(env, "info", "bounty.created", { tenant_id: tenant.id, bounty_id: id, outcome: "ok" });
+  await refreshPack(env, rest, tenant, now);
   return {
     ok: true,
     bountyId: id,
