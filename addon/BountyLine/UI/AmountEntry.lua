@@ -40,25 +40,25 @@ local function input(f, parent, width, maxLetters)
 end
 
 local function build()
-  local f = ns.CreateWindow("BountyLineAmountEntry", 440, 250, L.ADDON)
+  local f = ns.CreateWindow("BountyLineAmountEntry", 440, 270, L.ADDON)
   local c = f.content
 
-  local heading = ns.Text(c, "GameFontNormalHuge")
-  heading:SetPoint("TOPLEFT", 58, -14)
+  local heading = ns.Text(c, "heading")
+  heading:SetPoint("TOPLEFT", 16, -12)
   heading:SetText(L.SET_BOUNTY)
 
-  f.target = ns.Text(c, "GameFontHighlight", 14)
+  f.target = ns.Text(c, "body", 14)
   f.target:SetPoint("TOPLEFT", heading, "BOTTOMLEFT", 0, -6)
   f.target:SetPoint("RIGHT", -16, 0)
 
-  local rewardLabel = ns.Text(c, "GameFontHighlight", 14)
-  rewardLabel:SetPoint("TOPLEFT", 22, -84)
+  local rewardLabel = ns.Text(c, "section", 14)
+  rewardLabel:SetPoint("TOPLEFT", 28, -84)
   rewardLabel:SetText(L.REWARD_LABEL)
   f.amount = input(f, c, 110, 12)
   f.amount:SetPoint("LEFT", rewardLabel, "LEFT", 130, 0)
   f.amount:SetScript("OnTextChanged", refresh)
 
-  local noteLabel = ns.Text(c, "GameFontHighlight", 14)
+  local noteLabel = ns.Text(c, "section", 14)
   noteLabel:SetPoint("TOPLEFT", rewardLabel, "BOTTOMLEFT", 0, -20)
   noteLabel:SetText(L.NOTE_LABEL)
   f.note = input(f, c, 250, 80) -- 80 = the code's note limit (Compendium 02)
@@ -66,10 +66,10 @@ local function build()
   f.amount:SetScript("OnTabPressed", function() f.note:SetFocus() end)
   f.note:SetScript("OnTabPressed", function() f.amount:SetFocus() end)
 
-  f.limits = ns.Text(c, "GameFontHighlight", 13)
+  f.limits = ns.Text(c, "muted", 13)
   f.limits:SetPoint("TOPLEFT", noteLabel, "BOTTOMLEFT", 0, -16)
   f.error = c:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  f.error:SetTextColor(0.6, 0.05, 0.05)
+  f.error:SetTextColor(ns.COLORS.error[1], ns.COLORS.error[2], ns.COLORS.error[3])
   f.error:SetPoint("LEFT", f.limits, "RIGHT", 12, 0)
 
   f.set = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")

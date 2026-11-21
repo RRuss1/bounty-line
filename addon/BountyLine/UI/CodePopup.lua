@@ -14,23 +14,23 @@ local function selectAll(selected)
 end
 
 local function build()
-  local f = ns.CreateWindow("BountyLineCodePopup", WIDTH, 210, L.ADDON)
+  local f = ns.CreateWindow("BountyLineCodePopup", WIDTH, 232, L.ADDON)
   local c = f.content
 
-  f.heading = ns.Text(c, "GameFontNormalHuge")
-  f.heading:SetPoint("TOPLEFT", 58, -14)
+  f.heading = ns.Text(c, "heading")
+  f.heading:SetPoint("TOPLEFT", 16, -12)
 
-  f.subtitle = ns.Text(c, "GameFontHighlight", 14)
+  f.subtitle = ns.Text(c, "body", 14)
   f.subtitle:SetPoint("TOPLEFT", f.heading, "BOTTOMLEFT", 0, -6)
   f.subtitle:SetPoint("RIGHT", -16, 0)
 
-  f.instructions = ns.Text(c, "GameFontHighlight", 13)
-  f.instructions:SetPoint("TOPLEFT", 18, -74)
+  f.instructions = ns.Text(c, "section", 13)
+  f.instructions:SetPoint("TOPLEFT", 28, -72)
   f.instructions:SetPoint("RIGHT", -16, 0)
 
   local box = CreateFrame("EditBox", nil, c, "InputBoxTemplate")
   box:SetSize(WIDTH - 90, 26)
-  box:SetPoint("TOPLEFT", f.instructions, "BOTTOMLEFT", 8, -8)
+  box:SetPoint("TOPLEFT", f.instructions, "BOTTOMLEFT", -4, -10)
   box:SetAutoFocus(false)
   box:SetMaxLetters(0)
   box:SetFontObject("ChatFontNormal")
@@ -63,8 +63,8 @@ local function build()
   end)
   copy:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-  f.hint = ns.Text(c, "GameFontHighlight", 13)
-  f.hint:SetPoint("TOPLEFT", box, "BOTTOMLEFT", -6, -10)
+  f.hint = ns.Text(c, "muted", 13)
+  f.hint:SetPoint("TOPLEFT", box, "BOTTOMLEFT", -6, -12)
 
   local close = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")
   close:SetSize(100, 24)
