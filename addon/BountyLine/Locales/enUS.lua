@@ -185,6 +185,7 @@ ns.L = {
   PRACTICE_POST = "Practice only: don't post this code. A real kill gives you one like it.",
   PRACTICE_TARGET = "Practice Target",
   SCREENSHOT_SAVED = "Screenshot saved: World of Warcraft\\_forever_\\Screenshots (newest file)",
+  AUTO_SHOT_FAILED = "|cffff6060The automatic screenshot didn't work (%s).|r Press Print Screen now, while the stamp is up.",
   SCREENSHOT_FAILED = "The screenshot didn't save. Take one yourself (Print Screen) before you post.",
   STAMP_TITLE = "BOUNTY LINE · KILL CONFIRMED",
   STAMP_PRACTICE = "BOUNTY LINE · PRACTICE KILL",
