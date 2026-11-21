@@ -6,8 +6,9 @@
 -- CHAT_MSG_COMBAT_HONOR_GAIN naming the victim within ~2s sets the "honor" flag.
 --
 -- Kills are handled one at a time; more that land meanwhile wait in a queue. While you're
--- still in combat the code popup is held back (it would grab the keyboard mid-fight) and
--- opens when combat ends.
+-- still in combat the code popup is held back (it would grab the keyboard mid-fight):
+-- "BOUNTY KILLED" flashes, then a small logo square waits to be clicked after the fight
+-- (UI/KillToast.lua).
 local _, ns = ...
 local L = ns.L
 
@@ -19,7 +20,7 @@ local MAX_SAVED = 20
 local duel = { active = false, endedAt = -math.huge }
 local pending        -- the kill being processed (waiting for honor or its screenshot)
 local waiting = {}   -- kills that landed while another was being processed
-local deferred       -- popup held back until combat ends
+local deferred = {}  -- popups held back during combat, oldest first
 
 -- ---------------------------------------------------------------- rules (tested in addon/tests)
 
@@ -68,16 +69,28 @@ local function nextKill()
   if k then begin(k) end
 end
 
--- Shows the popup now, or holds it until combat ends (never grab the keyboard mid-fight).
+local function popupAllowed()
+  return not InCombatLockdown() or (BountyLineDB.settings or {}).killPopupInCombat == true
+end
+
+-- Shows the popup now, or holds it for the logo square (never grab the keyboard mid-fight).
 local function present(popup)
-  local s = BountyLineDB.settings or {}
-  if InCombatLockdown() and not s.killPopupInCombat then
-    BountyLineCharDB.lastPopup = popup -- /bl last and the minimap menu can open it meanwhile
-    deferred = popup
-    ns.Print(L.KILL_DEFERRED)
-  else
-    ns.ShowCode(popup)
-  end
+  if popupAllowed() then return ns.ShowCode(popup) end
+  BountyLineCharDB.lastPopup = popup -- /bl last and the minimap menu can open it too
+  deferred[#deferred + 1] = popup
+  ns.Print(L.KILL_DEFERRED)
+  ns.ShowKillToast(#deferred)
+end
+
+function ns.DeferredKills() return #deferred end
+
+-- Click on the logo square: open the oldest waiting kill code, once the fight is over.
+function ns.OpenDeferredKill()
+  if #deferred == 0 then return ns.UpdateKillToast(0) end
+  if not popupAllowed() then return ns.Print(L.KILL_WAIT) end
+  local popup = table.remove(deferred, 1)
+  ns.UpdateKillToast(#deferred)
+  ns.ShowCode(popup)
 end
 
 local function finish(shot)
@@ -148,21 +161,14 @@ function ns.PracticeKill()
   startKill(practice, UnitGUID("player"), false, true)
 end
 
-local function combatEnded()
-  if not deferred then return end
-  local popup = deferred
-  deferred = nil
-  ns.ShowCode(popup)
-end
-
 -- For the test suite only.
-ns._kills = { start = startKill, finish = finish, combatEnded = combatEnded, pending = function() return pending end }
+ns._kills = { start = startKill, finish = finish, pending = function() return pending end }
 
 -- ---------------------------------------------------------------- events
 
 local events = CreateFrame("Frame")
 for _, e in ipairs({ "PARTY_KILL", "CHAT_MSG_COMBAT_HONOR_GAIN", "DUEL_REQUESTED", "DUEL_INBOUNDS", "DUEL_FINISHED",
-  "SCREENSHOT_SUCCEEDED", "SCREENSHOT_FAILED", "PLAYER_REGEN_ENABLED" }) do
+  "SCREENSHOT_SUCCEEDED", "SCREENSHOT_FAILED" }) do
   events:RegisterEvent(e)
 end
 events:SetScript("OnEvent", function(_, event, a, b)
@@ -184,7 +190,5 @@ events:SetScript("OnEvent", function(_, event, a, b)
     finish(true)
   elseif event == "SCREENSHOT_FAILED" then
     finish(false)
-  elseif event == "PLAYER_REGEN_ENABLED" then
-    combatEnded()
   end
 end)

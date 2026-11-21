@@ -517,6 +517,9 @@ local shown = {}
 ns.ShowCode = function(popup) shown[#shown + 1] = popup end
 ns.ShowStamp = function() end
 ns.HideStamp = function() end
+local toast = { shown = 0, waiting = 0 }
+ns.ShowKillToast = function(n) toast.shown, toast.waiting = toast.shown + 1, n end
+ns.UpdateKillToast = function(n) toast.waiting = n end
 timers = {}
 local K = ns._kills
 K.start({ id = 21, name = "First Target", reward = 5 }, VICTIM, false, false)
@@ -538,11 +541,17 @@ K.start({ id = 23, name = "Third Target", reward = 7 }, VICTIM, false, false)
 runTimers()
 K.finish(true)
 eq("in combat: no popup (it would grab the keyboard)", #shown, 2)
-check("but the code is ready for /bl last", BountyLineCharDB.lastPopup ~= nil and BountyLineCharDB.lastPopup.code ~= nil)
+eq("the flash and logo square appear instead", toast.shown, 1)
+check("and the code is ready for /bl last", BountyLineCharDB.lastPopup ~= nil and BountyLineCharDB.lastPopup.code ~= nil)
+ns.OpenDeferredKill()
+eq("clicking the square mid-fight doesn't open it", #shown, 2)
+eq("it keeps waiting", ns.DeferredKills(), 1)
 combat = false
-K.combatEnded()
-eq("popup opens when combat ends", #shown, 3)
-K.combatEnded()
+eq("combat ending doesn't pop it open by itself", #shown, 2)
+ns.OpenDeferredKill()
+eq("clicking after the fight opens the code", #shown, 3)
+eq("and the square goes away", toast.waiting, 0)
+ns.OpenDeferredKill()
 eq("only once", #shown, 3)
 
 print(("%d passed, %d failed"):format(passed, failed))
