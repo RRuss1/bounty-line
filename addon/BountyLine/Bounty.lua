@@ -142,11 +142,14 @@ end
 
 -- What the code box copies: a short readable line with the code in a Discord spoiler, so
 -- #bounty-line shows "WANTED: Name · 500g" and a black bar instead of a wall of letters.
--- The bot finds the code inside the line. (Spec 23 item 18: check "||" survives Ctrl+C.)
+-- The bot finds the code inside the line.
+-- WoW EditBoxes store a literal "|" as "||" and Ctrl+C copies one "|" per pair (verified on
+-- Forever, spec 23 item 18), so Discord's "||spoiler||" needs four pipes here.
+local SPOILER = "||||"
 local COPY = {
-  B = "WANTED: **%s** · %s ||%s||",
-  K = "CLAIMED: **%s** · %s ||%s||",
-  L = "LINK: **%s** ||%s||",
+  B = "WANTED: **%s** · %s " .. SPOILER .. "%s" .. SPOILER,
+  K = "CLAIMED: **%s** · %s " .. SPOILER .. "%s" .. SPOILER,
+  L = "LINK: **%s** " .. SPOILER .. "%s" .. SPOILER,
 }
 function ns.CopyLine(kind, name, detail, code)
   if kind == "L" then return COPY.L:format(name, code) end

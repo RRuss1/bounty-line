@@ -120,11 +120,15 @@ async function postBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bounty
   await env.DB.prepare("UPDATE bounties SET thread_id = ?1 WHERE id = ?2 AND tenant_id = ?3").bind(threadId, id, tenant.id).run();
   await audit(env.DB, tenant.id, authorId, "bounty.create", { id, target: b.targetGUID, reward: b.rewardGold }, now);
   log(env, "info", "bounty.created", { tenant_id: tenant.id, bounty_id: id, outcome: "ok" });
-  await refreshPack(env, rest, tenant, now);
+  // The pinned pack is edited in place, so it never shows at the bottom of the channel: link it.
+  const packLink = await refreshPack(env, rest, tenant, now);
   return {
     ok: true,
     bountyId: id,
     threadId,
-    message: `${SKULL} Bounty #${id} on **${escapeMd(b.targetName)}** for **${gold(b.rewardGold)}** is up: <#${threadId}>`,
+    message: [
+      `${SKULL} Bounty #${id} on **${escapeMd(b.targetName)}** for **${gold(b.rewardGold)}** is up: <#${threadId}>`,
+      ...(packLink ? [`📦 [Bounty Pack](${packLink}) updated: copy it and type \`/bl import\` in game.`] : []),
+    ].join("\n"),
   };
 }
