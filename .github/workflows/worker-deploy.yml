@@ -28,6 +28,7 @@ jobs:
       READ_CHAT: ${{ vars.READ_CHAT }}
       AI_CHECK: ${{ vars.AI_CHECK }}
       AI_DAILY_CAP: ${{ vars.AI_DAILY_CAP }}
+      AI_MODEL: ${{ vars.AI_MODEL }}
       PROOF_RETENTION_DAYS: ${{ vars.PROOF_RETENTION_DAYS }}
       LOG_LEVEL: ${{ vars.LOG_LEVEL }}
       POSTER_IMAGE: ${{ vars.POSTER_IMAGE }}

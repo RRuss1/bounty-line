@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.6.0 (unreleased): Phase 6a, automation
+
+- **AI proof check.** Workers AI reads the proof stamp in the kill screenshot and compares it with the kill code (same code, or same bounty number and target). The result is listed on the proof post. Capped at `AI_DAILY_CAP` calls a day; over the cap, switched off or failing, claims simply go to officers.
+- **Trust and auto-approve.** Five approved kills in a row make a hunter **trusted** (a denial resets it). With the default `auto_approve = trusted_only`, a trusted hunter's claim with all checks green (stamp matches, posted in time, character not linked to someone else) is approved automatically and goes straight to payment. Officers keep a **Deny** button until it's paid.
+- `/bl leaderboard` (top hunters, most wanted, biggest payers), `/bl me` (your record, trust progress, open bounties, what you owe and are owed), `/bl cancel id` (poster or officer).
+- **Scheduled jobs.** Hourly: bounties past their expiry move to *Expired*. Sundays 17:00 UTC: a weekly recap in the hall-of-fame channel (or `#bounty-line`) with most wanted, the week's top hunters and a gentle list of unpaid bounties.
+
+### Deployer notes
+
+- New D1 migration (`0003_ai_and_trust.sql`); the deploy applies it.
+- New binding: **Workers AI** (`AI`). It needs Workers AI on your Cloudflare account (Workers Paid). Budget mode: set `AI_CHECK=false`. Optional Variable `AI_MODEL` to try another vision model.
+- Two new crons (hourly, and Sundays 17:00 UTC) and three new slash commands; the deploy registers them.
+- Your Cloudflare API token needs **Workers AI: Read** if the deploy complains about the AI binding.
+
 ## v0.5.0 (unreleased): Phase 5, guild sync and the board
 
 - **Guild sync.** Import the Bounty Pack once and everyone in your guild running Bounty Line gets it. Guildies who log in later ask for it ("HELLO") and anyone with a newer pack answers; the newest pack wins. `/bl sync` shares yours right away.

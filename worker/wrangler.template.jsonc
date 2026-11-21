@@ -22,13 +22,16 @@
   "durable_objects": { "bindings": [{ "name": "GATEWAY", "class_name": "GatewayDO" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["GatewayDO"] }],
   // Every minute: reconnect the Gateway if it dropped. Phase 6 adds expiry and weekly jobs.
-  "triggers": { "crons": ["*/1 * * * *"] },
-  // Phase 6 adds the AI binding.
+  // Every minute: Gateway keep-alive. Hourly: bounty expiry. Sundays 17:00 UTC: weekly recap.
+  "triggers": { "crons": ["*/1 * * * *", "0 * * * *", "0 17 * * SUN"] },
+  // Workers AI reads the proof stamp in kill screenshots (AI_CHECK=false turns it off).
+  "ai": { "binding": "AI" },
   "vars": {
     "ALLOWED_GUILD_IDS": "${ALLOWED_GUILD_IDS}",
     "READ_CHAT": "${READ_CHAT:-true}",
     "AI_CHECK": "${AI_CHECK:-true}",
     "AI_DAILY_CAP": "${AI_DAILY_CAP:-200}",
+    "AI_MODEL": "${AI_MODEL:-@cf/meta/llama-4-scout-17b-16e-instruct}",
     "PROOF_RETENTION_DAYS": "${PROOF_RETENTION_DAYS:-180}",
     "LOG_LEVEL": "${LOG_LEVEL:-info}",
     // Draw parchment wanted posters (needs Workers Paid CPU time; set false on the Free plan).

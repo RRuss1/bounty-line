@@ -88,6 +88,19 @@ Every guild ties **its own Worker to its own Discord**. You host it on your Clou
 ### Staying up to date
 Click **Sync fork** on GitHub. Your deploy workflow applies database migrations and redeploys automatically. Check [CHANGELOG.md](CHANGELOG.md) → *Deployer notes* for anything that needs action.
 
+### Discord commands
+
+| Command | Who | Does |
+|---|---|---|
+| `/bl submit` | Anyone | Paste a code (and attach the screenshot for kills) if chat pasting doesn't work |
+| `/bl pack` | Anyone | Refresh the pinned Bounty Pack and link to it |
+| `/bl leaderboard` | Anyone | Top hunters, most wanted, biggest payers |
+| `/bl me` | Anyone | Your kills, trust level, open bounties and payments |
+| `/bl cancel` | Poster or officer | Cancel an open bounty |
+| `/bl setup`, `/bl status` | Admins | Connect channels and roles; deployment status |
+
+Clean kill claims from **trusted** hunters (5 approved kills in a row) are approved automatically once the AI has read the screenshot's stamp; everything else goes to your officers.
+
 ### Budget mode
 Set `READ_CHAT=false`, `AI_CHECK=false` and `POSTER_IMAGE=false`. Players submit with `/bl submit` instead of pasting in chat, officers approve every claim, and wanted posters are text-only (drawing the parchment picture needs more CPU time than the Free plan allows). No Durable Object, no AI, so it fits a free account.
 

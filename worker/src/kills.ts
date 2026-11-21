@@ -6,6 +6,7 @@
  * failures (late post, character linked to someone else) still post the proof, with the
  * failing checks listed for the officers.
  */
+import { checkStamp, type StampResult } from "./ai";
 import type { CharacterLink, KillClaim } from "./codec";
 import { FACTION } from "./codec";
 import type { Env } from "./env";
@@ -129,13 +130,24 @@ export async function claimKill(
     imageHash: hash,
   };
 
-  // 4. Record the claim, then show it in the bounty's thread.
+  // 4. AI stamp read (check 5), trust (spec 9.4) and the verdict (spec 9.3).
+  const ai = await checkStamp(env, { bytes, contentType }, { code, bountyId: b.id, target: b.target_name ?? "" }, now);
+  const hunter = await env.DB.prepare("SELECT trust FROM hunters WHERE tenant_id = ?1 AND discord_user_id = ?2")
+    .bind(tenant.id, authorId)
+    .first<{ trust: string | null }>();
+  const trusted = hunter?.trust === "trusted";
+  const clean = checks.window && checks.linked !== false && ai.status === "match";
+  const mode = tenant.config.auto_approve;
+  const auto = clean && (mode === "all_clean" || (mode === "trusted_only" && trusted));
+  const allChecks = { ...checks, ai: ai.status, aiRead: "read" in ai ? ai.read : undefined, trusted };
+
+  // 5. Record the claim, then show it in the bounty's thread.
   const row = await env.DB.prepare(
     `INSERT INTO kills (tenant_id, bounty_id, killer_guid, killer_name, killer_discord_id, victim_guid, killed_at, zone_map_id,
        code, image_r2_key, image_hash, checks_json, verdict, claimed_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'pending', ?13) RETURNING id`,
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?14, ?13) RETURNING id`,
   )
-    .bind(tenant.id, b.id, k.killerGUID, k.killerName, authorId, k.victimGUID, k.killedAt, k.mapID, code, key, hash, JSON.stringify(checks), now)
+    .bind(tenant.id, b.id, k.killerGUID, k.killerName, authorId, k.victimGUID, k.killedAt, k.mapID, code, key, hash, JSON.stringify(allChecks), now, auto ? "auto" : "pending")
     .first<{ id: number }>();
   const killId = row!.id;
 
@@ -145,17 +157,21 @@ export async function claimKill(
     checks.window ? `✅ Posted ${ageMin} min after the kill` : `⚠️ Posted ${ageMin} min after the kill (limit ${windowHours}h)`,
     checks.honor ? "✅ Honor kill confirmed in game" : "➖ No honor message (some kills give none)",
     checks.linked === true ? "✅ Character linked to this Discord user" : checks.linked === false ? "⚠️ Character is linked to a different Discord user" : "➖ Character not linked yet (`/bl link` in game)",
+    aiLine(ai),
+    trusted ? "⭐ Trusted hunter" : `➖ New hunter (trusted after ${tenant.config.trust_threshold} approved kills in a row)`,
     ...(checks.pet ? ["🐾 Killing blow by their pet"] : []),
   ];
   const embed = {
     title: `💰 BOUNTY CLAIMED by ${escapeMd(k.killerName)}`,
-    color: 0xd4a017,
+    color: auto ? 0x2e8b57 : 0xd4a017,
     description: [
       `<@${authorId}> claims **${gold(b.reward_gold)}** for killing **${escapeMd(b.target_name ?? "the target")}** <t:${k.killedAt}:f>.`,
       "",
       ...lines,
       "",
-      `Verdict: **NEEDS OFFICER REVIEW** (<@&${tenant.officer_role_id}>)`,
+      auto
+        ? `Verdict: **AUTO-APPROVED** (all checks green${mode === "trusted_only" ? ", trusted hunter" : ""}). Officers can still deny it.`
+        : `Verdict: **NEEDS OFFICER REVIEW** (<@&${tenant.officer_role_id}>)`,
     ].join("\n"),
     image: { url: `attachment://proof.${ext}` },
     footer: { text: `Claim #${killId} · Bounty #${b.id}` },
@@ -163,10 +179,12 @@ export async function claimKill(
   const components = [
     {
       type: 1,
-      components: [
-        { type: 2, style: 3, label: "Approve", custom_id: `kill:approve:${killId}` },
-        { type: 2, style: 4, label: "Deny", custom_id: `kill:deny:${killId}` },
-      ],
+      components: auto
+        ? [{ type: 2, style: 4, label: "Deny (officers)", custom_id: `kill:deny:${killId}` }]
+        : [
+            { type: 2, style: 3, label: "Approve", custom_id: `kill:approve:${killId}` },
+            { type: 2, style: 4, label: "Deny", custom_id: `kill:deny:${killId}` },
+          ],
     },
   ];
   let proofId: string | null = null;
@@ -183,11 +201,18 @@ export async function claimKill(
     }
   }
   await env.DB.prepare("UPDATE kills SET proof_message_id = ?1 WHERE id = ?2").bind(proofId, killId).run();
-  await setBountyStatus(env, rest, tenant, b, "review", now);
-  await audit(env.DB, tenant.id, authorId, "kill.claim", { kill: killId, bounty: b.id }, now);
-  log(env, "info", "kill.claimed", { tenant_id: tenant.id, bounty_id: b.id, kill_id: killId, outcome: "pending" });
+  if (auto) await onApproved(env, rest, tenant, b, killId, authorId, now);
+  else await setBountyStatus(env, rest, tenant, b, "review", now);
+  await audit(env.DB, tenant.id, authorId, "kill.claim", { kill: killId, bounty: b.id, auto }, now);
+  log(env, "info", "kill.claimed", { tenant_id: tenant.id, bounty_id: b.id, kill_id: killId, outcome: auto ? "auto" : "pending", ai: ai.status });
   const where = b.thread_id ? `<#${b.thread_id}>` : `bounty #${b.id}`;
-  return { ok: true, message: `${SKULL} Kill claim on **${escapeMd(b.target_name ?? "the target")}** received. Officers will review it in ${where}.` };
+  const target = escapeMd(b.target_name ?? "the target");
+  return {
+    ok: true,
+    message: auto
+      ? `${SKULL} Kill on **${target}** auto-approved! Payment details are in ${where}.`
+      : `${SKULL} Kill claim on **${target}** received. Officers will review it in ${where}.`,
+  };
 }
 
 // ---------------------------------------------------------------- status changes
@@ -272,27 +297,27 @@ export async function reviewKill(
     .bind(killId, tenant.id)
     .first<{ id: number; bounty_id: number; verdict: string; killer_discord_id: string | null }>();
   if (!kill) return { ephemeral: "I can't find that claim any more." };
-  if (kill.verdict !== "pending") return { ephemeral: `That claim was already ${kill.verdict}.` };
   const b = await env.DB.prepare("SELECT * FROM bounties WHERE id = ?1 AND tenant_id = ?2").bind(kill.bounty_id, tenant.id).first<BountyRow>();
+  // An auto-approved claim can still be denied until the bounty is paid.
+  const overturn = action === "deny" && kill.verdict === "auto" && b?.status === "awaiting_payment";
+  if (kill.verdict !== "pending" && !overturn) {
+    return { ephemeral: `That claim was already ${kill.verdict === "auto" ? "auto-approved" : kill.verdict}.` };
+  }
 
   const verdict = action === "approve" ? "approved" : "denied";
-  await env.DB.prepare("UPDATE kills SET verdict = ?1, reviewed_by = ?2 WHERE id = ?3 AND verdict = 'pending'").bind(verdict, officer.id, killId).run();
-  if (kill.killer_discord_id) {
-    const col = action === "approve" ? "approved" : "denied";
-    await env.DB.prepare(
-      `INSERT INTO hunters (tenant_id, discord_user_id, ${col}) VALUES (?1, ?2, 1)
-       ON CONFLICT(tenant_id, discord_user_id) DO UPDATE SET ${col} = ${col} + 1${action === "deny" ? ", trust = 'new'" : ""}`,
-    )
-      .bind(tenant.id, kill.killer_discord_id)
-      .run();
-  }
-  if (b && b.status === "review") {
-    await setBountyStatus(env, rest, tenant, b, action === "approve" ? "awaiting_payment" : "open", now);
-    if (action === "approve") {
-      await postPaymentPrompt(rest, b, killId, kill.killer_discord_id).catch((e) =>
-        log(env, "warn", "bounty.payment_prompt_failed", { tenant_id: tenant.id, error: String(e) }),
-      );
+  await env.DB.prepare("UPDATE kills SET verdict = ?1, reviewed_by = ?2 WHERE id = ?3").bind(verdict, officer.id, killId).run();
+  if (action === "approve") {
+    if (b && b.status === "review") await onApproved(env, rest, tenant, b, killId, kill.killer_discord_id, now);
+  } else {
+    if (kill.killer_discord_id) {
+      await env.DB.prepare(
+        `INSERT INTO hunters (tenant_id, discord_user_id, denied, streak, trust) VALUES (?1, ?2, 1, 0, 'new')
+         ON CONFLICT(tenant_id, discord_user_id) DO UPDATE SET denied = denied + 1, streak = 0, trust = 'new'`,
+      )
+        .bind(tenant.id, kill.killer_discord_id)
+        .run();
     }
+    if (b && (b.status === "review" || overturn)) await setBountyStatus(env, rest, tenant, b, "open", now);
   }
   await audit(env.DB, tenant.id, officer.id, `kill.${verdict}`, { kill: killId, bounty: kill.bounty_id }, now);
   log(env, "info", "kill.reviewed", { tenant_id: tenant.id, kill_id: killId, outcome: verdict });
@@ -302,4 +327,37 @@ export async function reviewKill(
       ? `✅ **Approved** by <@${officer.id}>. Payment instructions are below.`
       : `❌ **Denied** by <@${officer.id}>. The bounty is open again.`;
   return { update: { content: line, components: [] } };
+}
+
+// ---------------------------------------------------------------- shared approval
+
+/** Approved (by an officer or automatically): credit the hunter, await payment, post the payment buttons. */
+async function onApproved(env: Env, rest: DiscordRest, tenant: Tenant, b: BountyRow, killId: number, hunterId: string | null, now: number) {
+  if (hunterId) {
+    // Trusted after trust_threshold approvals in a row (a denial resets the streak).
+    await env.DB.prepare(
+      `INSERT INTO hunters (tenant_id, discord_user_id, approved, streak, trust) VALUES (?1, ?2, 1, 1, CASE WHEN 1 >= ?3 THEN 'trusted' ELSE 'new' END)
+       ON CONFLICT(tenant_id, discord_user_id) DO UPDATE SET approved = approved + 1, streak = COALESCE(streak, 0) + 1,
+         trust = CASE WHEN COALESCE(streak, 0) + 1 >= ?3 THEN 'trusted' ELSE trust END`,
+    )
+      .bind(tenant.id, hunterId, tenant.config.trust_threshold)
+      .run();
+  }
+  await setBountyStatus(env, rest, tenant, b, "awaiting_payment", now);
+  await postPaymentPrompt(rest, b, killId, hunterId).catch((e) =>
+    log(env, "warn", "bounty.payment_prompt_failed", { tenant_id: tenant.id, error: String(e) }),
+  );
+}
+
+function aiLine(ai: StampResult): string {
+  switch (ai.status) {
+    case "match":
+      return "✅ AI read the stamp: matches the code";
+    case "mismatch":
+      return `⚠️ AI read the stamp: says ${ai.read.target ?? "?"}, bounty #${ai.read.bountyId ?? "?"}. Doesn't match`;
+    case "unreadable":
+      return "⚠️ AI couldn't find the Bounty Line stamp in the screenshot";
+    default:
+      return ai.reason === "cap" ? "➖ AI check skipped (daily limit reached)" : ai.reason === "off" ? "➖ AI check off" : "➖ AI check unavailable";
+  }
 }
