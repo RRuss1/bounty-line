@@ -43,7 +43,10 @@ function UnitIsUnit(a, b) return u(a) == u(b) end
 function UnitClass(unit) return unpack(u(unit).class) end
 function UnitRace(unit) return unpack(u(unit).race) end
 function UnitLevel(unit) return u(unit).level end
-function GetServerTime() return 1795200000 end
+-- Server time is adjustable: the pack vectors are dated a day after the bounty tests.
+local BASE_TIME, PACK_TIME = 1795200000, 1795300200
+local serverTime = BASE_TIME
+function GetServerTime() return serverTime end
 function GetGuildInfo() return "Grief" end
 function issecretvalue(v) return v == SECRET end
 C_Map = { GetBestMapForUnit = function() return 1434 end }
@@ -55,10 +58,25 @@ loadAddon("Bounty.lua")
 loadAddon("Pack.lua")
 loadAddon("Kills.lua")
 -- Guild sync: timers and sends are stubbed; IsInGuild() is false so nothing is sent.
-function GetTime() return 1000 end
+local clock, combat = 1000, false
+function GetTime() return clock end
 function IsInGuild() return false end
-C_Timer = { After = function() end, NewTimer = function() return { Cancel = function() end } end, NewTicker = function() end }
+function InCombatLockdown() return combat end
+function Screenshot() end
+-- Timers are collected and run by hand with runTimers().
+local timers = {}
+C_Timer = {
+  After = function(_, fn) timers[#timers + 1] = fn end,
+  NewTimer = function() return { Cancel = function() end } end,
+  NewTicker = function() end,
+}
+local function runTimers()
+  local batch = timers
+  timers = {}
+  for _, fn in ipairs(batch) do fn() end
+end
 loadAddon("Comms.lua")
+loadAddon("Detect.lua")
 local Codec = ns.Codec
 
 -- ---------------------------------------------------------------- harness
@@ -206,6 +224,8 @@ eq("range message", ns.RewardError("RANGE", 1, 10000), "Reward must be between 1
 
 -- ---------------------------------------------------------------- Bounty Pack
 
+serverTime = PACK_TIME
+
 local JSON = assert(loadfile(here .. "/json.lua"))()
 local fh = assert(io.open(root .. "/shared/test-vectors.json", "rb"))
 local vectors = JSON.decode(fh:read("*a"))
@@ -250,6 +270,8 @@ check("expired bounty ignored", ns.GetBounty(first.targetGUID) == nil)
 
 -- ---------------------------------------------------------------- kills
 
+serverTime = BASE_TIME
+
 local function withBounty(faction)
   reset()
   BountyLineDB.pack = { boardTag = "K7QF", version = 1, bounties = {
@@ -287,6 +309,8 @@ end
 eq("K flags without honor or pet", Codec.Decode(ns.BuildKillCode(7, VICTIM, 1, false, false)).fields.flags, 0)
 
 -- ---------------------------------------------------------------- guild sync
+
+serverTime = PACK_TIME
 
 local Comms = ns.Comms
 local banners, prints = {}, {}
@@ -363,6 +387,107 @@ receive("SEEN", "12\t1434\t400")
 eq("older sighting doesn't overwrite", ns.LastSeen(12).map, 1437)
 receive("SEEN", "12\t1434\t600")
 eq("newer sighting does", ns.LastSeen(12).map, 1434)
+
+-- ---------------------------------------------------------------- pack safety and housekeeping
+
+-- A pack dated in the future is refused, and a stored one never blocks real packs.
+reset()
+local future = {}
+for k, v in pairs(ns.ReadPack(single.input)) do future[k] = v end
+future.packVersion = PACK_TIME + 100000
+check("future-dated pack refused", select(2, ns.StorePack(future)) == "FUTURE")
+check("nothing stored", BountyLineDB.pack == nil)
+BountyLineDB.pack = { version = PACK_TIME + 100000, boardTag = single.fields.boardTag, bounties = {} }
+eq("a stored future pack counts as no pack", (ns.PackVersion()), 0)
+receive("PACK", single.input)
+eq("so a real pack replaces it", BountyLineDB.pack.version, single.fields.packVersion)
+
+-- Claimed bounties: not hunted, shown as claimed, cleared by a pack made after the kill.
+local g1 = single.fields.bounties[1]
+ns.MarkClaimed(g1.bountyId, PACK_TIME)
+check("claimed bounty isn't hunted", ns.GetBounty(g1.targetGUID) == nil)
+local listed
+for _, entry in ipairs(ns.ListBounties()) do
+  if entry.id == g1.bountyId then listed = entry end
+end
+check("but is listed as claimed", listed ~= nil and listed.claimed == true)
+receive("KILL", ("%d\tSomeone Else"):format(single.fields.bounties[2].bountyId))
+check("a guildie's kill marks it claimed too", ns.IsClaimed(single.fields.bounties[2].bountyId))
+BountyLineDB.lastSeen[999] = { map = 1, t = 1 }
+BountyLineDB.lastSeen[g1.bountyId] = { map = 1437, t = 5 }
+local newer = {}
+for k, v in pairs(ns.ReadPack(single.input)) do newer[k] = v end
+newer.packVersion = PACK_TIME + 60
+check("newer pack stored", ns.StorePack(newer))
+check("claimed marks older than the pack are cleared", not ns.IsClaimed(g1.bountyId))
+check("sightings of vanished bounties are pruned", BountyLineDB.lastSeen[999] == nil)
+check("sightings of current bounties are kept", BountyLineDB.lastSeen[g1.bountyId] ~= nil)
+
+-- Banner flood limit: 3 per sender per minute.
+check("three banners allowed", Comms.AllowBanner("aa", 0) and Comms.AllowBanner("aa", 1) and Comms.AllowBanner("aa", 2))
+check("the fourth is dropped", not Comms.AllowBanner("aa", 3))
+check("another sender is unaffected", Comms.AllowBanner("bb", 3))
+check("allowed again a minute later", Comms.AllowBanner("aa", 61))
+
+-- Officers-only packs.
+function GetNumGuildMembers() return 2 end
+function GetGuildRosterInfo(i)
+  if i == 1 then return "Slac-Jaw", "Officer", 1 end
+  return "Grey", "Peon", 5
+end
+reset()
+check("anyone by default", Comms.TrustsPackFrom("Grey"))
+BountyLineDB.settings.packsFrom = "officers"
+check("officer trusted", Comms.TrustsPackFrom("Slac-Jaw"))
+check("officer trusted by first name", Comms.TrustsPackFrom("Slac"))
+check("low rank not trusted", not Comms.TrustsPackFrom("Grey"))
+check("stranger not trusted", not Comms.TrustsPackFrom("Nobody"))
+receive("PACK", single.input)
+check("their pack is ignored", BountyLineDB.pack == nil)
+
+-- Sighting alerts: the first time, then only after losing sight for a while.
+reset()
+check("first sighting alerts", ns.ShouldAlert(50, 0))
+check("still in view: no repeat", not ns.ShouldAlert(50, 300))
+check("still in view later: no repeat", not ns.ShouldAlert(50, 800))
+check("after 10+ minutes unseen: alerts again", ns.ShouldAlert(50, 800 + 601))
+
+-- ---------------------------------------------------------------- kill queue and combat
+
+reset()
+serverTime = BASE_TIME
+BountyLineCharDB = { kills = {} }
+local shown = {}
+ns.ShowCode = function(popup) shown[#shown + 1] = popup end
+ns.ShowStamp = function() end
+ns.HideStamp = function() end
+timers = {}
+local K = ns._kills
+K.start({ id = 21, name = "First Target", reward = 5 }, VICTIM, false, false)
+K.start({ id = 22, name = "Second Target", reward = 6 }, VICTIM, false, false)
+eq("first kill is being processed", K.pending().bounty.id, 21)
+runTimers() -- honor wait over: stamp + screenshot
+runTimers() -- no screenshot event: fallback finishes it
+eq("first kill's code shown", #shown, 1)
+eq("then the queued kill starts", K.pending().bounty.id, 22)
+runTimers()
+K.finish(true)
+eq("second kill's code shown", #shown, 2)
+check("nothing left pending", K.pending() == nil)
+eq("both saved for My Kills", #BountyLineCharDB.kills, 2)
+check("both marked claimed", ns.IsClaimed(21) and ns.IsClaimed(22))
+
+combat = true
+K.start({ id = 23, name = "Third Target", reward = 7 }, VICTIM, false, false)
+runTimers()
+K.finish(true)
+eq("in combat: no popup (it would grab the keyboard)", #shown, 2)
+check("but the code is ready for /bl last", BountyLineCharDB.lastPopup ~= nil and BountyLineCharDB.lastPopup.code ~= nil)
+combat = false
+K.combatEnded()
+eq("popup opens when combat ends", #shown, 3)
+K.combatEnded()
+eq("only once", #shown, 3)
 
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

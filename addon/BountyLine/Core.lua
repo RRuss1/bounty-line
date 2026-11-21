@@ -5,7 +5,11 @@ local L = ns.L
 local DB_DEFAULTS = {
   version = 1,
   lastSeen = {},
-  settings = { debugMenu = false, debugKills = false, banners = true, minimap = { angle = 200, hide = false } },
+  claimed = {},
+  settings = {
+    debugMenu = false, debugKills = false, banners = true, minimap = { angle = 200, hide = false },
+    killPopupInCombat = false, realertMinutes = 10, packsFrom = "anyone", packMaxRank = 1,
+  },
 }
 local CHAR_DEFAULTS = { version = 1, kills = {} }
 
@@ -96,6 +100,10 @@ local COMMANDS = {
     ns.Print(s.debugKills and L.DEBUGKILLS_ON or L.DEBUGKILLS_OFF)
   end,
   debug = function() ns.Debug() end,
+  version = function()
+    local get = C_AddOns and C_AddOns.GetAddOnMetadata
+    ns.Print(L.VERSION:format(get and get(addonName, "Version") or "?", ns.Codec.PREFIX))
+  end,
   minimap = function() ns.ToggleMinimap() end,
   debugmenu = function()
     local s = BountyLineDB.settings

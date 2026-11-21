@@ -36,7 +36,7 @@ local function row(parent, i)
   r:SetPoint("RIGHT")
   local shade = r:CreateTexture(nil, "BACKGROUND")
   shade:SetAllPoints()
-  shade:SetColorTexture(0, 0, 0, i % 2 == 0 and 0.25 or 0.1)
+  r.shade, r.stripe = shade, i % 2 == 0 and 0.25 or 0.1
   r.cells = {}
   for c, col in ipairs(COLUMNS) do
     local fs = r:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
@@ -113,13 +113,16 @@ function ns.RefreshBoard()
     local r = frame.rows[i] or row(frame.list, i)
     frame.rows[i] = r
     local seen = ns.LastSeen(b.id)
+    -- The bounty opened from "View Bounty" is highlighted in gold.
+    if b.id == frame.focusId then r.shade:SetColorTexture(1, 0.82, 0.25, 0.22) else r.shade:SetColorTexture(0, 0, 0, r.stripe) end
+    r:SetAlpha(b.claimed and 0.5 or 1)
     r.cells[1]:SetText(b.id)
     r.cells[2]:SetText(b.name)
     r.cells[2]:SetTextColor(classColor(b.classID))
     r.cells[3]:SetText(ns.FormatGold(b.reward))
     r.cells[3]:SetTextColor(1, 0.82, 0)
     r.cells[4]:SetText(b.poster)
-    r.cells[5]:SetText(seen and ("%s · %s"):format(zoneName(seen.map), ns.Ago(seen.t)) or L.NOT_SEEN)
+    r.cells[5]:SetText(b.claimed and L.CLAIMED or seen and ("%s · %s"):format(zoneName(seen.map), ns.Ago(seen.t)) or L.NOT_SEEN)
     r.cells[6]:SetText(date("%b %d", b.expires))
     r:Show()
   end
@@ -127,8 +130,10 @@ function ns.RefreshBoard()
   frame.list:SetHeight(math.max(1, #list * ROW_H))
 end
 
-function ns.OpenBoard()
+-- focusId: highlight that bounty's row (from the right-click menu's "View Bounty").
+function ns.OpenBoard(focusId)
   frame = frame or build()
+  frame.focusId = focusId
   frame:Show()
   ns.RefreshBoard()
 end

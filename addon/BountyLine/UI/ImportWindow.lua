@@ -30,7 +30,7 @@ local function import()
   local pack = frame.pack
   if not pack then return end
   local ok, why = ns.StorePack(pack)
-  if not ok and why == "OLDER" then return ns.Print(L.IMPORT_OLDER) end
+  if not ok then return ns.Print(why == "FUTURE" and L.IMPORT_FUTURE or L.IMPORT_OLDER) end
   frame:Hide()
   ns.Print(L.IMPORTED:format(#pack.bounties, ns.BoardName()))
   if ns.PackOutdated() then ns.Print(L.OUTDATED) end
