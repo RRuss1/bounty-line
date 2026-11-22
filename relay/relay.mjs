@@ -15,7 +15,25 @@ import { RELAY_TOC, dataLua, isBountyCode, parseSetupCode, readQr } from "./lib.
 const CONFIG = fileURLToPath(new URL("./config.json", import.meta.url));
 const DEFAULT_WOW = "C:\\Program Files (x86)\\World of Warcraft\\_forever_";
 const POLL_MS = 60_000;
-const say = (text) => console.log(`[${new Date().toLocaleTimeString()}] ${text}`);
+const clock = () => new Date().toLocaleTimeString();
+// One status line at the bottom, rewritten in place each minute, so the window shows the relay
+// is alive without scrolling or making a sound. Real news is printed above it.
+let pulseShown = false;
+const clearPulse = () => {
+  if (pulseShown) process.stdout.write("\r\x1b[K");
+  pulseShown = false;
+};
+const say = (text) => {
+  clearPulse();
+  console.log(`[${clock()}] ${text}`);
+};
+const pulse = (text) => {
+  if (!process.stdout.isTTY) return;
+  clearPulse();
+  process.stdout.write(`Last checked ${clock()}: ${text}`);
+  pulseShown = true;
+};
+const openBounties = (count) => `${count} open ${count === 1 ? "bounty" : "bounties"}`;
 
 // ---------------------------------------------------------------- setup
 
@@ -75,7 +93,10 @@ async function pollPack(config, writer, state) {
     const res = await fetch(`${config.url}/relay/pack`, {
       headers: { Authorization: `Bearer ${config.token}`, ...(state.etag ? { "If-None-Match": state.etag } : {}) },
     });
-    if (res.status === 304) return writer.write(null);
+    if (res.status === 304) {
+      pulse(`no change, ${openBounties(state.count ?? 0)}.`);
+      return writer.write(null);
+    }
     if (res.status === 401) return stop("The Bounty Board refused the relay token. Run /bl relay action: enable again, delete relay\\config.json and restart.");
     if (!res.ok) return say(`Bounty Board answered ${res.status} for the pack; trying again in a minute.`);
     const body = await res.json();
@@ -86,9 +107,13 @@ async function pollPack(config, writer, state) {
     const changed = first || mark === "" || mark !== state.mark;
     state.etag = mark;
     state.mark = mark;
-    if (!changed) return writer.write(null);
+    state.count = body.count;
+    if (!changed) {
+      pulse(`no change, ${openBounties(body.count)}.`);
+      return writer.write(null);
+    }
     writer.write(body.codes);
-    say(`${first ? "Bounty Pack ready" : "Bounty Pack changed"}: ${body.count} open ${body.count === 1 ? "bounty" : "bounties"}. /reload in game to load it.`);
+    say(`${first ? "Bounty Pack ready" : "Bounty Pack changed"}: ${openBounties(body.count)}. /reload in game to load it.`);
   } catch (e) {
     say(`Couldn't reach the Bounty Board (${e.message}); trying again in a minute.`);
   }
@@ -151,6 +176,7 @@ function watchScreenshots(config) {
 }
 
 function stop(message) {
+  clearPulse();
   console.error(`\n${message}`);
   process.exit(1);
 }

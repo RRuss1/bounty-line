@@ -3,6 +3,7 @@
 ## v0.8.1 (unreleased)
 
 - Relay program: no more beep, and it no longer announces a "changed" pack every minute when nothing changed.
+- Relay program: a "Last checked" line at the bottom of the window updates in place every minute, so you can see it's still running.
 
 ## v0.8.0: screenshot kill claims, relay, pending bounties, menus and sounds
 
