@@ -529,7 +529,7 @@ on MESSAGE_CREATE (channel == tenant.bountyLineChannel, author not a bot):
 | Command | Who | Purpose |
 |---|---|---|
 | `/bl setup` | Server admin | Pick #bounty-line channel, #bounty-board forum, officer role, link in-game guild name |
-| `/bl pack` | Anyone | Post the current Bounty Pack code (ephemeral or in channel) |
+| `/bl pack` | Anyone | Post and pin a fresh Bounty Pack in `#bounty-line` and remove the old one (at most once a minute; otherwise the pinned one is updated in place) |
 | `/bl submit code: image:` | Anyone | **Fallback** if pasting doesn't work (same pipeline as chat paste) |
 | `/bl cancel id:` | Poster or officer | Cancel an open bounty |
 | `/bl leaderboard` | Anyone | Top hunters, most wanted, biggest payers |

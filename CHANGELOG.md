@@ -3,6 +3,7 @@
 ## v0.8.1 (unreleased)
 
 - Relay program: no more beep, and it no longer announces a "changed" pack every minute when nothing changed.
+- `/bl pack` now posts and pins a fresh Bounty Pack at the bottom of `#bounty-line` and removes the old one, so it's easy to find. Automatic updates after each bounty still edit the pinned one quietly.
 - Relay program: a "Last checked" line at the bottom of the window updates in place every minute, so you can see it's still running.
 
 ## v0.8.0: screenshot kill claims, relay, pending bounties, menus and sounds

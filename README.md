@@ -92,7 +92,7 @@ Click **Sync fork** on GitHub. Your deploy workflow applies database migrations 
 | Command | Who | Does |
 |---|---|---|
 | `/bl submit` | Anyone | Paste a code (and attach the screenshot for kills) if chat pasting doesn't work |
-| `/bl pack` | Anyone | Refresh the pinned Bounty Pack and link to it |
+| `/bl pack` | Anyone | Post and pin a fresh Bounty Pack at the bottom of `#bounty-line` (the old one is removed) |
 | `/bl leaderboard` | Anyone | Top hunters, most wanted, biggest payers |
 | `/bl me` | Anyone | Your kills, trust level, open bounties and payments |
 | `/bl cancel` | Poster or officer | Cancel an open bounty |
