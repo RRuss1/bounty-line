@@ -41,7 +41,7 @@ Everything still works without it. With no relay online, people paste codes and 
 
 1. Start the relay: in the `relay` folder, run `npm.cmd start`. Leave the window open.
 2. Start WoW (or `/reload` if it was already running). Bounty Line says "Relay: on" in chat when it sees the relay.
-3. When the relay window says **Bounty Pack changed**, type `/reload` in game to load it. The relay is silent: it prints a line only when the bounties change.
+3. When the relay window says **Bounty Pack changed**, type `/reload` in game to load it. The relay is silent: it prints a new line only when the bounties change. The **Last checked** line at the bottom updates every minute, so you can see it's still running.
 4. To stop, press Ctrl+C in the relay window.
 
 ## For guildies
