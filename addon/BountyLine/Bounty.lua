@@ -78,12 +78,20 @@ end
 -- Reads everything a bounty needs from a unit, at the moment it's called (spec 5.4b: the
 -- target is fixed when the box opens). Returns a snapshot, or nil and an L key.
 function ns.SnapshotUnit(unit)
-  if not unit or not UnitExists(unit) then return nil, "NO_TARGET" end
+  if not unit then return nil, "NO_TARGET" end
+  -- Any of these can come back hidden (a secret value); testing a hidden value is an error,
+  -- so check each one before using it.
+  local exists = UnitExists(unit)
+  if ns.IsSecret(exists) then return nil, "SECRET" end
+  if not exists then return nil, "NO_TARGET" end
+  local isPlayer = UnitIsPlayer(unit)
+  if ns.IsSecret(isPlayer) then return nil, "SECRET" end
+  if not isPlayer then return nil, "NOT_PLAYER" end
   local guid = UnitGUID(unit)
   local theirs, mine = UnitFactionGroup(unit), UnitFactionGroup("player")
-  if ns.IsSecret(guid) or ns.IsSecret(theirs) then return nil, "SECRET" end
-  if not UnitIsPlayer(unit) then return nil, "NOT_PLAYER" end
-  if UnitIsUnit(unit, "player") then return nil, "SELF" end
+  local isMe = UnitIsUnit(unit, "player")
+  if ns.IsSecret(guid) or ns.IsSecret(theirs) or ns.IsSecret(mine) or ns.IsSecret(isMe) then return nil, "SECRET" end
+  if isMe then return nil, "SELF" end
   if not guid then return nil, "NO_TARGET" end
   if not FACTION_ID[theirs] or not FACTION_ID[mine] then return nil, "NEUTRAL" end
   if theirs == mine then return nil, "SAME_FACTION" end

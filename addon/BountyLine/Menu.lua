@@ -14,7 +14,17 @@ local TAGS = {
   "MENU_UNIT_WORLD_STATE_SCORE", "MENU_UNIT_PVP_SCOREBOARD",
 }
 
+-- Dungeons, raids and scenarios: nobody there can have a bounty, and the game hides unit data
+-- from addons inside them, so the menu is left exactly as the game built it (spec Section 23
+-- item 26: touching it there broke the menu's submenus on enemy NPCs).
+local function inPvEInstance()
+  if not IsInInstance then return false end
+  local inside, kind = IsInInstance()
+  return inside and kind ~= "pvp" and kind ~= "arena"
+end
+
 local function addSection(tag, rootDescription, contextData)
+  if inPvEInstance() then return end
   local unit = contextData and contextData.unit
   if BountyLineDB.settings.debugMenu then
     ns.Print(L.DEBUGMENU_TAG:format(tag, tostring(unit)))
@@ -50,6 +60,10 @@ end
 function ns.SetupMenus()
   if not (Menu and Menu.ModifyMenu) then return end
   for _, tag in ipairs(TAGS) do
-    Menu.ModifyMenu(tag, function(_, rootDescription, contextData) addSection(tag, rootDescription, contextData) end)
+    Menu.ModifyMenu(tag, function(_, rootDescription, contextData)
+      -- An error in here would stop the game finishing its own menu: never let one out.
+      local ok, err = pcall(addSection, tag, rootDescription, contextData)
+      if not ok and BountyLineDB.settings.debugMenu then ns.Print(tostring(err)) end
+    end)
   end
 end
