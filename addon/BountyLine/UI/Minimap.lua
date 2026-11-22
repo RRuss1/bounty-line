@@ -47,6 +47,10 @@ function ns.OpenMainMenu(owner)
     local set = root:CreateButton(entry(L.M_SET, "mark"), function() if snap then ns.OpenAmountEntry(snap) end end)
     if not snap then disabled(set, L[why]) end
 
+    root:CreateButton(entry(L.M_SEASONS, "seasons"), function()
+      ns.OpenBoard(nil, "wanted") -- the Open Seasons table is at the top
+      ns.PrintSeasons()
+    end)
     root:CreateButton(entry(L.M_IMPORT, "import"), function() ns.OpenImport() end)
     local share = root:CreateButton(entry(L.M_SHARE, "sync"), function() ns.RunCommand("sync") end)
     if not BountyLineDB.pack then disabled(share, L.NO_PACK) end

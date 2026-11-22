@@ -1,26 +1,17 @@
 # Bounty Line
 
-**Put a price on an enemy's head.** Bounty Line brings guild PvP bounties to World of Warcraft: Forever. Mark an enemy player, post the bounty to your guild's Discord, hunt them down, and prove the killing blow with an automatic screenshot. The poster pays the hunter in real gold, player to player.
-
-> **Beta.** Bounty Line is being tested by its first guild. Expect rough edges, and please report bugs (link below).
+**Put a price on an enemy's head, or on their whole guild.** Bounty Line brings guild PvP bounties to World of Warcraft: Forever. Mark an enemy player, post the bounty to your guild's Discord, hunt them down, and prove the killing blow with an automatic screenshot. The poster pays the hunter in real gold, player to player.
 
 ---
 
 ## How it works
 
-1. **Mark a target.** Right-click an opposite-faction player's portrait → **Set Bounty…** → type the gold. Bounty Line gives you a short line to copy.
-2. **Post it.** Press **Ctrl+C** and paste it in your guild Discord's `#bounty-line` channel. A **wanted poster** appears on your **Bounty Board**.
-3. **Hunt.** Import the pinned **Bounty Pack** with `/bl import`. Wanted players get a **skull over their nameplate**, a **WANTED** line in their tooltip, and an alert the first time you spot them.
-4. **Kill.** Land the **killing blow** (your pet counts). A proof stamp flashes on screen, Bounty Line takes a screenshot, and hands you a kill code.
-5. **Prove it.** Paste the kill code **with the screenshot** in `#bounty-line`. Your officers approve the claim on Discord.
+1. **Mark a target.** Right-click an opposite-faction player (portrait, nameplate or the minimap menu) → **Set Bounty…** → type the gold. Bounty Line gives you a short line to copy.
+2. **Post it.** Press **Ctrl+C** and paste it in your guild Discord's `#bounty-line` channel. A **wanted poster** appears on your Discord **Bounty Board**.
+3. **Hunt.** Guildies online get the bounty straight away through guild sync. Wanted players get a **skull over their nameplate**, a **WANTED** line in their tooltip, a badge on your target frame, and an alert when you spot them. Sightings are shared with the guild.
+4. **Kill.** Land the **killing blow** (your pet counts). A proof stamp flashes on screen and Bounty Line takes the screenshot for you.
+5. **Prove it.** Drop that **screenshot** into `#bounty-line`. The bot reads the kill from the QR code on the stamp: nothing to paste. Your officers approve the claim (trusted hunters can be approved automatically).
 6. **Get paid.** The poster pays you in game. Both of you click **Paid / Received** and the poster gets its **PAID** stamp.
-
-## Rules
-
-- **Opposite faction only.** Never guildmates, never your own faction.
-- **No duels.** Duel "kills" never count.
-- **Killing blow only.** Assists don't claim the bounty.
-- Rewards are real gold, paid player to player (honor system). **1g to 10,000g** by default; each guild can change the limits.
 
 ## Open Season: a bounty on a whole guild
 
@@ -28,42 +19,70 @@ Put a price on **every member of an enemy guild**. Right-click one of them → *
 
 - **Per head + pot:** a price per kill and a total pot. It closes when the pot is spent.
 - **Prize pool:** one total, shared between the hunters by kill count when it closes.
-- **Per head, no ceiling:** a price per kill until the time is up. Your bill has no limit, and the window says so.
+- **Per head, no ceiling:** a price per kill until the time is up. Your bill has no limit, and the window warns you.
 
-It runs **7, 14 or 28 days**. That guild's members get the skull, and a killing blow on one makes a kill screenshot as usual. The same player counts **once a day per hunter**. Nobody is paid kill by kill: when the season closes, the Bounty Board posts **one payout sheet** with a line per hunter. Guildies can add gold to a pot or a pool. `/bl seasons` lists the ones running.
+It runs **7, 14 or 28 days**. That guild's members get the skull and an **OPEN SEASON** tooltip line, and a killing blow on one makes the usual kill screenshot. The same player counts **once a day per hunter**. Nobody is paid kill by kill: when the season closes, the Bounty Board posts **one payout sheet** with a line per hunter. Guildies can add gold to a pot or a pool.
 
-The addon learns which guild an enemy is in by seeing them (nameplate, target or mouseover). If it never saw the victim's guild, the claim still goes in and an officer checks the screenshot.
+Bounty Line learns which guild an enemy is in by seeing them (nameplate, target or mouseover). If it never saw the victim's guild, the claim still goes in and an officer checks the guild on the screenshot.
+
+## Rules
+
+- **Opposite faction only.** Never guildmates, never your own faction.
+- **No duels.** Duel "kills" never count.
+- **Killing blow only.** Assists don't claim the bounty.
+- Rewards are real gold, paid player to player (honor system). **1g to 10,000g** by default; each guild can change the limits.
+- Several people can **stack gold** on the same bounty (right-click → **Add to Bounty…**); each pays their own share.
+
+## In game
+
+- **Minimap button.** Left-click opens the **Bounty Board** window; right-click opens a menu with **every command**, each showing its `/bl` shortcut.
+- **Bounty Board window.** Two tables: **Open Seasons** on top and **Bounties** below, each scrolling on its own. Click a column to sort, hover for details, right-click a bounty to add gold. Tabs for **My Bounties** and **My Kills** (your saved kill codes, one click to copy again).
+- **Never grabs your keyboard mid-fight.** A kill in combat flashes **BOUNTY KILLED** and leaves a small square to click once the fight is over.
+- **Sounds for every event**, all the game's own: a voice line when a bounty is posted, coins when gold is added, an alarm when a wanted player is in sight, a fanfare when you collect.
+- **Settings** for banners, alerts, sounds, the skull and its size, tooltips, the target badge, guild sync and more.
+- **Version check:** if a guildie has a newer Bounty Line, you're told to update.
 
 ## Commands
 
-You don't need to remember any of these: **right-click the minimap button** for a menu of everything, and **left-click** it for the Bounty Board (with tabs for your bounties and your kill codes, and a Settings button).
+You don't need to remember any of these: **right-click the minimap button** for all of them.
 
 | Command | What it does |
 |---|---|
-| `/bl mark [gold] [note]` | Set a bounty on your target (same as right-click → Set Bounty…) |
+| `/bl` | Open the Bounty Board window |
+| `/bl mark [gold] [note]` | Set a bounty on your target, or an Open Season on their guild (same as right-click → Set Bounty…) |
 | `/bl import` | Paste the Bounty Pack from your Discord |
-| `/bl list` | Show open bounties |
-| `/bl seasons` | Show the Open Seasons (bounties on a whole enemy guild) that are running |
+| `/bl sync` | Share your Bounty Pack with the guild now |
+| `/bl list` | Show open bounties in chat |
+| `/bl seasons` | Show the Open Seasons that are running |
 | `/bl last` | Show your last code again |
 | `/bl link` | Link your character to your Discord account so kills are credited to you |
 | `/bl test` | Practice run: stamp, screenshot and kill code on a pretend target |
-| `/bl options` | Settings: alerts, sounds, nameplate skull, guild sync and more |
+| `/bl banners` | Turn guild banners on or off |
+| `/bl options` | Settings |
+| `/bl version` | Show your version |
 | `/bl minimap` | Show or hide the minimap button |
+| `/bl help` | List the commands |
+
+## On your Discord
+
+Your guild's Bounty Board bot posts a **wanted poster** for every bounty and Open Season, keeps a pinned **Bounty Pack** up to date, reads kill screenshots, checks each claim (and can read the stamp with AI), and runs the **Paid / Received** buttons. Members also get `/bl leaderboard` (top hunters, most wanted, biggest payers), `/bl me` (your kills and payments) and `/bl season`; admins set rewards, expiry and auto-approval with `/bl config`.
+
+**Optional relay for officers:** a small program an officer runs while playing delivers new Bounty Packs into the game and posts guildies' bounties to Discord, so nobody has to paste.
 
 ## What you need
 
 - **WoW: Forever.** Bounty Line is built for the Forever client.
-- **A guild Discord running the Bounty Board bot.** Bounty Line can't reach the internet (no WoW addon can), so codes are the bridge: you copy them in game and paste them in Discord. Your guild's tech person sets up the bot once; the guide is on GitHub (link below). Each guild runs its own bot on its own free or low-cost Cloudflare account, so your data stays with your guild.
+- **A guild Discord running the Bounty Board bot.** Bounty Line can't reach the internet (no WoW addon can), so codes and screenshots are the bridge. Your guild's tech person sets up the bot once; the guide is on GitHub (link below). Each guild runs its own bot on its own free or low-cost Cloudflare account, so your data stays with your guild.
 
 ## Why copy and paste?
 
-WoW addons can't connect to the internet or write to your clipboard. Bounty Line selects everything for you, so it's always just **Ctrl+C**, then paste in Discord. The code hides behind a spoiler bar, so chat stays tidy.
+WoW addons can't connect to the internet or write to your clipboard. Bounty Line selects everything for you, so posting a bounty is always just **Ctrl+C**, then paste in Discord. The code hides behind a spoiler bar, so chat stays tidy.
 
-**Claiming a kill:** drop the kill screenshot into the Discord Bounty Line chat. The bot reads the kill code from the QR code on the proof stamp, so there is nothing to paste (pasting the code with the screenshot still works). Screenshots are saved to `World of Warcraft\_forever_\Screenshots` (newest file); the kill popup has that folder as a line you can copy into the upload window in Discord.
+**Claiming a kill** needs no pasting at all: drop the screenshot. Screenshots are saved to `World of Warcraft\_forever_\Screenshots` (newest file); the kill popup has that folder as a line you can copy into Discord's upload window.
 
 ## Privacy & policy
 
-Bounty Line makes no network requests and stores only your bounty list and recent codes in your SavedVariables. It's free, open source (MIT) and ad-free, in line with Blizzard's UI Add-On Development Policy.
+Bounty Line makes no network requests. It stores only your bounty list, the guilds of enemy players you've seen (for Open Season, forgotten after two weeks) and your recent codes, in your SavedVariables. It's free, open source (MIT) and ad-free, in line with Blizzard's UI Add-On Development Policy.
 
 ---
 
