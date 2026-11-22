@@ -65,6 +65,7 @@ local MARGIN = BORDER_INSET + GLOW_SIZE + 2
 local MEDIA = "Interface\\AddOns\\BountyLine\\Media\\"
 local function glowPiece(holder, file, coords)
   local t = holder:CreateTexture(nil, "OVERLAY")
+  holder.pieces[#holder.pieces + 1] = t
   t:SetTexture(MEDIA .. file)
   t:SetTexCoord(unpack(coords))
   t:SetVertexColor(COLORS.red[1], COLORS.red[2], COLORS.red[3], 0.95)
@@ -73,6 +74,7 @@ local function glowPiece(holder, file, coords)
 end
 local function glow(f, level)
   local holder = CreateFrame("Frame", nil, f)
+  holder.pieces = {}
   -- Inside the metal, fading inward into its own margin.
   holder:SetPoint("TOPLEFT", BORDER_INSET, -BORDER_INSET)
   holder:SetPoint("BOTTOMRIGHT", -BORDER_INSET, BORDER_INSET)
@@ -117,6 +119,13 @@ local function glow(f, level)
   return holder
 end
 
+-- A class's colour (r, g, b), or nil when the class isn't known.
+function ns.ClassColor(classID)
+  local info = classID and classID > 0 and C_CreatureInfo and C_CreatureInfo.GetClassInfo and C_CreatureInfo.GetClassInfo(classID)
+  local c = info and RAID_CLASS_COLORS and RAID_CLASS_COLORS[info.classFile]
+  if c then return c.r, c.g, c.b end
+end
+
 -- The classic grey, nicked metal dialog border. It's symmetric and sits exactly on the
 -- window's edges, so the background and glow line up with it without any measuring.
 local BORDER = "Interface\\DialogFrame\\UI-DialogBox-Border"
@@ -156,7 +165,12 @@ function ns.CreateWindow(name, width, height, title)
   bg:SetPoint("TOPLEFT", BORDER_INSET, -BORDER_INSET)
   bg:SetPoint("BOTTOMRIGHT", -BORDER_INSET, BORDER_INSET)
   metalBorder(f)
-  glow(f, f:GetFrameLevel() + 5) -- over the metal, growing inward from its outer edge
+  local glowHolder = glow(f, f:GetFrameLevel() + 5) -- over the metal, growing inward from its outer edge
+  -- Tints this window's glow; no colour puts the blood red back.
+  function f.SetGlowColor(_, r, g, b)
+    if not r then r, g, b = COLORS.red[1], COLORS.red[2], COLORS.red[3] end
+    for _, piece in ipairs(glowHolder.pieces) do piece:SetVertexColor(r, g, b, 0.95) end
+  end
 
   -- Title bar: tall enough that the metal never cuts through the title. Only the bar drags.
   local bar = CreateFrame("Frame", nil, f)

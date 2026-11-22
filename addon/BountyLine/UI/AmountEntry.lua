@@ -95,7 +95,15 @@ function ns.OpenAmountEntry(snap, amount, note, existingId)
   frame.existingId = existingId
   frame.heading:SetText(existingId and L.ADD_TO_BOUNTY or L.SET_BOUNTY)
   local min, max = ns.RewardLimits()
-  frame.target:SetText(ns.Describe(snap))
+  -- The glow and the target's name take the target's class colour (red when the class isn't known).
+  local r, g, b = ns.ClassColor(snap.classID)
+  local text = ns.Describe(snap)
+  if r and text:sub(1, #snap.name) == snap.name then
+    local byte = function(v) return math.floor(v * 255 + 0.5) end
+    text = ("|cff%02x%02x%02x%s|r%s"):format(byte(r), byte(g), byte(b), snap.name, text:sub(#snap.name + 1))
+  end
+  frame.target:SetText(text)
+  frame:SetGlowColor(r, g, b)
   frame.limits:SetText(L.LIMITS:format(ns.FormatGold(min), ns.FormatGold(max)))
   frame.amount:SetText(amount or "")
   frame.note:SetText(note or "")
