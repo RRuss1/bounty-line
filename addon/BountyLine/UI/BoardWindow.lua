@@ -1,5 +1,6 @@
 -- The in-game Bounty Board (/bl, left-click the minimap button). Three tabs:
---   Wanted       open bounties (pack + pending): reward, poster, last sighting, expiry
+--   Wanted       Open Seasons (bounties on a whole guild) first, then open bounties (pack +
+--                pending): reward, poster, last sighting, expiry
 --   My Bounties  the ones you posted
 --   My Kills     your saved kill codes; click one to open its code again
 -- Click a column header to sort. Hover a row for details; right-click a wanted row to add gold.
@@ -97,6 +98,35 @@ local function bountyRows(mineOnly)
         end)
       end,
     }
+  end
+  return rows
+end
+
+-- Open Seasons (spec 5.11) sit above the bounties: the guild in the target column, the terms
+-- in the reward column.
+local function seasonTooltip(tip, s)
+  tip:SetText(L.TIP_SEASON_TITLE:format(s.guild), 1, 0.2, 0.15)
+  tip:AddLine(L.TIP_REWARD:format(ns.SeasonTerms(s), s.poster ~= "" and s.poster or "?"), 1, 0.82, 0)
+  if s.kind == ns.SEASON_KIND.pot then tip:AddLine(L.TIP_SEASON_POT:format(ns.FormatGold(s.remaining or 0)), 0.9, 0.9, 0.9) end
+  tip:AddLine(L.TIP_SEASON_RULE, 0.9, 0.9, 0.9, true)
+  tip:AddLine(s.pending and L.TIP_PENDING or L.TIP_EXPIRES:format(date("%b %d", s.expires)), 0.9, 0.9, 0.9, true)
+  tip:AddLine(L.TIP_SEASON_ADD, 0.6, 0.6, 0.6, true)
+end
+
+local function seasonRows(mineOnly)
+  local me = ns.FullName("player")
+  local rows = {}
+  for _, s in ipairs(ns.ListSeasons()) do
+    if not mineOnly or s.poster == me then
+      rows[#rows + 1] = {
+        cells = {
+          s.pending and L.NEW_SHORT or s.id, ("<%s>"):format(s.guild), ns.SeasonTerms(s), s.poster, L.SEASON_NAME,
+          s.pending and L.PENDING or date("%b %d", s.expires),
+        },
+        nameColor = { 1, 0.2, 0.15 },
+        tooltip = function(tip) seasonTooltip(tip, s) end,
+      }
+    end
   end
   return rows
 end
@@ -241,6 +271,13 @@ function ns.RefreshBoard()
   local tab = frame.tab
   local pack = BountyLineDB.pack
   local rows = tab == "kills" and killRows() or bountyRows(tab == "mine")
+  local bounties, seasons = #rows, 0
+  if tab ~= "kills" then
+    local list = seasonRows(tab == "mine")
+    seasons = #list
+    for _, row in ipairs(rows) do list[#list + 1] = row end
+    rows = list
+  end
 
   for key, b in pairs(frame.tabs) do
     if key == tab then b:LockHighlight() else b:UnlockHighlight() end
@@ -264,7 +301,8 @@ function ns.RefreshBoard()
     if pack then
       -- A pack more than a day old is probably missing bounties: nudge a re-import.
       local stale = GetServerTime() - pack.version > 86400 and L.PACK_STALE or ""
-      frame.summary:SetText(L.BOARD_SUMMARY:format(#rows, ns.BoardName(), ns.Ago(pack.version)) .. stale)
+      local open = seasons > 0 and L.BOARD_SEASONS:format(seasons) or ""
+      frame.summary:SetText(L.BOARD_SUMMARY:format(bounties, ns.BoardName(), ns.Ago(pack.version)) .. open .. stale)
     else
       frame.summary:SetText("")
     end

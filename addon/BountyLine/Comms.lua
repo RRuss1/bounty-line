@@ -270,6 +270,7 @@ function handlers.SEAS(data, senderName, senderId)
   local at = math.min(tonumber(t), GetServerTime())
   if ns.AddPendingSeason(guild, tonumber(faction), tonumber(kind), tonumber(perKill), tonumber(total), poster, at) then
     ns.RefreshMarks()
+    if ns.RefreshBoard then ns.RefreshBoard() end
     local who = poster ~= "" and poster or (senderName and senderName:match("^[^-]+")) or "?"
     ns.Banner(L.BANNER_SEASON:format(who, guild, ns.SeasonTerms(ns.GetSeason(guild)), ns.BoardName()))
   end

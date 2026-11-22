@@ -241,6 +241,7 @@ function ns.PostSeason(snap, kind, perKill, total, days, existingId)
     if ns.AddPendingSeason(snap.guild, snap.faction, kind, perKill, total, me, now) then
       ns.Comms.Season(snap.guild, snap.faction, kind, perKill, total, me, now)
       ns.RefreshMarks()
+      if ns.RefreshBoard then ns.RefreshBoard() end
     end
   end
   -- Relay (spec 5.10), as for bounty codes.
