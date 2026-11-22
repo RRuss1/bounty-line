@@ -55,6 +55,7 @@ ns.L = {
   M_SHARE = "Share Pack with Guild",
   M_LAST = "Show My Last Code",
   M_KILLS = "My Kills",
+  M_SEASONS = "Open Seasons",
   M_MINE = "My Bounties",
   M_LINK = "Link Character to Discord...",
   M_TEST = "Practice Kill",
