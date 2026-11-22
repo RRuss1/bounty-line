@@ -193,6 +193,7 @@ events:SetScript("OnEvent", function(self, event, name)
     ns.SetupMinimap()
     pcall(ns.RegisterOptions) -- the client's Settings UI may differ on Forever; our own window always works
     if ns.PackOutdated() then ns.Print(L.OUTDATED) end
+    ns.PruneGuilds() -- enemy guilds remembered for Open Season: forget the stale ones
     if not BountyLineDB.welcomed then
       -- First login with the addon: say where everything is, once.
       BountyLineDB.welcomed = true

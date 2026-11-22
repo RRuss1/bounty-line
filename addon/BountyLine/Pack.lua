@@ -87,11 +87,17 @@ function ns.StorePack(p)
       count = count + 1
     end
   end
+  -- Open seasons (pack schema 2), keyed by guild. Older packs have none.
+  local seasons, seasonCount = ns.SeasonsFromPack(p.seasons, now)
   db.pack = {
     version = p.packVersion, boardTag = p.boardTag, discordName = p.discordDisplayName,
     rewardMin = p.rewardMin, rewardMax = p.rewardMax, minAddon = p.minAddonVersion,
-    bounties = bounties, count = count, codes = p.codes,
+    bounties = bounties, count = count, codes = p.codes, seasons = seasons, seasonCount = seasonCount,
   }
+  -- Seasons a guildie just declared that the pack now lists, or that timed out.
+  for key, pend in pairs(db.pendingSeasons or {}) do
+    if seasons[key] or pend.expires <= now then db.pendingSeasons[key] = nil end
+  end
   db.boardTag = p.boardTag
   db.discordName = p.discordDisplayName
   -- Housekeeping: forget sightings of bounties that are gone, and "claimed" marks the bot has
