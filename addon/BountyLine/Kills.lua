@@ -135,12 +135,11 @@ local function finish(shot)
     -- Open Season: this player is done for today (once per day per hunter).
     if k.season then ns.MarkSeasonKill(k.victimGUID, k.killedAt) end
     -- Claimed: no more skull, and a second kill on them won't make a second code.
-    if seasonOnly then
-      -- no personal bounty to close
-    elseif k.bounty.pending then
+    -- (A season-only kill has no personal bounty to close.)
+    if k.bounty.pending then
       ns.DropPending(k.victimGUID)
       ns.Comms.KillPending(k.victimGUID, ns.FullName("player"), k.bounty.name)
-    else
+    elseif not seasonOnly then
       ns.MarkClaimed(k.bounty.id, k.killedAt)
       ns.Comms.Kill(k.bounty.id, ns.FullName("player"))
     end
@@ -194,7 +193,10 @@ local function startKill(bounty, victimGUID, pet, practice, season)
     if not name or name == "" then name = L.SEASON_UNKNOWN_PLAYER end
     bounty = { id = 0, name = name, reward = season.s.perKill or 0, seasonOnly = true }
   end
-  local k = { bounty = bounty, victimGUID = victimGUID, pet = pet, practice = practice, killedAt = GetServerTime(), honor = false, season = season }
+  local k = {
+    bounty = bounty, victimGUID = victimGUID, pet = pet, practice = practice, killedAt = GetServerTime(), honor = false,
+    season = season,
+  }
   if pending then
     waiting[#waiting + 1] = k
   else
