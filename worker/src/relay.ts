@@ -106,8 +106,11 @@ async function pack(request: Request, env: Env, tenant: Tenant, now: number): Pr
   const { codes, count } = await buildPack(env, tenant, now);
   const stable = await buildPack(env, tenant, now, 0);
   const etag = `"${(await sha256Hex(stable.codes.join("\n"))).slice(0, 24)}"`;
-  if (request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers: { ETag: etag } });
-  return new Response(JSON.stringify({ ok: true, version: now, count, codes }), {
+  // Cloudflare may hand the client a weak ETag (W/"...") when it compresses the reply, so
+  // compare without that prefix. The same value is in the body, for clients to compare directly.
+  const theirs = (request.headers.get("If-None-Match") ?? "").replace(/^W\//, "");
+  if (theirs === etag) return new Response(null, { status: 304, headers: { ETag: etag } });
+  return new Response(JSON.stringify({ ok: true, version: now, count, codes, etag }), {
     headers: { "Content-Type": "application/json", ETag: etag, "Cache-Control": "no-store" },
   });
 }
