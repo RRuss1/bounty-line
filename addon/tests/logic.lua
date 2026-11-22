@@ -57,6 +57,7 @@ function CreateFrame() return { RegisterEvent = function() end, SetScript = func
 reset()
 loadAddon("Bounty.lua")
 loadAddon("Pack.lua")
+loadAddon("Season.lua")
 loadAddon("Kills.lua")
 -- Guild sync: timers and sends are stubbed; IsInGuild() is false so nothing is sent.
 local clock, combat = 1000, false
@@ -691,6 +692,117 @@ eq("clicking after the fight opens the code", #shown, 3)
 eq("and the square goes away", toast.waiting, 0)
 ns.OpenDeferredKill()
 eq("only once", #shown, 3)
+
+-- ---------------------------------------------------------------- Open Season (spec 5.11)
+
+reset()
+function GetGuildInfo(unit) return units[unit] and units[unit].guild end
+serverTime = PACK_TIME
+BountyLineDB = { settings = {}, boardTag = "K7QF" }
+BountyLineCharDB = { kills = {} }
+timers = {}
+local HV = "Honor and Valor"
+units.target.guild = HV
+
+local seenEntry = ns.RememberUnit("target")
+eq("an enemy's name is remembered", seenEntry and seenEntry.n, "Grimlok Ashveil")
+eq("and their guild", seenEntry and seenEntry.g, HV)
+eq("and their faction", seenEntry and seenEntry.f, 2)
+check("your own side isn't remembered", ns.RememberUnit("player") == nil)
+check("nor a unit that doesn't exist", ns.RememberUnit("focus") == nil)
+units.target.guid = SECRET
+check("a hidden GUID is skipped", ns.RememberUnit("target") == nil)
+units.target.guid = VICTIM
+units.target.guild = SECRET
+check("a hidden guild is skipped", ns.RememberUnit("target") == nil)
+units.target.guild = HV
+eq("lookup by GUID", (ns.GuildOf(VICTIM) or {}).g, HV)
+
+local function seasonPack(seasons, version)
+  return {
+    packVersion = version or (PACK_TIME - 10), boardTag = "K7QF", discordDisplayName = "Grief", rewardMin = 1, rewardMax = 10000,
+    minAddonVersion = 4, bounties = {}, seasons = seasons,
+  }
+end
+local function hv(f)
+  local s = { seasonId = 7, guildName = HV, guildFaction = 2, kind = 1, perKillGold = 25, remainingGold = 100, posterName = "Someone Else",
+    expiresAt = PACK_TIME + 3 * 86400 }
+  for k, v in pairs(f or {}) do s[k] = v end
+  return s
+end
+check("a pack with seasons is stored", ns.StorePack(seasonPack({
+  hv(),
+  { seasonId = 8, guildName = "Long Gone", guildFaction = 2, kind = 3, perKillGold = 5, remainingGold = 0, posterName = "X", expiresAt = PACK_TIME - 5 },
+})))
+eq("seasons are found by guild, whatever the case", (ns.GetSeason("  HONOR and valor ") or {}).id, 7)
+check("an expired season isn't kept", ns.GetSeason("Long Gone") == nil)
+eq("one season listed", #ns.ListSeasons(), 1)
+eq("terms: per head", ns.SeasonTerms(ns.GetSeason(HV)), "25g a head")
+eq("terms: prize pool", ns.SeasonTerms({ kind = 2, remaining = 500 }), "500g prize pool")
+eq("label", ns.SeasonLabel(ns.GetSeason(HV)), "Open Season #7")
+
+local season, guildSeen, victimName = ns.SeasonForKill(VICTIM)
+eq("a kill on a member counts for the season", season and season.id, 7)
+check("and the guild was seen", guildSeen == true)
+eq("with the victim's name", victimName, "Grimlok Ashveil")
+eq("NPC kills never count", select(2, ns.SeasonForKill("Creature-0-4395-1-2-3-0000ABCDEF")), "NOT_PLAYER")
+eq("hidden GUIDs never count", select(2, ns.SeasonForKill(SECRET)), "NOT_PLAYER")
+
+local unseen, unseenSeen = ns.SeasonForKill("Player-4395-0BADF00D")
+check("an enemy whose guild we never saw: claimed for review", unseen ~= nil and unseen.unknown == true and unseen.id == 0 and unseenSeen == false)
+
+units.target = { guid = "Player-4395-0C0FFEE0", name = "Other", faction = "Horde", player = true, guild = "Nobodies",
+  class = { "Warrior", "WARRIOR", 1 }, race = { "Orc", "Orc", 2 }, level = 42 }
+ns.RememberUnit("target")
+eq("a known player in another guild doesn't count", select(2, ns.SeasonForKill("Player-4395-0C0FFEE0")), "NO_SEASON")
+units.target.guild = nil
+ns.RememberUnit("target")
+eq("nor a known player with no guild", select(2, ns.SeasonForKill("Player-4395-0C0FFEE0")), "NO_SEASON")
+
+local seasonCode = ns.BuildKillCode(0, VICTIM, PACK_TIME, true, false, { id = 7, name = victimName, seen = true })
+local seasonFields = (Codec.Decode(seasonCode) or {}).fields or {}
+eq("season kill code: schema 2", seasonFields.schema, 2)
+eq("season kill code: season", seasonFields.seasonId, 7)
+eq("season kill code: victim name", seasonFields.victimName, "Grimlok Ashveil")
+eq("season kill code: guild seen", seasonFields.guildSeen, 1)
+eq("season kill code: no personal bounty", seasonFields.bountyId, 0)
+local unseenFields = (Codec.Decode(ns.BuildKillCode(0, VICTIM, PACK_TIME, false, false, { id = 0, seen = false })) or {}).fields or {}
+eq("guild not seen: flagged", unseenFields.guildSeen, 0)
+eq("guild not seen: no name", unseenFields.victimName, "")
+eq("an ordinary kill code is still schema 1", ((Codec.Decode(ns.BuildKillCode(12, VICTIM, PACK_TIME, true, false)) or {}).fields or {}).schema, 1)
+
+-- the whole flow: stamp line, popup, and "done for today"
+local before = #shown
+K.start(nil, VICTIM, false, false, { id = 7, name = victimName, seen = true, s = season })
+eq("stamp line names the season", ns.KillLine(K.pending()), "Grimlok Ashveil · 25g a head · Open Season #7")
+runTimers()
+K.finish(true)
+eq("season kill: code popup shown", #shown, before + 1)
+eq("season kill: its own title", shown[#shown].title, ns.L.SEASON_KILL_TITLE)
+eq("season kill: schema 2 code", ((Codec.Decode(shown[#shown].code) or {}).fields or {}).seasonId, 7)
+check("no personal bounty was marked claimed", not ns.IsClaimed(0))
+check("the victim is done for today", ns.SeasonClaimedToday(VICTIM))
+eq("a second kill today makes no code", select(2, ns.SeasonForKill(VICTIM)), "DAILY")
+serverTime = PACK_TIME + 86400
+eq("tomorrow they count again", (ns.SeasonForKill(VICTIM) or {}).id, 7)
+serverTime = PACK_TIME
+
+BountyLineCharDB.seasonKills = nil
+eq("a bounty target in a season guild: both on the line",
+  ns.KillLine({ bounty = { id = 12, name = "Grimlok Ashveil", reward = 500 }, season = { id = 7, seen = true, s = season } }),
+  "Grimlok Ashveil · 500g · Bounty #12 + Open Season #7")
+
+check("newer pack stored", ns.StorePack(seasonPack({ hv({ posterName = "Slac Jaw" }) }, PACK_TIME - 5)))
+eq("you can't collect on a season you declared", select(2, ns.SeasonForKill(VICTIM)), "OWN")
+check("pack with an empty pot stored", ns.StorePack(seasonPack({ hv({ remainingGold = 0 }) }, PACK_TIME - 4)))
+check("a pot that ran dry is no longer open", ns.GetSeason(HV) == nil)
+check("so an unseen enemy makes no claim either", ns.SeasonForKill("Player-4395-0BADF00D") == nil)
+check("a pack without seasons clears them", ns.StorePack(seasonPack(nil, PACK_TIME - 3)))
+eq("none listed", #ns.ListSeasons(), 0)
+
+BountyLineDB.guilds = { old = { n = "Old", g = "G", f = 2, t = PACK_TIME - 15 * 86400 }, fresh = { n = "New", g = "G", f = 2, t = PACK_TIME - 60 } }
+eq("pruning keeps recent players", ns.PruneGuilds(), 1)
+check("and drops ones not seen for two weeks", BountyLineDB.guilds.old == nil and BountyLineDB.guilds.fresh ~= nil)
 
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

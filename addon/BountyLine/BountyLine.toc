@@ -19,6 +19,7 @@ Codec.lua
 Locales\enUS.lua
 Bounty.lua
 Pack.lua
+Season.lua
 Comms.lua
 Core.lua
 Menu.lua

@@ -43,9 +43,13 @@ function ns.SetDuel(active, now)
 end
 
 -- flags: bit0 honor corroborated, bit1 pet kill (Compendium 02 Section 3.2).
-function ns.BuildKillCode(bountyId, victimGUID, killedAt, honor, pet)
+-- season (Open Season kills only): { id, name, seen } -> schema 2.
+function ns.BuildKillCode(bountyId, victimGUID, killedAt, honor, pet, season)
   return ns.Codec.Encode("K", {
-    schema = 1,
+    schema = season and 2 or 1,
+    seasonId = season and season.id or nil,
+    victimName = season and (season.name or "") or nil,
+    guildSeen = season and (season.seen and 1 or 0) or nil,
     boardTag = ns.BoardTag(),
     bountyId = bountyId,
     victimGUID = victimGUID,
@@ -57,6 +61,19 @@ function ns.BuildKillCode(bountyId, victimGUID, killedAt, honor, pet)
     flags = (honor and 1 or 0) + (pet and 2 or 0),
     nonce = math.random(0, 65535),
   })
+end
+
+-- "Grimlok · 500g · Bounty #12" for the stamp and the popup. Open Season kills name the
+-- season instead, and a bounty target in a season guild gets both.
+function ns.KillLine(k)
+  local name, season = k.bounty.name, k.season
+  if k.bounty.seasonOnly then
+    if season.s.unknown then return ("%s · %s"):format(name, L.SEASON_UNSEEN) end
+    return ("%s · %s · %s"):format(name, ns.SeasonTerms(season.s), ns.SeasonLabel(season.s))
+  end
+  local line = ("%s · %s · %s"):format(name, ns.FormatGold(k.bounty.reward), ns.BountyLabel(k.bounty))
+  if season then line = line .. " + " .. ns.SeasonLabel(season.s) end
+  return line
 end
 
 -- ---------------------------------------------------------------- capture
@@ -103,18 +120,24 @@ local function finish(shot)
   -- The screenshot is taken; the stamp can stay up a moment longer if the player likes.
   local linger = (BountyLineDB.settings or {}).stampSeconds or 0
   if linger > 0 then C_Timer.After(linger, ns.HideStamp) else ns.HideStamp() end
+  local seasonOnly = k.bounty.seasonOnly
+  local label = seasonOnly and ns.SeasonLabel(k.season.s) or ns.BountyLabel(k.bounty)
   local popup = {
-    title = k.practice and L.PRACTICE_TITLE or L.KILL_TITLE,
-    subtitle = ("%s · %s · %s"):format(k.bounty.name, ns.FormatGold(k.bounty.reward), ns.BountyLabel(k.bounty)),
+    title = k.practice and L.PRACTICE_TITLE or seasonOnly and L.SEASON_KILL_TITLE or L.KILL_TITLE,
+    subtitle = ns.KillLine(k),
     instructions = k.practice and L.PRACTICE_POST or L.KILL_POST,
     code = k.code,
-    line = not k.practice and { "K", k.bounty.name, ns.BountyLabel(k.bounty) } or nil,
+    line = not k.practice and { "K", k.bounty.name, label } or nil,
     note = shot and L.SCREENSHOT_SAVED or L.SCREENSHOT_FAILED,
     folder = true,
   }
   if not k.practice then
+    -- Open Season: this player is done for today (once per day per hunter).
+    if k.season then ns.MarkSeasonKill(k.victimGUID, k.killedAt) end
     -- Claimed: no more skull, and a second kill on them won't make a second code.
-    if k.bounty.pending then
+    if seasonOnly then
+      -- no personal bounty to close
+    elseif k.bounty.pending then
       ns.DropPending(k.victimGUID)
       ns.Comms.KillPending(k.victimGUID, ns.FullName("player"), k.bounty.name)
     else
@@ -123,7 +146,11 @@ local function finish(shot)
     end
     ns.RefreshMarks()
     ns.Sound("kill")
-    ns.Banner(L.BANNER_KILL:format(ns.FullName("player"), k.bounty.name, ns.BoardName()), false)
+    if seasonOnly then
+      ns.Banner(L.BANNER_SEASON_KILL:format(ns.FullName("player"), k.bounty.name, ns.BoardName()), false)
+    else
+      ns.Banner(L.BANNER_KILL:format(ns.FullName("player"), k.bounty.name, ns.BoardName()), false)
+    end
     local kills = BountyLineCharDB.kills
     table.insert(kills, 1, {
       code = k.code, bountyId = k.bounty.id, name = k.bounty.name, reward = k.bounty.reward, t = k.killedAt, shot = shot,
@@ -135,7 +162,7 @@ local function finish(shot)
 end
 
 local function capture(k)
-  local code, err, message = ns.BuildKillCode(k.bounty.id, k.victimGUID, k.killedAt, k.honor, k.pet)
+  local code, err, message = ns.BuildKillCode(k.bounty.id, k.victimGUID, k.killedAt, k.honor, k.pet, k.season)
   if not code then
     ns.Print(L.CODE_FAILED:format(message or err))
     return nextKill()
@@ -159,8 +186,15 @@ begin = function(k)
   C_Timer.After(k.practice and 0 or HONOR_WAIT, function() if pending == k then capture(k) end end)
 end
 
-local function startKill(bounty, victimGUID, pet, practice)
-  local k = { bounty = bounty, victimGUID = victimGUID, pet = pet, practice = practice, killedAt = GetServerTime(), honor = false }
+-- season (optional): { id, name, seen, s = the season } from ns.SeasonForKill. With no personal
+-- bounty on the victim, a stand-in carries their name through the stamp and the popup.
+local function startKill(bounty, victimGUID, pet, practice, season)
+  if not bounty and season then
+    local name = season.name
+    if not name or name == "" then name = L.SEASON_UNKNOWN_PLAYER end
+    bounty = { id = 0, name = name, reward = season.s.perKill or 0, seasonOnly = true }
+  end
+  local k = { bounty = bounty, victimGUID = victimGUID, pet = pet, practice = practice, killedAt = GetServerTime(), honor = false, season = season }
   if pending then
     waiting[#waiting + 1] = k
   else
@@ -190,7 +224,20 @@ events:SetScript("OnEvent", function(_, event, a, b)
     if debug then ns.Print(L.DEBUGKILL:format(tostring(a), tostring(b))) end
     local bounty, how = ns.CheckKill(a, b, GetTime())
     if debug then ns.Print("  -> " .. tostring(bounty and ("bounty #" .. bounty.id) or how)) end
-    if bounty then startKill(bounty, b, how == "PET", false) end
+    -- Open Season (spec 5.11): my kill, no duel. A last look at the target fills in a guild
+    -- we hadn't seen yet.
+    local season
+    if bounty or how == "NO_BOUNTY" then
+      local target = UnitGUID("target")
+      if not ns.IsSecret(target) and target == b then ns.RememberUnit("target") end
+      local s, seen, name = ns.SeasonForKill(b)
+      if debug then ns.Print("  -> season: " .. tostring(s and (s.unknown and "guild not seen" or s.guild) or seen)) end
+      -- A normal bounty claim is never held up for a guild we didn't see.
+      if s and (seen or not bounty) then season = { id = s.id, name = name, seen = seen, s = s } end
+    end
+    local petGUID = UnitGUID("pet")
+    local pet = how == "PET" or (not ns.IsSecret(petGUID) and petGUID ~= nil and petGUID == a)
+    if bounty or season then startKill(bounty, b, pet, false, season) end
   elseif event == "CHAT_MSG_COMBAT_HONOR_GAIN" then
     if debug then ns.Print("honor: " .. tostring(a)) end
     local first = pending and pending.bounty.name and pending.bounty.name:match("^(%S+)")
