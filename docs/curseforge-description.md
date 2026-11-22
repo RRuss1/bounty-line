@@ -46,7 +46,7 @@ You don't need to remember any of these: **right-click the minimap button** for 
 
 WoW addons can't connect to the internet or write to your clipboard. Bounty Line selects everything for you, so it's always just **Ctrl+C**, then paste in Discord. The code hides behind a spoiler bar, so chat stays tidy.
 
-Screenshots are saved to `World of Warcraft\_forever_\Screenshots` (newest file).
+**Claiming a kill:** drop the kill screenshot into the Discord Bounty Line chat. The bot reads the kill code from the QR code on the proof stamp, so there is nothing to paste (pasting the code with the screenshot still works). Screenshots are saved to `World of Warcraft\_forever_\Screenshots` (newest file); the kill popup has that folder as a line you can copy into the upload window in Discord.
 
 ## Privacy & policy
 

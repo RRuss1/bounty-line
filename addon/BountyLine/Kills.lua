@@ -110,6 +110,7 @@ local function finish(shot)
     code = k.code,
     line = not k.practice and { "K", k.bounty.name, ns.BountyLabel(k.bounty) } or nil,
     note = shot and L.SCREENSHOT_SAVED or L.SCREENSHOT_FAILED,
+    folder = true,
   }
   if not k.practice then
     -- Claimed: no more skull, and a second kill on them won't make a second code.

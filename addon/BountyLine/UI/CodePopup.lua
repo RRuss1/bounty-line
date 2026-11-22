@@ -5,6 +5,11 @@ local _, ns = ...
 local L = ns.L
 
 local WIDTH = 578
+local HEIGHT, HEIGHT_WITH_FOLDER = 320, 400
+-- Where the game saves screenshots, in a form Windows expands by itself: pasted into the
+-- "File name" box of Discord's upload window, it jumps straight to the folder. The addon
+-- can't see where the game is installed, so this is the default location.
+local SCREENSHOT_FOLDER = "%ProgramFiles(x86)%\\World of Warcraft\\_forever_\\Screenshots"
 local frame
 
 local function selectAll(selected)
@@ -19,7 +24,7 @@ local function selectAll(selected)
 end
 
 local function build()
-  local f = ns.CreateWindow("BountyLineCodePopup", WIDTH, 320, L.ADDON)
+  local f = ns.CreateWindow("BountyLineCodePopup", WIDTH, HEIGHT, L.ADDON)
   local c = f.content
 
   f.heading = ns.Text(c, "heading")
@@ -100,6 +105,35 @@ local function build()
   f.note:SetPoint("TOPLEFT", f.hint, "BOTTOMLEFT", 0, -8)
   f.note:SetPoint("RIGHT", -16, 0)
 
+  -- Kill codes: the screenshot is what gets posted, so the way to its folder is here too.
+  f.folderLabel = ns.Text(c, "body", 13)
+  f.folderLabel:SetPoint("TOPLEFT", f.note, "BOTTOMLEFT", 0, -12)
+  f.folderLabel:SetPoint("RIGHT", -16, 0)
+  f.folderLabel:SetText(L.FOLDER_LABEL)
+  local folder = CreateFrame("EditBox", nil, c, "InputBoxTemplate")
+  folder:SetHeight(26)
+  folder:SetPoint("TOPLEFT", f.folderLabel, "BOTTOMLEFT", 2, -6)
+  folder:SetPoint("RIGHT", -54, 0)
+  folder:SetAutoFocus(false)
+  folder:SetMaxLetters(0)
+  folder:SetFontObject("ChatFontNormal")
+  local function selectFolder()
+    if InCombatLockdown() and not folder:HasFocus() then return end -- never take the keyboard mid-fight
+    folder:SetFocus()
+    folder:HighlightText()
+    f.hint:SetText(L.SELECTED)
+  end
+  folder:SetScript("OnTextChanged", function(self, userInput)
+    if userInput then
+      self:SetText(SCREENSHOT_FOLDER)
+      self:HighlightText()
+    end
+  end)
+  folder:SetScript("OnMouseUp", selectFolder)
+  folder:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+  folder:SetScript("OnEscapePressed", function() f:Hide() end)
+  f.folder = folder
+
   local close = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")
   close:SetSize(100, 24)
   close:SetPoint("BOTTOMRIGHT", -14, 12)
@@ -120,7 +154,8 @@ function ns.CodeRelayed(code, who)
   if frame and frame:IsShown() then frame.note:SetText(text) end
 end
 
--- opts: { title, subtitle, instructions, code, line?, note? }. `line` = { kind, name, detail }:
+-- opts: { title, subtitle, instructions, code, line?, note?, folder? }. `folder` adds the
+-- Screenshots folder row (kill codes). `line` = { kind, name, detail }:
 -- the box holds ns.CopyLine(...) around the code, built fresh on every show so /bl last never
 -- shows a line saved by an older version. Without `line` the box holds the bare code.
 function ns.ShowCode(opts)
@@ -135,6 +170,11 @@ function ns.ShowCode(opts)
   frame.box:SetText(frame.code)
   frame.box:SetCursorPosition(0)
   frame.label:SetText(ns.DisplayLine(line) .. L.CODE_HIDDEN)
+  frame:SetHeight(opts.folder and HEIGHT_WITH_FOLDER or HEIGHT)
+  frame.folderLabel:SetShown(opts.folder and true or false)
+  frame.folder:SetShown(opts.folder and true or false)
+  frame.folder:SetText(SCREENSHOT_FOLDER)
+  frame.folder:SetCursorPosition(0)
   frame:Show()
   -- Open already selected, so the fastest path is just Ctrl+C.
   selectAll(true)
