@@ -1,6 +1,6 @@
 -- The in-game Bounty Board (/bl, left-click the minimap button). Three tabs:
---   Wanted       Open Seasons (bounties on a whole guild) first, then open bounties (pack +
---                pending): reward, poster, last sighting, expiry
+--   Wanted       two tables: Open Seasons (bounties on a whole guild) on top, then open
+--                bounties (pack + pending): reward, poster, last sighting, expiry
 --   My Bounties  the ones you posted
 --   My Kills     your saved kill codes; click one to open its code again
 -- Click a column header to sort. Hover a row for details; right-click a wanted row to add gold.
@@ -102,8 +102,10 @@ local function bountyRows(mineOnly)
   return rows
 end
 
--- Open Seasons (spec 5.11) sit above the bounties: the guild in the target column, the terms
--- in the reward column.
+-- Open Seasons (spec 5.11) have their own table above the bounties.
+local SEASON_HEADS = { "#", L.COL_GUILD, L.COL_TERMS, L.COL_DECLARED, L.COL_POT, L.COL_ENDS }
+local SEASON_ROWS = 4 -- visible rows; more scroll
+
 local function seasonTooltip(tip, s)
   tip:SetText(L.TIP_SEASON_TITLE:format(s.guild), 1, 0.2, 0.15)
   tip:AddLine(L.TIP_REWARD:format(ns.SeasonTerms(s), s.poster ~= "" and s.poster or "?"), 1, 0.82, 0)
@@ -113,6 +115,13 @@ local function seasonTooltip(tip, s)
   tip:AddLine(L.TIP_SEASON_ADD, 0.6, 0.6, 0.6, true)
 end
 
+-- "1,875g left", "prize pool", "no ceiling"
+local function potCell(s)
+  if s.kind == ns.SEASON_KIND.pot then return L.SEASON_POT_LEFT:format(ns.FormatGold(s.remaining or 0)) end
+  if s.kind == ns.SEASON_KIND.pool then return L.SEASON_KIND_SHORT_2 end
+  return L.SEASON_KIND_SHORT_3
+end
+
 local function seasonRows(mineOnly)
   local me = ns.FullName("player")
   local rows = {}
@@ -120,7 +129,7 @@ local function seasonRows(mineOnly)
     if not mineOnly or s.poster == me then
       rows[#rows + 1] = {
         cells = {
-          s.pending and L.NEW_SHORT or s.id, ("<%s>"):format(s.guild), ns.SeasonTerms(s), s.poster, L.SEASON_NAME,
+          s.pending and L.NEW_SHORT or s.id, ("<%s>"):format(s.guild), ns.SeasonTerms(s), s.poster, potCell(s),
           s.pending and L.PENDING or date("%b %d", s.expires),
         },
         nameColor = { 1, 0.2, 0.15 },
@@ -195,10 +204,83 @@ local function makeRow(parent, i)
   return r
 end
 
+-- ---------------------------------------------------------------- tables
+
+-- One scrollable table: a title, clickable column headers, rows and an "empty" line.
+-- onSort(i): a header was clicked (nil = not sortable).
+local function makeTable(c, onSort)
+  local t = { rows = {} }
+  t.title = ns.Text(c, "section", 14)
+  t.heads = {}
+  for i, col in ipairs(COLS) do
+    local h = CreateFrame("Button", nil, c)
+    h:SetSize(col[2], 20)
+    h.text = ns.Text(h, "section", 12)
+    h.text:SetPoint("LEFT", 8, 0)
+    h.x = 12 + col[1]
+    if onSort then h:SetScript("OnClick", function() onSort(i) end) end
+    t.heads[i] = h
+  end
+  t.scroll = CreateFrame("ScrollFrame", nil, c, "UIPanelScrollFrameTemplate")
+  t.list = CreateFrame("Frame", nil, t.scroll)
+  t.list:SetSize(680, 1)
+  t.scroll:SetScrollChild(t.list)
+  t.empty = ns.Text(c, "body", 14)
+  t.empty:SetPoint("TOP", t.scroll, "TOP", 0, -12)
+  t.empty:SetWidth(560)
+  t.empty:SetJustifyH("CENTER")
+  t.empty:SetSpacing(6)
+  return t
+end
+
+-- Places a table: its title at `top` (px below the content's top), then the headers, then a
+-- scrolling list either `height` tall or down to the buttons (height nil).
+local function placeTable(t, c, top, height)
+  t.title:ClearAllPoints()
+  t.title:SetPoint("TOPLEFT", 16, -top)
+  for _, h in ipairs(t.heads) do
+    h:ClearAllPoints()
+    h:SetPoint("TOPLEFT", h.x, -(top + 20))
+  end
+  t.scroll:ClearAllPoints()
+  t.scroll:SetPoint("TOPLEFT", 12, -(top + 42))
+  if height then
+    t.scroll:SetPoint("RIGHT", c, "RIGHT", -30, 0)
+    t.scroll:SetHeight(height)
+  else
+    t.scroll:SetPoint("BOTTOMRIGHT", -30, 48)
+  end
+end
+
+local function showTable(t, shown)
+  t.title:SetShown(shown)
+  t.scroll:SetShown(shown)
+  t.empty:SetShown(shown)
+  for _, h in ipairs(t.heads) do h:SetShown(shown) end
+end
+
+local function fillTable(t, rows, heads, arrows)
+  for i, h in ipairs(t.heads) do h.text:SetText(heads[i] .. (arrows and arrows[i] or "")) end
+  for i, data in ipairs(rows) do
+    local r = t.rows[i] or makeRow(t.list, i)
+    t.rows[i] = r
+    r.data = data
+    -- The bounty opened from "View Bounty" is highlighted in gold.
+    if data.focus then r.shade:SetColorTexture(1, 0.82, 0.25, 0.22) else r.shade:SetColorTexture(0, 0, 0, r.stripe) end
+    r:SetAlpha(data.dim and 0.5 or 1)
+    for col = 1, #COLS do r.cells[col]:SetText(data.cells[col] or "") end
+    r.cells[2]:SetTextColor(data.nameColor[1], data.nameColor[2], data.nameColor[3])
+    r.cells[3]:SetTextColor(1, 0.82, 0)
+    r:Show()
+  end
+  for i = #rows + 1, #t.rows do t.rows[i]:Hide() end
+  t.list:SetHeight(math.max(1, #rows * ROW_H))
+end
+
 -- ---------------------------------------------------------------- window
 
 local function build()
-  local f = ns.CreateWindow("BountyLineBoard", 760, 500, L.ADDON)
+  local f = ns.CreateWindow("BountyLineBoard", 760, 620, L.ADDON)
   local c = f.content
   f.tab, f.sortKey, f.sortDesc = "wanted", "reward", true
 
@@ -222,36 +304,14 @@ local function build()
     f.tabs[tab[1]] = b
   end
 
-  -- Column headers: click to sort (bounty tabs).
-  f.heads = {}
-  for i, col in ipairs(COLS) do
-    local h = CreateFrame("Button", nil, c)
-    h:SetPoint("TOPLEFT", 12 + col[1], -62)
-    h:SetSize(col[2], 20)
-    h.text = ns.Text(h, "section", 12)
-    h.text:SetPoint("LEFT", 8, 0)
-    h:SetScript("OnClick", function()
-      local key = SORT_KEYS[i]
-      if f.tab == "kills" or not key then return end
-      if f.sortKey == key then f.sortDesc = not f.sortDesc else f.sortKey, f.sortDesc = key, key == "reward" end
-      ns.RefreshBoard()
-    end)
-    f.heads[i] = h
-  end
-
-  local scroll = CreateFrame("ScrollFrame", nil, c, "UIPanelScrollFrameTemplate")
-  scroll:SetPoint("TOPLEFT", 12, -84)
-  scroll:SetPoint("BOTTOMRIGHT", -30, 48)
-  local list = CreateFrame("Frame", nil, scroll)
-  list:SetSize(680, 1)
-  scroll:SetScrollChild(list)
-  f.list, f.rows = list, {}
-
-  f.empty = ns.Text(c, "body", 14)
-  f.empty:SetPoint("TOP", scroll, "TOP", 0, -36)
-  f.empty:SetWidth(560)
-  f.empty:SetJustifyH("CENTER")
-  f.empty:SetSpacing(6)
+  -- Open Seasons on top (not sortable), bounties or kills below (click a header to sort).
+  f.seasons = makeTable(c, nil)
+  f.main = makeTable(c, function(i)
+    local key = SORT_KEYS[i]
+    if f.tab == "kills" or not key then return end
+    if f.sortKey == key then f.sortDesc = not f.sortDesc else f.sortKey, f.sortDesc = key, key == "reward" end
+    ns.RefreshBoard()
+  end)
 
   local function button(text, offset, onClick)
     local b = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")
@@ -266,66 +326,66 @@ local function build()
   return f
 end
 
+local TOP = 60
+local SEASON_HEIGHT = SEASON_ROWS * ROW_H
+
 function ns.RefreshBoard()
   if not frame or not frame:IsShown() then return end
   local tab = frame.tab
   local pack = BountyLineDB.pack
-  local rows = tab == "kills" and killRows() or bountyRows(tab == "mine")
-  local bounties, seasons = #rows, 0
-  if tab ~= "kills" then
-    local list = seasonRows(tab == "mine")
-    seasons = #list
-    for _, row in ipairs(rows) do list[#list + 1] = row end
-    rows = list
-  end
+  local c = frame.content
+  local kills = tab == "kills"
+  local rows = kills and killRows() or bountyRows(tab == "mine")
+  local seasons = kills and {} or seasonRows(tab == "mine")
 
   for key, b in pairs(frame.tabs) do
     if key == tab then b:LockHighlight() else b:UnlockHighlight() end
   end
-  local heads = tab == "kills" and KILL_HEADS or BOUNTY_HEADS
-  for i, h in ipairs(frame.heads) do
-    local arrow = tab ~= "kills" and SORT_KEYS[i] == frame.sortKey and (frame.sortDesc and " v" or " ^") or ""
-    h.text:SetText(heads[i] .. arrow)
+
+  -- Two tables on the bounty tabs; the kills tab uses the whole height for one.
+  showTable(frame.seasons, not kills)
+  if kills then
+    placeTable(frame.main, c, TOP)
+  else
+    placeTable(frame.seasons, c, TOP, SEASON_HEIGHT)
+    placeTable(frame.main, c, TOP + 42 + SEASON_HEIGHT + 14)
+    frame.seasons.title:SetText(L.SEASONS_TABLE:format(#seasons))
+    frame.seasons.empty:SetText(#seasons == 0 and (tab == "mine" and L.SEASONS_MINE_EMPTY or L.SEASONS_EMPTY) or "")
+    fillTable(frame.seasons, seasons, SEASON_HEADS)
   end
 
-  if tab == "kills" then
+  local arrows = {}
+  for i in ipairs(COLS) do
+    arrows[i] = not kills and SORT_KEYS[i] == frame.sortKey and (frame.sortDesc and " v" or " ^") or ""
+  end
+  fillTable(frame.main, rows, kills and KILL_HEADS or BOUNTY_HEADS, arrows)
+  local main = frame.main
+
+  if kills then
     frame.heading:SetText(L.TAB_KILLS)
     frame.summary:SetText(L.KILLS_SUMMARY:format(#rows))
-    frame.empty:SetText(#rows == 0 and L.KILLS_EMPTY or "")
+    main.title:SetText(L.KILLS_TABLE)
+    main.empty:SetText(#rows == 0 and L.KILLS_EMPTY or "")
   elseif tab == "mine" then
     frame.heading:SetText(L.TAB_MINE)
     frame.summary:SetText(L.MINE_SUMMARY:format(#rows))
-    frame.empty:SetText(#rows == 0 and L.MINE_EMPTY or "")
+    main.title:SetText(L.BOUNTIES_TABLE:format(#rows))
+    main.empty:SetText(#rows == 0 and L.MINE_EMPTY or "")
   else
     frame.heading:SetText(L.BOARD_TITLE)
+    main.title:SetText(L.BOUNTIES_TABLE:format(#rows))
     if pack then
       -- A pack more than a day old is probably missing bounties: nudge a re-import.
       local stale = GetServerTime() - pack.version > 86400 and L.PACK_STALE or ""
-      local open = seasons > 0 and L.BOARD_SEASONS:format(seasons) or ""
-      frame.summary:SetText(L.BOARD_SUMMARY:format(bounties, ns.BoardName(), ns.Ago(pack.version)) .. open .. stale)
+      frame.summary:SetText(L.BOARD_SUMMARY:format(#rows, ns.BoardName(), ns.Ago(pack.version)) .. stale)
     else
       frame.summary:SetText("")
     end
     -- A guildie has a newer Bounty Line: say so here until this one is updated.
     local newer = ns.NewerVersion()
     if newer then frame.summary:SetText(L.UPDATE_SHORT:format(newer)) end
-    frame.empty:SetText(#rows > 0 and "" or pack and L.LIST_EMPTY or L.FIRST_RUN)
+    main.empty:SetText(#rows > 0 and "" or pack and L.LIST_EMPTY or L.FIRST_RUN)
   end
-
-  for i, data in ipairs(rows) do
-    local r = frame.rows[i] or makeRow(frame.list, i)
-    frame.rows[i] = r
-    r.data = data
-    -- The bounty opened from "View Bounty" is highlighted in gold.
-    if data.focus then r.shade:SetColorTexture(1, 0.82, 0.25, 0.22) else r.shade:SetColorTexture(0, 0, 0, r.stripe) end
-    r:SetAlpha(data.dim and 0.5 or 1)
-    for c = 1, #COLS do r.cells[c]:SetText(data.cells[c] or "") end
-    r.cells[2]:SetTextColor(data.nameColor[1], data.nameColor[2], data.nameColor[3])
-    r.cells[3]:SetTextColor(1, 0.82, 0)
-    r:Show()
-  end
-  for i = #rows + 1, #frame.rows do frame.rows[i]:Hide() end
-  frame.list:SetHeight(math.max(1, #rows * ROW_H))
 end
 
 -- focusId: highlight that bounty's row (from the right-click menu's "View Bounty").
