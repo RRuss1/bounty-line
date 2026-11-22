@@ -809,5 +809,56 @@ BountyLineDB.guilds = {
 eq("pruning keeps recent players", ns.PruneGuilds(), 1)
 check("and drops ones not seen for two weeks", BountyLineDB.guilds.old == nil and BountyLineDB.guilds.fresh ~= nil)
 
+-- declaring an Open Season
+reset()
+serverTime = PACK_TIME
+BountyLineDB = { settings = {}, boardTag = "K7QF" }
+units.target.guild = HV
+local guildSnap = ns.SnapshotUnit("target")
+eq("the snapshot carries the guild", guildSnap.guild, HV)
+units.target.guild = SECRET
+local hiddenSnap = ns.SnapshotUnit("target")
+check("a hidden guild is reported as hidden, not as a name", hiddenSnap.guild == nil and hiddenSnap.guildHidden == true)
+units.target.guild = HV
+
+local potCode = ns.BuildSeasonCode(guildSnap, 1, 25, 2000, 7)
+local potFields = (Codec.Decode(potCode) or {}).fields or {}
+eq("season code: type", (Codec.Decode(potCode) or {}).type, "S")
+eq("season code: guild", potFields.guildName, HV)
+eq("season code: faction", potFields.guildFaction, 2)
+eq("season code: kind", potFields.kind, 1)
+eq("season code: price per kill", potFields.perKillGold, 25)
+eq("season code: pot", potFields.totalGold, 2000)
+eq("season code: days", potFields.days, 7)
+eq("season code: poster", potFields.posterName, "Slac Jaw")
+local addFields = (Codec.Decode(ns.BuildSeasonCode(guildSnap, 1, 25, 300, 7, 7)) or {}).fields or {}
+eq("adding gold: mode 1", addFields.mode, 1)
+eq("adding gold: only the amount travels", addFields.kind + addFields.perKillGold + addFields.days, 0)
+eq("adding gold: the amount", addFields.totalGold, 300)
+eq("adding gold: to that season", addFields.existingSeasonId, 7)
+check("a pot smaller than one kill makes no code", ns.BuildSeasonCode(guildSnap, 1, 50, 20, 7) == nil)
+check("10 days makes no code", ns.BuildSeasonCode(guildSnap, 3, 50, 0, 10) == nil)
+check("no guild makes no code", ns.BuildSeasonCode({ faction = 2 }, 3, 50, 0, 7) == nil)
+eq("copy line for Discord", ns.CopyLine("S", HV, "25g a head", "CODE"), "OPEN SEASON: **Honor and Valor** · 25g a head ||||CODE||||")
+
+-- a guildie declares one: hunted at once, before any pack lists it
+banners = {}
+receive("SEAS", table.concat({ HV, 2, 3, 40, 0, "Grey Wolf", PACK_TIME }, "\t"))
+local pendingSeason = ns.GetSeason(HV)
+check("a guildie's new season is live straight away", pendingSeason ~= nil and pendingSeason.pending == true and pendingSeason.id == 0)
+eq("its terms", ns.SeasonTerms(pendingSeason), "40g a head")
+eq("the guild gets one banner", #banners, 1)
+receive("SEAS", table.concat({ HV, 2, 1, 5, 50, "Grey Wolf", PACK_TIME }, "\t"))
+eq("a second one on the same guild is ignored", ns.GetSeason(HV).perKill, 40)
+receive("SEAS", table.concat({ "Friends", 1, 3, 40, 0, "Grey Wolf", PACK_TIME }, "\t"))
+check("a season on your own faction is ignored", ns.GetSeason("Friends") == nil)
+receive("SEAS", "garbage")
+ns.RememberUnit("target")
+local pendSeason, pendSeen = ns.SeasonForKill(VICTIM)
+check("a kill counts for it, with no number yet", pendSeason ~= nil and pendSeason.id == 0 and pendSeen == true)
+check("the pack lists it: the pending copy goes", ns.StorePack(seasonPack({ hv() }, PACK_TIME - 2)))
+eq("now it has its number", ns.GetSeason(HV).id, 7)
+check("pending copy dropped", next(BountyLineDB.pendingSeasons) == nil)
+
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

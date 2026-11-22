@@ -181,3 +181,88 @@ function ns.SeasonForKill(victimGUID)
   end
   return nil, "NO_SEASON"
 end
+
+-- ---------------------------------------------------------------- declaring one
+
+local PENDING_TTL = 48 * 3600
+local MAX_PENDING = 20
+
+-- A season someone just made a code for, before any pack lists it (like pending bounties):
+-- shared over guild sync so everyone can hunt that guild at once. It has no number yet.
+function ns.AddPendingSeason(guild, faction, kind, perKill, total, poster, t)
+  local key = ns.GuildKey(guild)
+  if key == "" or ns.GetSeason(guild) then return false end
+  if faction ~= 1 and faction ~= 2 or faction == FACTION_ID[UnitFactionGroup("player")] then return false end
+  if kind ~= 1 and kind ~= 2 and kind ~= 3 then return false end
+  local db = BountyLineDB
+  db.pendingSeasons = db.pendingSeasons or {}
+  local n, now = 0, GetServerTime()
+  for k, p in pairs(db.pendingSeasons) do
+    if p.expires <= now then db.pendingSeasons[k] = nil else n = n + 1 end
+  end
+  if n >= MAX_PENDING then return false end
+  db.pendingSeasons[key] = {
+    id = 0, pending = true, guild = guild, faction = faction, kind = kind, perKill = perKill or 0, remaining = total or 0,
+    poster = poster, expires = t + PENDING_TTL,
+  }
+  return true
+end
+
+-- existingId: add gold to that season (Compendium 02 Section 3.5, mode 1): only the amount travels.
+function ns.BuildSeasonCode(snap, kind, perKill, total, days, existingId)
+  return ns.Codec.Encode("S", {
+    schema = 1,
+    boardTag = ns.BoardTag(),
+    guildName = snap.guild or "",
+    guildFaction = snap.faction,
+    posterFaction = FACTION_ID[UnitFactionGroup("player")],
+    kind = existingId and 0 or kind,
+    perKillGold = existingId and 0 or perKill,
+    totalGold = total,
+    days = existingId and 0 or days,
+    posterGUID = UnitGUID("player"),
+    posterName = ns.FullName("player"),
+    createdAt = GetServerTime(),
+    nonce = math.random(0, 65535),
+    mode = existingId and 1 or 0,
+    existingSeasonId = existingId or 0,
+  })
+end
+
+-- Shows the S code for an Open Season on the snapshot's guild (or for gold added to one).
+function ns.PostSeason(snap, kind, perKill, total, days, existingId)
+  local code, err, message = ns.BuildSeasonCode(snap, kind, perKill, total, days, existingId)
+  if not code then return ns.Print(L.CODE_FAILED:format(message or err)) end
+  ns.Sound(existingId and "stack" or "create")
+  local terms = existingId and ns.FormatGold(total) or ns.SeasonTerms({ kind = kind, perKill = perKill, remaining = total })
+  if not existingId then
+    -- Guildies get a banner and can hunt that guild straight away, before any pack lists it.
+    local me, now = ns.FullName("player"), GetServerTime()
+    if ns.AddPendingSeason(snap.guild, snap.faction, kind, perKill, total, me, now) then
+      ns.Comms.Season(snap.guild, snap.faction, kind, perKill, total, me, now)
+      ns.RefreshMarks()
+    end
+  end
+  -- Relay (spec 5.10), as for bounty codes.
+  local relayed = ns.RelayQueue and ns.RelayQueue(code)
+  if not relayed then ns.Comms.BountyCode(code) end
+  ns.ShowCode({
+    title = existingId and L.STACK_READY or L.SEASON_READY,
+    subtitle = ("<%s> · %s%s"):format(snap.guild, existingId and "+" or "", terms),
+    instructions = L.POST_THIS,
+    note = relayed and L.RELAYED_SELF or nil,
+    code = code,
+    line = { existingId and "G" or "S", snap.guild, terms },
+  })
+end
+
+-- /bl seasons
+function ns.PrintSeasons()
+  local list = ns.ListSeasons()
+  if #list == 0 then return ns.Print(L.SEASONS_NONE) end
+  ns.Print(L.SEASONS_HEAD)
+  for _, s in ipairs(list) do
+    local days = math.max(1, math.ceil((s.expires - GetServerTime()) / DAY))
+    DEFAULT_CHAT_FRAME:AddMessage(L.SEASONS_LINE:format(s.guild, ns.SeasonTerms(s), ns.SeasonLabel(s), s.pending and "?" or tostring(days)))
+  end
+end
