@@ -47,7 +47,7 @@ Put a price on an enemy's head in game, hunt them down, auto-screenshot the kill
 | `/bl banners` | Turn guild banners on or off |
 | `/bl minimap` | Show or hide the minimap button |
 
-Screenshots are saved to `World of Warcraft\_forever_\Screenshots` (newest file).
+**Claiming a kill:** drop the kill screenshot into the Discord Bounty Line chat. The bot reads the kill code from the QR code on the proof stamp, so there is nothing to paste (pasting the code with the screenshot still works). Screenshots are saved to `World of Warcraft\_forever_\Screenshots` (newest file); the kill popup has that folder as a line you can copy into the upload window in Discord.
 
 > **Why copy/paste?** WoW addons can't connect to the internet or write to your clipboard. Codes are the bridge, so you only install the addon.
 
