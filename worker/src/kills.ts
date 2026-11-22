@@ -87,6 +87,10 @@ export async function claimKill(
 ): Promise<Result> {
   // 1. Code and bounty (spec 9.3 checks 1-3).
   if (k.boardTag !== "0000" && k.boardTag !== tenant.board_tag) return fail("BOARD", "That code belongs to a different Bounty Board.");
+  // A practice kill (/bl test): the addon uses the player as their own victim, with no bounty.
+  if (k.bountyId === 0 && k.victimGUID === k.killerGUID) {
+    return fail("PRACTICE", "That's a practice kill (`/bl test`), and I read it fine. Real kills are claimed the same way: just drop the screenshot here.");
+  }
   // bountyId 0: the hunter's addon knew the bounty only from guild sync (no pack listed it
   // yet), so there was no number to put in the code. Find it by the victim.
   const b =
@@ -101,7 +105,7 @@ export async function claimKill(
     return fail(
       "CLOSED",
       k.bountyId === 0
-        ? "There's no open bounty on that player here yet. If the bounty code was only just made, it has to be posted in the Bounty Line channel first; then paste your kill code again."
+        ? "There's no open bounty on that player here yet. If the bounty code was only just made, it has to be posted in the Bounty Line channel first; then post your kill screenshot again."
         : `Bounty #${k.bountyId} isn't on this Bounty Board.`,
     );
   }

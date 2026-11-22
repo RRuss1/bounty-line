@@ -319,6 +319,13 @@ describe("character links", () => {
       expect(reactions()).toBe(1);
     });
 
+    it("answers a practice kill (/bl test) kindly instead of talking about missing bounties", async () => {
+      qr.text = kill({ bountyId: 0, victimGUID: HUNTER });
+      await say("", [image], HUNTER_USER);
+      expect(kills()).toHaveLength(0);
+      expect(replies().at(-1)).toContain("practice kill");
+    });
+
     it("is left alone when it has no QR code: people post ordinary pictures", async () => {
       await say("look at this", [image], HUNTER_USER);
       expect(qr.reads).toBe(1);
