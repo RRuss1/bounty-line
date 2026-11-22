@@ -146,6 +146,7 @@ local COMMANDS = {
   end,
   debug = function(rest)
     if rest == "sounds" then return ns.DebugSounds() end
+    if rest == "guild" then return ns.DebugGuild() end
     ns.Debug()
   end,
   version = function()

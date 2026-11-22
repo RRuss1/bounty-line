@@ -70,6 +70,7 @@ function ns.OpenMainMenu(owner)
     local debug = root:CreateButton(L.M_DEBUG)
     debug:CreateButton(entry(L.M_DEBUG_INFO, "debug"), function() ns.Debug() end)
     debug:CreateButton(entry(L.M_DEBUG_SOUNDS, "debug sounds"), function() ns.DebugSounds() end)
+    debug:CreateButton(entry(L.M_DEBUG_GUILD, "debug guild"), function() ns.DebugGuild() end)
     debug:CreateCheckbox(entry(L.OPT_DEBUG_MENU, "debugmenu"), function() return s.debugMenu end,
       function() s.debugMenu = not s.debugMenu end)
     debug:CreateCheckbox(entry(L.OPT_DEBUG_KILLS, "debugkills"), function() return s.debugKills end,
