@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.1 (unreleased)
+## v0.9.1: Open Season window, prize pool minimum
 
 - Open Season window: wider (long guild names fit), glows guild green, the kind and the length are two stacks of tick boxes, and the gold fields sit below them.
 - **Prize pool minimum.** A prize pool now has a minimum number of kills for the whole season; if it isn't reached, nobody is paid and the funders keep their gold.
