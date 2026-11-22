@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.1 (unreleased)
+## v0.8.1: dungeon menu fix, class-coloured Set Bounty window, quieter relay
 
 - Relay program: no more beep, and it no longer announces a "changed" pack every minute when nothing changed.
 - `/bl debug guild`: prints the guilds of nearby players, to check what Forever lets the addon see (groundwork for Open Season).
@@ -8,6 +8,10 @@
 - Set Bounty window: the glow and the target's name take the target's class colour (red when the class isn't known). Other windows keep the red glow.
 - `/bl pack` now posts and pins a fresh Bounty Pack at the bottom of `#bounty-line` and removes the old one, so it's easy to find. Automatic updates after each bounty still edit the pinned one quietly.
 - Relay program: a "Last checked" line at the bottom of the window updates in place every minute, so you can see it's still running.
+
+### Deployer notes
+
+Nothing to do. The bot changes deployed when they were merged; relay users should download the relay again for the quiet version.
 
 ## v0.8.0: screenshot kill claims, relay, pending bounties, menus and sounds
 
