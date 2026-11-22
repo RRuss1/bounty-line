@@ -79,10 +79,16 @@ async function pollPack(config, writer, state) {
     if (res.status === 401) return stop("The Bounty Board refused the relay token. Run /bl relay action: enable again, delete relay\\config.json and restart.");
     if (!res.ok) return say(`Bounty Board answered ${res.status} for the pack; trying again in a minute.`);
     const body = await res.json();
+    // Has anything actually changed? The body carries a value that only moves when the
+    // bounties do (the ETag header alone isn't reliable through Cloudflare's compression).
+    const mark = body.etag ?? res.headers.get("ETag") ?? "";
+    const first = state.mark === undefined;
+    const changed = first || mark === "" || mark !== state.mark;
+    state.etag = mark;
+    state.mark = mark;
+    if (!changed) return writer.write(null);
     writer.write(body.codes);
-    const first = state.etag === undefined;
-    state.etag = res.headers.get("ETag") ?? "";
-    say(`${first ? "Bounty Pack ready" : "\x07Bounty Pack changed"}: ${body.count} open ${body.count === 1 ? "bounty" : "bounties"}. /reload in game to load it.`);
+    say(`${first ? "Bounty Pack ready" : "Bounty Pack changed"}: ${body.count} open ${body.count === 1 ? "bounty" : "bounties"}. /reload in game to load it.`);
   } catch (e) {
     say(`Couldn't reach the Bounty Board (${e.message}); trying again in a minute.`);
   }

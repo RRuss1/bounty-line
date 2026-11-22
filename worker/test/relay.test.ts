@@ -148,6 +148,14 @@ describe("GET /relay/pack", () => {
     expect(decoded.ok && decoded.fields.bounties.map((b) => b.targetName)).toEqual(["Grimlok Ashveil"]);
 
     expect((await http("/relay/pack", { headers: { "If-None-Match": first.etag! } })).status).toBe(304);
+    // Cloudflare can turn the ETag weak on the way out; it must still match on the way back.
+    expect((await http("/relay/pack", { headers: { "If-None-Match": `W/${first.etag}` } })).status).toBe(304);
+    expect(first.body!.etag).toBe(first.etag);
+    const unchanged = await http("/relay/pack");
+    expect(unchanged.body!.etag).toBe(first.etag); // same bounties, same value, whatever the pack's build time
+    const { relay } = await import("../src/relay");
+    const later = await relay(new Request("https://bounty.test/relay/pack", { headers: { Authorization: `Bearer ${token}` } }), env, NOW + 3600);
+    expect(((await later.json()) as { etag: string }).etag).toBe(first.etag); // an hour on: still the same
     await say(encode("B", bounty({ targetGUID: "Player-4395-0BADF00D", targetName: "Vexa Nightfall", nonce: 2 })), POSTER_USER);
     const second = await http("/relay/pack", { headers: { "If-None-Match": first.etag! } });
     expect(second.status).toBe(200);

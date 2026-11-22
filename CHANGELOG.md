@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.8.1 (unreleased)
+
+- Relay program: no more beep, and it no longer announces a "changed" pack every minute when nothing changed.
+
 ## v0.8.0: screenshot kill claims, relay, pending bounties, menus and sounds
 
 - **Kill code no longer grabs your keyboard mid-fight.** If you are still in combat, **BOUNTY KILLED** flashes for 3 seconds, then a small shimmering Bounty Line square waits on screen. Click it after the fight to open your kill code (drag it to move it).
