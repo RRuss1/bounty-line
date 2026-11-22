@@ -236,9 +236,12 @@ function ns.AddPendingSeason(guild, faction, kind, perKill, total, poster, t)
 end
 
 -- existingId: add gold to that season (Compendium 02 Section 3.5, mode 1): only the amount travels.
-function ns.BuildSeasonCode(snap, kind, perKill, total, days, existingId)
+-- minKills: a prize pool's minimum number of kills (schema 2; nil = none).
+function ns.BuildSeasonCode(snap, kind, perKill, total, days, existingId, minKills)
+  local min = not existingId and kind == ns.SEASON_KIND.pool and minKills or nil
   return ns.Codec.Encode("S", {
-    schema = 1,
+    schema = min and 2 or 1,
+    minKills = min,
     boardTag = ns.BoardTag(),
     guildName = snap.guild or "",
     guildFaction = snap.faction,
@@ -257,8 +260,8 @@ function ns.BuildSeasonCode(snap, kind, perKill, total, days, existingId)
 end
 
 -- Shows the S code for an Open Season on the snapshot's guild (or for gold added to one).
-function ns.PostSeason(snap, kind, perKill, total, days, existingId)
-  local code, err, message = ns.BuildSeasonCode(snap, kind, perKill, total, days, existingId)
+function ns.PostSeason(snap, kind, perKill, total, days, existingId, minKills)
+  local code, err, message = ns.BuildSeasonCode(snap, kind, perKill, total, days, existingId, minKills)
   if not code then return ns.Print(L.CODE_FAILED:format(message or err)) end
   ns.Sound(existingId and "stack" or "create")
   local terms = existingId and ns.FormatGold(total) or ns.SeasonTerms({ kind = kind, perKill = perKill, remaining = total })

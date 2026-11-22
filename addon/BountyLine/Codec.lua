@@ -157,7 +157,7 @@ local SCHEMAS = {
   },
   L = { LAYOUT.L },
   P = { LAYOUT.P, extend(LAYOUT.P, { { "seasons", "list", PACK_SEASON } }) },
-  S = { LAYOUT.S },
+  S = { LAYOUT.S, extend(LAYOUT.S, { { "minKills", "u16" } }) },
 }
 
 local SIZE = { u8 = 1, u16 = 2, u32 = 4 }
@@ -190,14 +190,18 @@ local function crossCheck(codeType, f, strict)
           if per < 1 or total < per then return "PAYLOAD", "a pot must hold at least the price of one kill" end
         elseif f.kind == 2 then
           if per ~= 0 or total < 1 then return "PAYLOAD", "a prize pool has a total and no price per kill" end
+          if f.minKills ~= nil and f.minKills < 1 then return "PAYLOAD", "a prize pool needs a minimum of at least 1 kill" end
         elseif f.kind == 3 then
           if per < 1 or total ~= 0 then return "PAYLOAD", "a no-ceiling season has a price per kill and no total" end
         else
           return "PAYLOAD", "invalid kind"
         end
+        if f.kind ~= 2 and (f.minKills or 0) ~= 0 then return "PAYLOAD", "only a prize pool has a minimum of kills" end
       elseif f.mode == 1 then
         if f.existingSeasonId == 0 then return "PAYLOAD", "existingSeasonId is required to add gold" end
-        if f.kind ~= 0 or per ~= 0 or f.days ~= 0 or total < 1 then return "PAYLOAD", "adding gold carries only the amount" end
+        if f.kind ~= 0 or per ~= 0 or f.days ~= 0 or (f.minKills or 0) ~= 0 or total < 1 then
+          return "PAYLOAD", "adding gold carries only the amount"
+        end
       else
         return "PAYLOAD", "invalid mode"
       end

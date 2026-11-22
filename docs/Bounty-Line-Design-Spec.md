@@ -413,10 +413,10 @@ Rules:
 
 An **Open Season** puts a price on every member of one enemy guild. Many hunters make many kills, so it differs from a normal bounty in cost, payment and abuse rules. Decided with Rich on 2026-11-22.
 
-- **Declaring.** Right-click an enemy player → **Set Bounty**. The window offers **This player** or **Their guild: <Guild>**. The guild name comes from the game (`GetGuildInfo`, Section 23 item 27) and is never typed. Any member may declare one. One Open Season per enemy guild at a time.
+- **Declaring.** Right-click an enemy player → **Set Bounty**. The window offers **This player** or **Their guild: <Guild>**; for a guild, the kind and the length are two stacks of tick boxes (one tick each) with the gold fields below, and the window glows guild green. The guild name comes from the game (`GetGuildInfo`, Section 23 item 27) and is never typed. Any member may declare one. One Open Season per enemy guild at a time.
 - **Three kinds**, picked at creation:
   1. **Per head + pot:** a price per kill and a total pot. It closes when the pot is spent or the time is up. The last kill takes whatever is left.
-  2. **Prize pool:** one total, shared by kill count when it closes (each share rounded down).
+  2. **Prize pool:** one total, shared by kill count when it closes (each share rounded down). The poster sets a **minimum number of kills** for the whole season: if it isn't reached, nobody is paid and the funders keep their gold, so one lucky kill can't take the pool.
   3. **Per head, no ceiling:** a price per kill until the time is up. The window shows that the bill has no limit.
 - **Length:** 7, 14 or 28 days. The one who declared it, or an officer, can end it early with `/bl season action: end`; kills so far are still paid.
 - **Gold:** every amount is typed by hand. The price per kill, the pot and the pool each stay within the server's reward limits. Others can add gold to a pot or a pool ("Add to Open Season…", the same switch as stacking); the total can't pass the reward maximum. A no-ceiling season has one funder.

@@ -65,7 +65,7 @@ Enums:
 
 Every payload starts with **`u8 schema`**. Schema `0` is invalid. For a **newer** schema than the reader knows, it reads the fields it knows and ignores trailing bytes (forward compatibility). For a schema it knows, trailing bytes are an error, so every code has exactly one valid form (needed for duplicate detection).
 
-**Schemas are per code type.** `B`, `L` and `S` have schema 1. `K` and `P` have schemas 1 and 2: schema 2 is schema 1 with fields appended (Open Season, Sections 3.2 and 3.3). A writer uses schema 1 unless it needs the appended fields, so codes for ordinary bounties are unchanged and older addons keep reading packs.
+**Schemas are per code type.** `B` and `L` have schema 1. `K`, `P` and `S` have schemas 1 and 2: schema 2 is schema 1 with fields appended (Open Season, Sections 3.2 and 3.3). A writer uses schema 1 unless it needs the appended fields, so codes for ordinary bounties are unchanged and older addons keep reading packs.
 
 ### 3.1 `B`: bounty post (addon → Discord)
 | # | Field | Type |
@@ -192,6 +192,8 @@ Declares a bounty on every member of an enemy guild, or adds gold to one (design
 | 13 | nonce | u16 |
 | 14 | mode | u8: `0` new season, `1` add gold to an existing one |
 | 15 | existingSeasonId | u32 (0 when mode=0) |
+
+**Schema 2** appends `minKills` (u16): a prize pool (kind 2) pays out only if the season reaches that many approved kills in total, so one lucky kill can't take the whole pool. It must be ≥ 1 for a prize pool and `0` for every other kind and for adding gold. Writers use schema 2 only when `minKills` is set; schema 1 codes mean "no minimum".
 
 **Validation (both sides):** guildFaction ≠ posterFaction. For `mode = 0`: kind 1 needs `perKillGold ≥ 1` and `totalGold ≥ perKillGold`; kind 2 needs `perKillGold = 0` and `totalGold ≥ 1`; kind 3 needs `perKillGold ≥ 1` and `totalGold = 0`. For `mode = 1`: `kind`, `perKillGold` and `days` are `0`, `totalGold ≥ 1` is the gold added, and `existingSeasonId ≠ 0`. The Worker also applies the tenant reward limits to `perKillGold` and `totalGold`.
 

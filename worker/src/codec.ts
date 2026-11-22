@@ -99,6 +99,8 @@ export interface SeasonPost {
   /** 0 = new season, 1 = add gold to an existing one */
   mode: number;
   existingSeasonId: number;
+  /** Schema 2 only: a prize pool pays out only if the season reaches this many kills (0 = none). */
+  minKills?: number;
 }
 
 export interface PackSeason {
@@ -282,7 +284,7 @@ export const SCHEMAS: Readonly<Record<CodeType, readonly (readonly Field[])[]>> 
   K: [LAYOUT.K, [...LAYOUT.K, ["seasonId", "u32"], ["victimName", "vstr", 255], ["guildName", "vstr", 255], ["guildSeen", "u8"]]],
   L: [LAYOUT.L],
   P: [LAYOUT.P, [...LAYOUT.P, ["seasons", "list", PACK_SEASON]]],
-  S: [LAYOUT.S],
+  S: [LAYOUT.S, [...LAYOUT.S, ["minKills", "u16"]]],
 };
 
 const isCodeType = (t: string): t is CodeType => t === "B" || t === "K" || t === "P" || t === "L" || t === "S";
@@ -319,12 +321,14 @@ function crossCheck(type: CodeType, f: Record<string, unknown>, strict: boolean)
           if (per < 1 || total < per) return ["PAYLOAD", "a pot must hold at least the price of one kill"];
         } else if (f.kind === 2) {
           if (per !== 0 || total < 1) return ["PAYLOAD", "a prize pool has a total and no price per kill"];
+          if (f.minKills !== undefined && (f.minKills as number) < 1) return ["PAYLOAD", "a prize pool needs a minimum of at least 1 kill"];
         } else if (f.kind === 3) {
           if (per < 1 || total !== 0) return ["PAYLOAD", "a no-ceiling season has a price per kill and no total"];
         } else return ["PAYLOAD", "invalid kind"];
+        if (f.kind !== 2 && (f.minKills ?? 0) !== 0) return ["PAYLOAD", "only a prize pool has a minimum of kills"];
       } else if (f.mode === 1) {
         if (f.existingSeasonId === 0) return ["PAYLOAD", "existingSeasonId is required to add gold"];
-        if (f.kind !== 0 || per !== 0 || f.days !== 0 || total < 1) return ["PAYLOAD", "adding gold carries only the amount"];
+        if (f.kind !== 0 || per !== 0 || f.days !== 0 || (f.minKills ?? 0) !== 0 || total < 1) return ["PAYLOAD", "adding gold carries only the amount"];
       } else return ["PAYLOAD", "invalid mode"];
     }
   }

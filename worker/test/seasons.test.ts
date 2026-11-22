@@ -337,6 +337,28 @@ describe("closing and paying", () => {
     expect(JSON.parse(String(payouts[1]!.payers_json)).map((p: { id: string; gold: number }) => [p.id, p.gold])).toEqual([[FUNDER2_USER, 66]]);
   });
 
+  it("prize pool with a minimum: short of it, nobody is paid; reached, it pays as usual", async () => {
+    await say(encode("S", season({ schema: 2, kind: 2, perKillGold: 0, totalGold: 100, minKills: 3 })));
+    expect(seasonRow()).toMatchObject({ min_kills: 3 });
+    const post = discord.find("POST", new RegExp(`/channels/${ids.forum}/threads$`)).at(-1)!;
+    expect(JSON.stringify(post.body)).toContain("paid only if it reaches **3 kills**");
+    await approvedKill({ victimGUID: victims[0]! });
+    await approvedKill({ victimGUID: victims[1]! });
+    now = NOW + 7 * DAY + 60;
+    await expirySweep(env, new DiscordRest("t"), now);
+    expect(seasonRow().status).toBe("expired");
+    expect(rows("SELECT * FROM season_payouts")).toHaveLength(0);
+    expect(threadPosts().at(-1)).toContain("needed **3 kills** to pay out and got **2**");
+  });
+
+  it("prize pool that reaches its minimum pays out", async () => {
+    await say(encode("S", season({ schema: 2, kind: 2, perKillGold: 0, totalGold: 90, minKills: 3 })));
+    for (const v of victims.slice(0, 3)) await approvedKill({ victimGUID: v });
+    now = NOW + 7 * DAY + 60;
+    await expirySweep(env, new DiscordRest("t"), now);
+    expect(rows("SELECT hunter_discord_id, kills, gold FROM season_payouts")).toEqual([{ hunter_discord_id: HUNTER_USER, kills: 3, gold: 90 }]);
+  });
+
   it("per head, no ceiling: every kill pays, the bill is whatever it reaches at the end", async () => {
     await say(encode("S", season({ kind: 3, perKillGold: 30, totalGold: 0, days: 14 })));
     for (const v of victims) await approvedKill({ victimGUID: v });

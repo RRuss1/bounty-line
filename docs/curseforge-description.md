@@ -18,7 +18,7 @@
 Put a price on **every member of an enemy guild**. Right-click one of them → **Set Bounty…** and pick **Their guild** instead of **This player**. You choose:
 
 - **Per head + pot:** a price per kill and a total pot. It closes when the pot is spent.
-- **Prize pool:** one total, shared between the hunters by kill count when it closes.
+- **Prize pool:** one total, shared between the hunters by kill count when it closes. You set a **minimum number of kills**: if the season doesn't reach it, nobody is paid, so one lucky kill can't take the pool.
 - **Per head, no ceiling:** a price per kill until the time is up. Your bill has no limit, and the window warns you.
 
 It runs **7, 14 or 28 days**. That guild's members get the skull and an **OPEN SEASON** tooltip line, and a killing blow on one makes the usual kill screenshot. The same player counts **once a day per hunter**. Nobody is paid kill by kill: when the season closes, the Bounty Board posts **one payout sheet** with a line per hunter. Guildies can add gold to a pot or a pool.
