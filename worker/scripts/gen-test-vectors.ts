@@ -27,6 +27,7 @@ import {
   type CharacterLink,
   type CodeType,
   type KillClaim,
+  type SeasonPost,
 } from "../src/codec";
 
 const OUT = fileURLToPath(new URL("../../shared/test-vectors.json", import.meta.url));
@@ -129,6 +130,32 @@ const kRawGuids: KillClaim = {
   killerGUID: "Player-70000-0a1b2c3d", // server id over 16 bits, lowercase hex
 };
 
+// Open Season kills (K schema 2): season id, victim name, and whether the addon saw the guild.
+const kSeason: KillClaim = { ...kBasic, schema: 2, bountyId: 0, seasonId: 7, victimName: "Gaulli Gorestride", guildSeen: 1 };
+const kSeasonAndBounty: KillClaim = { ...kBasic, schema: 2, seasonId: 7, victimName: "Grimlok Ashveil", guildSeen: 1 };
+const kGuildUnknown: KillClaim = { ...kPet, schema: 2, bountyId: 0, seasonId: 0, victimName: "Zoë Brightblade", guildSeen: 0, flags: 1 };
+
+const sPot: SeasonPost = {
+  schema: 1,
+  boardTag: "K7QF",
+  guildName: "Honor and Valor",
+  guildFaction: 1,
+  posterFaction: 2,
+  kind: 1,
+  perKillGold: 25,
+  totalGold: 2000,
+  days: 7,
+  posterGUID: "Player-4395-00FFEE11",
+  posterName: "Slac Jaw",
+  createdAt: 1795200000,
+  nonce: 4242,
+  mode: 0,
+  existingSeasonId: 0,
+};
+const sPool: SeasonPost = { ...sPot, boardTag: "0000", guildName: "Les Chasseurs ⚔", guildFaction: 2, posterFaction: 1, kind: 2, perKillGold: 0, totalGold: 10000, days: 28, nonce: 0 };
+const sOpen: SeasonPost = { ...sPot, kind: 3, perKillGold: 50, totalGold: 0, days: 14, nonce: 65535 };
+const sAddGold: SeasonPost = { ...sPot, kind: 0, perKillGold: 0, totalGold: 500, days: 0, posterName: "Ælfric Stormcrow", mode: 1, existingSeasonId: 7 };
+
 const lBasic: CharacterLink = {
   schema: 1,
   boardTag: "K7QF",
@@ -163,6 +190,19 @@ const packThree: BountyPack = {
   ],
 };
 
+// Schema 2: the same pack with open seasons after the bounties.
+const packSeasons: BountyPack = {
+  ...packThree,
+  schema: 2,
+  packVersion: 1795300999,
+  seasons: [
+    { seasonId: 7, guildName: "Honor and Valor", guildFaction: 1, kind: 1, perKillGold: 25, remainingGold: 1875, posterName: "Slac Jaw", expiresAt: 1795804800 },
+    { seasonId: 8, guildName: "Les Chasseurs ⚔", guildFaction: 2, kind: 2, perKillGold: 0, remainingGold: 10000, posterName: "Hunter McHunterface", expiresAt: 1797619200 },
+    { seasonId: 9, guildName: "Dawnbreakers", guildFaction: 1, kind: 3, perKillGold: 50, remainingGold: 0, posterName: "Ælfric Stormcrow", expiresAt: 1796409600 },
+  ],
+};
+const packSeasonsOnly: BountyPack = { ...packEmpty, schema: 2, packVersion: 1795301000, seasons: [packSeasons.seasons![0]!] };
+
 // Big enough that Adler-32's running sums wrap past 65521.
 let seed = 12345;
 const rand = (n: number) => (seed = (seed * 48271) % 2147483647) % n; // MINSTD, exact in doubles
@@ -194,6 +234,15 @@ const codes = [
   { name: "P empty pack", type: "P", fields: packEmpty },
   { name: "P three bounties", type: "P", fields: packThree },
   { name: "P 25 bounties", type: "P", fields: packMany },
+  { name: "K2 season kill", type: "K", fields: kSeason },
+  { name: "K2 season kill that is also a personal bounty", type: "K", fields: kSeasonAndBounty },
+  { name: "K2 guild not seen", type: "K", fields: kGuildUnknown },
+  { name: "S per head + pot", type: "S", fields: sPot },
+  { name: "S prize pool, unicode, no board tag", type: "S", fields: sPool },
+  { name: "S per head, no ceiling", type: "S", fields: sOpen },
+  { name: "S add gold to a season", type: "S", fields: sAddGold },
+  { name: "P2 bounties and seasons", type: "P", fields: packSeasons },
+  { name: "P2 seasons only", type: "P", fields: packSeasonsOnly },
 ].map((v) => {
   const code = v.type === "P" ? encodePack(v.fields as BountyPack) : [encode(v.type as CodeType, v.fields)];
   assert(code.length === 1, `${v.name} should be a single code`);
@@ -205,15 +254,34 @@ const code = (name: string) => codes.find((c) => c.name === name)!.code;
 
 // ---------------------------------------------------------------- forward compatibility (newer schema)
 
-const futureK = _unsafe.wrapBytes("K", [..._unsafe.payload("K", { ...kBasic, schema: 2, flags: 7 }), 0xde, 0xad, 0xbe, 0xef]);
+// K schema 2 is now a real schema (Open Season), so "a newer schema" is 3 for K and P, 2 for S.
+const futureK = _unsafe.wrapBytes("K", [..._unsafe.payload("K", { ...kSeason, schema: 3, flags: 7, guildSeen: 9 }), 0xde, 0xad, 0xbe, 0xef]);
+const futureS = _unsafe.wrapBytes("S", [..._unsafe.payload("S", { ...sPot, schema: 2, kind: 9, days: 3 }), 0x01]);
+const futureP = _unsafe.wrapBytes("P", _unsafe.packBytes([..._unsafe.payload("P", { ...packSeasons, schema: 3 }), 0x00, 0x2a]));
 const forwardCompat = [
   {
-    name: "K schema 2 with appended fields and new flag bit: known fields read, rest ignored",
+    name: "K schema 3 with appended fields and new values: known fields read, rest ignored",
     code: futureK,
     type: "K",
-    fields: { ...kBasic, schema: 2, flags: 7 },
+    fields: { ...kSeason, schema: 3, flags: 7, guildSeen: 9 },
+  },
+  {
+    name: "S schema 2 with an appended field and new kind: known fields read, rest ignored",
+    code: futureS,
+    type: "S",
+    fields: { ...sPot, schema: 2, kind: 9, days: 3 },
+  },
+  {
+    name: "P schema 3 with appended data: known fields read, rest ignored",
+    code: futureP,
+    type: "P",
+    fields: { ...packSeasons, schema: 3 },
   },
 ];
+for (const v of forwardCompat) {
+  const r = decode(v.code);
+  assert(r.ok && JSON.stringify(r.fields) === JSON.stringify(v.fields), `forward compat "${v.name}" does not decode`);
+}
 
 // ---------------------------------------------------------------- normalization
 
@@ -247,6 +315,8 @@ const cStart = base.lastIndexOf("-") + 1;
 const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
 const wrapB = (f: object) => _unsafe.wrapBytes("B", _unsafe.payload("B", { ...bBasic, ...f }));
 const wrapK = (f: object) => _unsafe.wrapBytes("K", _unsafe.payload("K", { ...kBasic, ...f }));
+const wrapK2 = (f: object) => _unsafe.wrapBytes("K", _unsafe.payload("K", { ...kSeason, ...f }));
+const wrapS = (f: object) => _unsafe.wrapBytes("S", _unsafe.payload("S", { ...sPot, ...f }));
 const wrapPackBody = (bytes: number[]) => _unsafe.wrapBytes("P", bytes);
 const packBody = (f: object) => _unsafe.payload("P", { ...packThree, ...f });
 
@@ -337,6 +407,29 @@ const invalid: { name: string; code: string; error: string }[] = [
   { name: "pack with a bad zlib header", code: wrapPackBody([0x78, 0x00, ...goodPack.slice(2)]), error: "PAYLOAD" },
   { name: "pack with a bad Adler-32", code: wrapPackBody([...goodPack.slice(0, -1), goodPack.at(-1)! ^ 1]), error: "PAYLOAD" },
   { name: "pack with corrupt deflate data", code: wrapPackBody([...goodPack.slice(0, 2), 0xff, 0xff, 0xff, 0xff, ...goodPack.slice(-4)]), error: "PAYLOAD" },
+  // Open Season
+  { name: "S same faction", code: wrapS({ guildFaction: 2 }), error: "FACTION" },
+  { name: "S faction 0", code: wrapS({ guildFaction: 0 }), error: "FACTION" },
+  { name: "S kind 0 on a new season", code: wrapS({ kind: 0 }), error: "PAYLOAD" },
+  { name: "S kind 4", code: wrapS({ kind: 4 }), error: "PAYLOAD" },
+  { name: "S 10 days", code: wrapS({ days: 10 }), error: "PAYLOAD" },
+  { name: "S pot smaller than one kill", code: wrapS({ perKillGold: 50, totalGold: 49 }), error: "PAYLOAD" },
+  { name: "S pot with no price per kill", code: wrapS({ perKillGold: 0 }), error: "PAYLOAD" },
+  { name: "S prize pool with a price per kill", code: wrapS({ kind: 2 }), error: "PAYLOAD" },
+  { name: "S no-ceiling with a total", code: wrapS({ kind: 3 }), error: "PAYLOAD" },
+  { name: "S empty guild name", code: wrapS({ guildName: "" }), error: "PAYLOAD" },
+  { name: "S new season with an existing id", code: wrapS({ existingSeasonId: 7 }), error: "PAYLOAD" },
+  { name: "S add gold with no season id", code: wrapS({ ...sAddGold, existingSeasonId: 0 }), error: "PAYLOAD" },
+  { name: "S add gold that sets a kind", code: wrapS({ ...sAddGold, kind: 1 }), error: "PAYLOAD" },
+  { name: "S add gold of 0", code: wrapS({ ...sAddGold, totalGold: 0 }), error: "PAYLOAD" },
+  { name: "S mode 2", code: wrapS({ mode: 2 }), error: "PAYLOAD" },
+  { name: "S trailing byte", code: _unsafe.wrapBytes("S", [..._unsafe.payload("S", sPot), 0]), error: "PAYLOAD" },
+  { name: "K2 guildSeen 2", code: wrapK2({ guildSeen: 2 }), error: "PAYLOAD" },
+  { name: "K2 unknown flag bit", code: wrapK2({ flags: 4 }), error: "PAYLOAD" },
+  { name: "K2 trailing byte", code: _unsafe.wrapBytes("K", [..._unsafe.payload("K", kSeason), 0]), error: "PAYLOAD" },
+  { name: "K2 cut off after the schema 1 fields", code: _unsafe.wrapBytes("K", [2, ..._unsafe.payload("K", kBasic).slice(1)]), error: "PAYLOAD" },
+  { name: "K1 with schema 2 fields appended", code: _unsafe.wrapBytes("K", [1, ..._unsafe.payload("K", kSeason).slice(1)]), error: "PAYLOAD" },
+  { name: "pack season with faction 3", code: wrapPackBody(_unsafe.packBytes(_unsafe.payload("P", { ...packSeasons, seasons: [{ ...packSeasons.seasons![0]!, guildFaction: 3 }] }))), error: "FACTION" },
   { name: "pack count larger than contents", code: wrapPackBody(_unsafe.packBytes([...packBody({ bounties: [] }).slice(0, -2), 0, 5])), error: "PAYLOAD" },
 ];
 for (const v of invalid) {
@@ -408,6 +501,16 @@ const encodeErrors: { name: string; type: string; fields: unknown }[] = [
   { name: "empty GUID", type: "K", fields: { ...kBasic, victimGUID: "" } },
   { name: "GUID over 255 bytes (never truncated)", type: "K", fields: { ...kBasic, victimGUID: "Creature-" + "9".repeat(250) } },
   { name: "L faction 0", type: "L", fields: { ...lBasic, faction: 0 } },
+  { name: "K schema 3", type: "K", fields: { ...kSeason, schema: 3 } },
+  { name: "K schema 2 without a victim name", type: "K", fields: { ...kSeason, victimName: undefined } },
+  { name: "K schema 2 guildSeen 2", type: "K", fields: { ...kSeason, guildSeen: 2 } },
+  { name: "S schema 2", type: "S", fields: { ...sPot, schema: 2 } },
+  { name: "S same faction", type: "S", fields: { ...sPot, posterFaction: 1 } },
+  { name: "S 30 days", type: "S", fields: { ...sPot, days: 30 } },
+  { name: "S kind 4", type: "S", fields: { ...sPot, kind: 4 } },
+  { name: "S pot smaller than one kill", type: "S", fields: { ...sPot, totalGold: 24 } },
+  { name: "S empty guild name", type: "S", fields: { ...sPot, guildName: "" } },
+  { name: "S add gold that sets days", type: "S", fields: { ...sAddGold, days: 7 } },
 ];
 for (const v of encodeErrors) {
   let threw = false;

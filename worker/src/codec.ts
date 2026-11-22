@@ -8,6 +8,7 @@
 import { deflateSync, inflateSync } from "fflate";
 
 export const PREFIX = "BL1";
+/** The first schema of every code type. K and P also have a schema 2 (Open Season): see SCHEMAS. */
 export const SCHEMA = 1;
 export const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 /** Longest single code the bot posts; longer packs are split into parts. */
@@ -18,7 +19,7 @@ const MAX_PACK_BYTES = 262144;
 
 export const FACTION = { Alliance: 1, Horde: 2 } as const;
 
-export type CodeType = "B" | "K" | "P" | "L";
+export type CodeType = "B" | "K" | "P" | "L" | "S";
 export type ErrorCode =
   | "FORMAT"
   | "VERSION"
@@ -65,6 +66,49 @@ export interface KillClaim {
   /** bit0 honorCorroborated, bit1 petKill */
   flags: number;
   nonce: number;
+  /** Schema 2 (Open Season kills) only. 0 = no season matched. */
+  seasonId?: number;
+  victimName?: string;
+  /** 1 = the addon saw the victim in the season's guild; 0 = guild unknown, officers decide. */
+  guildSeen?: number;
+}
+
+export const SEASON_KIND = { pot: 1, pool: 2, open: 3 } as const;
+export const SEASON_DAYS = [7, 14, 28] as const;
+
+/** S: declares an Open Season on an enemy guild, or adds gold to one (mode 1). */
+export interface SeasonPost {
+  schema: number;
+  boardTag: string;
+  guildName: string;
+  guildFaction: number;
+  posterFaction: number;
+  /** 1 per head + pot, 2 prize pool, 3 per head with no ceiling. 0 when mode = 1. */
+  kind: number;
+  perKillGold: number;
+  /** The pot (kind 1), the pool (kind 2), 0 (kind 3), or the gold added (mode 1). */
+  totalGold: number;
+  /** 7, 14 or 28. 0 when mode = 1. */
+  days: number;
+  posterGUID: string;
+  posterName: string;
+  createdAt: number;
+  nonce: number;
+  /** 0 = new season, 1 = add gold to an existing one */
+  mode: number;
+  existingSeasonId: number;
+}
+
+export interface PackSeason {
+  seasonId: number;
+  guildName: string;
+  guildFaction: number;
+  kind: number;
+  perKillGold: number;
+  /** Pot left (kind 1), the whole pool (kind 2), 0 (kind 3). */
+  remainingGold: number;
+  posterName: string;
+  expiresAt: number;
 }
 
 export interface CharacterLink {
@@ -98,12 +142,15 @@ export interface BountyPack {
   rewardMin: number;
   rewardMax: number;
   bounties: PackEntry[];
+  /** Schema 2 only: open seasons. */
+  seasons?: PackSeason[];
 }
 
 export type Decoded =
   | { type: "B"; fields: BountyPost }
   | { type: "K"; fields: KillClaim }
   | { type: "L"; fields: CharacterLink }
+  | { type: "S"; fields: SeasonPost }
   | { type: "P"; fields: BountyPack };
 
 export type DecodeResult = ({ ok: true; code: string } & Decoded) | { ok: false; error: ErrorCode; message: string };
@@ -145,8 +192,18 @@ const PACK_ENTRY: readonly Field[] = [
   ["expiresAt", "u32"],
 ];
 
-/** Field layouts after the leading `u8 schema` byte (Compendium 02 Section 3). */
-export const SCHEMAS: Readonly<Record<CodeType, readonly Field[]>> = {
+const PACK_SEASON: readonly Field[] = [
+  ["seasonId", "u32"],
+  ["guildName", "vstr", 255],
+  ["guildFaction", "faction"],
+  ["kind", "u8"],
+  ["perKillGold", "u32"],
+  ["remainingGold", "u32"],
+  ["posterName", "vstr", 255],
+  ["expiresAt", "u32"],
+];
+
+const LAYOUT: Readonly<Record<CodeType, readonly Field[]>> = {
   B: [
     ["boardTag", "tag"],
     ["targetGUID", "guid"],
@@ -196,9 +253,37 @@ export const SCHEMAS: Readonly<Record<CodeType, readonly Field[]>> = {
     ["rewardMax", "u32"],
     ["bounties", "list", PACK_ENTRY],
   ],
+  S: [
+    ["boardTag", "tag"],
+    ["guildName", "vstr", 255],
+    ["guildFaction", "faction"],
+    ["posterFaction", "faction"],
+    ["kind", "u8"],
+    ["perKillGold", "u32"],
+    ["totalGold", "u32"],
+    ["days", "u8"],
+    ["posterGUID", "guid"],
+    ["posterName", "vstr", 255],
+    ["createdAt", "u32"],
+    ["nonce", "u16"],
+    ["mode", "u8"],
+    ["existingSeasonId", "u32"],
+  ],
 };
 
-const isCodeType = (t: string): t is CodeType => t === "B" || t === "K" || t === "P" || t === "L";
+/**
+ * Field layouts after the leading `u8 schema` byte (Compendium 02 Section 3), one per schema:
+ * SCHEMAS.K[0] is K schema 1, SCHEMAS.K[1] is K schema 2. A later schema only appends fields.
+ */
+export const SCHEMAS: Readonly<Record<CodeType, readonly (readonly Field[])[]>> = {
+  B: [LAYOUT.B],
+  K: [LAYOUT.K, [...LAYOUT.K, ["seasonId", "u32"], ["victimName", "vstr", 255], ["guildSeen", "u8"]]],
+  L: [LAYOUT.L],
+  P: [LAYOUT.P, [...LAYOUT.P, ["seasons", "list", PACK_SEASON]]],
+  S: [LAYOUT.S],
+};
+
+const isCodeType = (t: string): t is CodeType => t === "B" || t === "K" || t === "P" || t === "L" || t === "S";
 const MAX: Record<"u8" | "u16" | "u32", number> = { u8: 0xff, u16: 0xffff, u32: 0xffffffff };
 
 /**
@@ -216,8 +301,30 @@ function crossCheck(type: CodeType, f: Record<string, unknown>, strict: boolean)
     }
   } else if (type === "K") {
     if (strict && (f.flags as number) > 3) return ["PAYLOAD", "unknown flag bits"];
+    if (strict && f.guildSeen !== undefined && f.guildSeen !== 0 && f.guildSeen !== 1) return ["PAYLOAD", "invalid guildSeen"];
   } else if (type === "P") {
     if ((f.rewardMin as number) > (f.rewardMax as number)) return ["PAYLOAD", "rewardMin is above rewardMax"];
+  } else if (type === "S") {
+    if (f.guildFaction === f.posterFaction) return ["FACTION", "an Open Season must be on the opposite faction"];
+    if (strict) {
+      const per = f.perKillGold as number;
+      const total = f.totalGold as number;
+      if (f.guildName === "") return ["PAYLOAD", "guildName is empty"];
+      if (f.mode === 0) {
+        if (f.existingSeasonId !== 0) return ["PAYLOAD", "existingSeasonId must be 0 for a new season"];
+        if (f.days !== 7 && f.days !== 14 && f.days !== 28) return ["PAYLOAD", "days must be 7, 14 or 28"];
+        if (f.kind === 1) {
+          if (per < 1 || total < per) return ["PAYLOAD", "a pot must hold at least the price of one kill"];
+        } else if (f.kind === 2) {
+          if (per !== 0 || total < 1) return ["PAYLOAD", "a prize pool has a total and no price per kill"];
+        } else if (f.kind === 3) {
+          if (per < 1 || total !== 0) return ["PAYLOAD", "a no-ceiling season has a price per kill and no total"];
+        } else return ["PAYLOAD", "invalid kind"];
+      } else if (f.mode === 1) {
+        if (f.existingSeasonId === 0) return ["PAYLOAD", "existingSeasonId is required to add gold"];
+        if (f.kind !== 0 || per !== 0 || f.days !== 0 || total < 1) return ["PAYLOAD", "adding gold carries only the amount"];
+      } else return ["PAYLOAD", "invalid mode"];
+    }
   }
   return null;
 }
@@ -551,10 +658,13 @@ function readFields(r: Reader, fields: readonly Field[]): Record<string, unknown
 function writePayload(type: CodeType, fields: unknown, raw = false): number[] {
   const rec = (fields ?? {}) as Record<string, unknown>;
   const schema = rec.schema ?? SCHEMA;
-  if (!raw && schema !== SCHEMA) fail("INVALID", `schema must be ${SCHEMA}`);
+  const layouts = SCHEMAS[type];
+  const known = typeof schema === "number" ? layouts[schema - 1] : undefined;
+  if (!raw && !known) fail("INVALID", `schema must be 1 to ${layouts.length}`);
   const w = new Writer();
   w.uint(checkUint(schema, "schema", 0xff), 1);
-  writeFields(w, SCHEMAS[type], fields, "", raw);
+  // raw mode with an unknown schema (vector crafting): the newest layout.
+  writeFields(w, known ?? layouts.at(-1)!, fields, "", raw);
   if (!raw) {
     const bad = crossCheck(type, rec, true);
     if (bad) fail("INVALID", bad[1]);
@@ -567,8 +677,9 @@ function readPayload(type: CodeType, bytes: readonly number[]): Record<string, u
   const schema = r.uint(1);
   if (schema === 0) fail("SCHEMA", "unknown schema 0");
   // A newer schema appends fields: read the ones we know, ignore the rest (Compendium 01 Section 5.2).
-  const strict = schema === SCHEMA;
-  const fields = { schema, ...readFields(r, SCHEMAS[type]) };
+  const layouts = SCHEMAS[type];
+  const strict = schema <= layouts.length;
+  const fields = { schema, ...readFields(r, layouts[Math.min(schema, layouts.length) - 1]!) };
   const bad = crossCheck(type, fields, strict);
   if (bad) fail(bad[0], bad[1]);
   if (strict && !r.done) fail("PAYLOAD", "unexpected trailing bytes");
@@ -672,10 +783,11 @@ function catchResult<T>(fn: () => T): T | { ok: false; error: ErrorCode; message
 
 // ---------------------------------------------------------------- public API
 
-/** Encodes a B, K or L code. Throws CodecError("INVALID") if the fields don't fit. */
+/** Encodes a B, K, L or S code. Throws CodecError("INVALID") if the fields don't fit. */
 export function encode(type: "B", fields: BountyPost): string;
 export function encode(type: "K", fields: KillClaim): string;
 export function encode(type: "L", fields: CharacterLink): string;
+export function encode(type: "S", fields: SeasonPost): string;
 export function encode(type: CodeType, fields: unknown): string;
 export function encode(type: CodeType, fields: unknown): string {
   if (type === "P") fail("INVALID", "use encodePack for packs");
