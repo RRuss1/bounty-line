@@ -26,7 +26,7 @@ read_globals = {
   "UnitExists", "UnitGUID", "UnitName", "UnitFullName", "GetUnitName", "UnitIsPlayer", "UnitIsUnit",
   "UnitFactionGroup", "UnitClass", "UnitRace", "UnitLevel", "issecretvalue", "UnitPVPName", "UnitNameUnmodified", "C_TooltipInfo",
   -- world & client
-  "C_Map", "GetGuildInfo", "GetServerTime", "GetBuildInfo", "WOW_PROJECT_ID", "InCombatLockdown",
+  "C_Map", "GetGuildInfo", "GetServerTime", "GetBuildInfo", "WOW_PROJECT_ID", "InCombatLockdown", "IsInInstance",
   -- hunting & kills
   "C_NamePlate", "TooltipDataProcessor", "Enum", "RaidNotice_AddMessage", "RaidWarningFrame", "ChatTypeInfo",
   "C_Timer", "Screenshot", "GetTime", "date", "GetPhysicalScreenSize",
