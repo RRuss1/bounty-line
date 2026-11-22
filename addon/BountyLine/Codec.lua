@@ -151,7 +151,10 @@ end
 -- SCHEMAS.K[1] is K schema 1, SCHEMAS.K[2] is K schema 2. A later schema only appends fields.
 local SCHEMAS = {
   B = { LAYOUT.B },
-  K = { LAYOUT.K, extend(LAYOUT.K, { { "seasonId", "u32" }, { "victimName", "vstr", 255 }, { "guildSeen", "u8" } }) },
+  K = {
+    LAYOUT.K,
+    extend(LAYOUT.K, { { "seasonId", "u32" }, { "victimName", "vstr", 255 }, { "guildName", "vstr", 255 }, { "guildSeen", "u8" } }),
+  },
   L = { LAYOUT.L },
   P = { LAYOUT.P, extend(LAYOUT.P, { { "seasons", "list", PACK_SEASON } }) },
   S = { LAYOUT.S },

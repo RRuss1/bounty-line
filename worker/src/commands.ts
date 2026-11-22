@@ -96,6 +96,7 @@ export const COMMANDS = [
             choices: [
               { name: "list: show the Open Seasons that are running", value: "list" },
               { name: "end: close one early (kills so far are still paid)", value: "end" },
+              { name: "close: officers finish a stuck one (waiting claims denied, open lines marked paid)", value: "close" },
             ],
           },
           { type: OptionType.INTEGER, name: "id", description: "Season number (for end)", min_value: 1 },

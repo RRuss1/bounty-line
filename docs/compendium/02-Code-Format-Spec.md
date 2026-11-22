@@ -116,7 +116,8 @@ No victim name: the Worker already has it on the bounty (matched by `victimGUID`
 |---|---|---|
 | 12 | seasonId | u32: the Open Season the victim's guild is under; `0` = none matched |
 | 13 | victimName | vstr: the Worker has no bounty row to take it from |
-| 14 | guildSeen | u8: `1` the addon saw the victim in that guild; `0` guild unknown (officer review) |
+| 14 | guildName | vstr: the victim's guild as the addon saw it, `""` if never seen. The Worker finds the open season by it, so a kill made before the season had a number (declared moments ago) or with an old number still lands on the right season |
+| 15 | guildSeen | u8: `1` the addon saw the victim in that guild; `0` guild unknown (officer review) |
 
 `bountyId` and `seasonId` may both be set: the victim has a personal bounty and is in a guild under Open Season, and one code claims both. Both `0` with `guildSeen = 0` is a kill of an enemy whose guild the addon never saw while a season was open.
 

@@ -195,6 +195,15 @@ export async function forgetMe(env: Env, tenant: Tenant, user: string, now: numb
     .bind(tenant.id, user)
     .all<{ id: number; image_r2_key: string }>();
   shots.push(...seasonShots);
+  const { results: lines } = await env.DB.prepare(
+    `SELECT id, payers_json FROM season_payouts WHERE tenant_id = ?1 AND season_id IN ${done} AND payers_json LIKE ?2`,
+  )
+    .bind(tenant.id, `%"${user}"%`)
+    .all<{ id: number; payers_json: string }>();
+  for (const line of lines) {
+    const payers = (JSON.parse(line.payers_json) as { id: string; name: string }[]).map((p) => (p.id === user ? { ...p, id: "", name: "" } : p));
+    await env.DB.prepare("UPDATE season_payouts SET payers_json = ?1 WHERE id = ?2").bind(JSON.stringify(payers), line.id).run();
+  }
   for (const s of shots) await env.PROOFS.delete(s.image_r2_key);
   await env.DB.batch([
     env.DB.prepare(

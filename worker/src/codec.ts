@@ -69,6 +69,8 @@ export interface KillClaim {
   /** Schema 2 (Open Season kills) only. 0 = no season matched. */
   seasonId?: number;
   victimName?: string;
+  /** The victim's guild as the addon saw it; "" when it never saw it. The Bounty Board finds the season by it. */
+  guildName?: string;
   /** 1 = the addon saw the victim in the season's guild; 0 = guild unknown, officers decide. */
   guildSeen?: number;
 }
@@ -277,7 +279,7 @@ const LAYOUT: Readonly<Record<CodeType, readonly Field[]>> = {
  */
 export const SCHEMAS: Readonly<Record<CodeType, readonly (readonly Field[])[]>> = {
   B: [LAYOUT.B],
-  K: [LAYOUT.K, [...LAYOUT.K, ["seasonId", "u32"], ["victimName", "vstr", 255], ["guildSeen", "u8"]]],
+  K: [LAYOUT.K, [...LAYOUT.K, ["seasonId", "u32"], ["victimName", "vstr", 255], ["guildName", "vstr", 255], ["guildSeen", "u8"]]],
   L: [LAYOUT.L],
   P: [LAYOUT.P, [...LAYOUT.P, ["seasons", "list", PACK_SEASON]]],
   S: [LAYOUT.S],

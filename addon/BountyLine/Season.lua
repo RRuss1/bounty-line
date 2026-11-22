@@ -37,7 +37,11 @@ function ns.RememberUnit(unit)
   if ns.IsSecret(guild) then return nil end
   local db = BountyLineDB
   db.guilds = db.guilds or {}
-  local entry = { n = ns.FullName(unit) or "", g = guild or "", f = FACTION_ID[theirs], t = GetServerTime() }
+  local now, old = GetServerTime(), db.guilds[guid]
+  -- The game sometimes has no guild for a player whose data hasn't loaded yet: keep a guild
+  -- seen in the last hour rather than forget it (someone who really left keeps it an hour).
+  if (guild == nil or guild == "") and old and old.g ~= "" and now - old.t < 3600 then guild = old.g end
+  local entry = { n = ns.FullName(unit) or "", g = guild or "", f = FACTION_ID[theirs], t = now }
   db.guilds[guid] = entry
   return entry
 end
@@ -161,22 +165,45 @@ end
 
 -- ---------------------------------------------------------------- does this kill count?
 
--- Returns season, seen, victimName when your killing blow on this GUID counts for an Open
--- Season; otherwise nil and a reason. seen = false means a season is open but we never saw
--- this player's guild: the claim is still made and the officers decide (season.id is 0).
+-- A unit token showing this GUID right now (target, mouseover, focus or a nameplate), if any.
+function ns.UnitForGUID(guid)
+  local function is(unit)
+    local g = UnitGUID(unit)
+    return g ~= nil and not ns.IsSecret(g) and g == guid
+  end
+  for _, unit in ipairs({ "target", "mouseover", "focus" }) do
+    if is(unit) then return unit end
+  end
+  for i = 1, 40 do
+    if is("nameplate" .. i) then return "nameplate" .. i end
+  end
+  return nil
+end
+
+-- Returns season, seen, victimName, guildName when your killing blow on this GUID counts for
+-- an Open Season; otherwise nil and a reason. seen = false means a season is open but we never
+-- saw this player's guild: the claim is still made and the officers decide (season.id is 0).
 function ns.SeasonForKill(victimGUID)
   if type(victimGUID) ~= "string" or ns.IsSecret(victimGUID) or victimGUID:sub(1, 7) ~= "Player-" then return nil, "NOT_PLAYER" end
   if ns.SeasonClaimedToday(victimGUID) then return nil, "DAILY" end
+  local mine = FACTION_ID[UnitFactionGroup("player")]
+  -- A last look at the victim if they're still on screen: fills in a guild we hadn't seen,
+  -- and rules out a kill on your own faction (free-for-all areas).
+  local unit = ns.UnitForGUID(victimGUID)
+  if unit then
+    local theirs = UnitFactionGroup(unit)
+    if not ns.IsSecret(theirs) and FACTION_ID[theirs] == mine then return nil, "SAME_FACTION" end
+    ns.RememberUnit(unit)
+  end
   local s, e = ns.SeasonOf(victimGUID)
   if s then
     if s.poster ~= nil and s.poster ~= "" and s.poster == ns.FullName("player") then return nil, "OWN" end
-    return s, true, e.n
+    return s, true, e.n, e.g
   end
   if e then return nil, "NO_SEASON" end -- we know their guild, and it isn't under a season
-  local mine = FACTION_ID[UnitFactionGroup("player")]
   for _, open in ipairs(ns.ListSeasons()) do
     if open.faction ~= mine and open.poster ~= ns.FullName("player") then
-      return { id = 0, unknown = true, kind = 0, perKill = 0, remaining = 0 }, false, nil
+      return { id = 0, unknown = true, kind = 0, perKill = 0, remaining = 0 }, false, nil, ""
     end
   end
   return nil, "NO_SEASON"
