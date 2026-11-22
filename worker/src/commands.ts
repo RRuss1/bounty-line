@@ -86,6 +86,23 @@ export const COMMANDS = [
       },
       {
         type: OptionType.SUB_COMMAND,
+        name: "season",
+        description: "Open Season (a bounty on a whole enemy guild): list them, or end one early",
+        options: [
+          {
+            type: OptionType.STRING,
+            name: "action",
+            description: "What to do (default: list)",
+            choices: [
+              { name: "list: show the Open Seasons that are running", value: "list" },
+              { name: "end: close one early (kills so far are still paid)", value: "end" },
+            ],
+          },
+          { type: OptionType.INTEGER, name: "id", description: "Season number (for end)", min_value: 1 },
+        ],
+      },
+      {
+        type: OptionType.SUB_COMMAND,
         name: "relay",
         description: "Officers: get a token for the Bounty Line Relay program on your PC",
         options: [

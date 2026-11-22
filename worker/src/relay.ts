@@ -2,7 +2,7 @@
  * The relay (spec 5.10): a small program on an officer's PC that carries data between the game
  * and the Bounty Board without anyone pasting.
  *   GET  /relay/pack  the current Bounty Pack, for the relay to hand to the addon
- *   POST /relay/code  a bounty code a guildie's addon sent over guild sync
+ *   POST /relay/code  a bounty or Open Season code a guildie's addon sent over guild sync
  *
  * Auth: "Authorization: Bearer <guildId>.<secret>", made by /bl relay. The guild id is in the
  * token so the ALLOWED_GUILD_IDS check runs before any D1 work (Compendium 01 Section 3.4).
@@ -135,7 +135,8 @@ async function code(request: Request, env: Env, tenant: Tenant, relayUser: strin
   if (!relayCodeLimiter.allow(`${tenant.id}:${relayUser}`)) return error(429, "RATE", "Too many codes. Try again in a minute.");
 
   const r = decode(raw);
-  if (!r.ok || r.type !== "B") return error(400, "TYPE", "The relay only carries bounty codes. Kill claims need the hunter's screenshot.");
+  if (!r.ok || (r.type !== "B" && r.type !== "S")) return error(400, "TYPE", "The relay only carries bounty codes. Kill claims need the hunter's screenshot.");
+  const what = r.type === "S" ? `Open Season on **${escapeMd(r.fields.guildName)}**` : `bounty on **${escapeMd(r.fields.targetName)}**`;
   const linked = await env.DB.prepare("SELECT name, discord_user_id FROM characters WHERE tenant_id = ?1 AND guid = ?2")
     .bind(tenant.id, r.fields.posterGUID)
     .first<{ name: string | null; discord_user_id: string }>();
@@ -146,7 +147,7 @@ async function code(request: Request, env: Env, tenant: Tenant, relayUser: strin
       await new DiscordRest(env.DISCORD_TOKEN)
         .sendMessage(
           tenant.bounty_line_ch,
-          `🔗 **${escapeMd(r.fields.posterName || "A guildie")}**: your bounty on **${escapeMd(r.fields.targetName)}** reached the relay, but your character isn't linked to your Discord yet. In game, type \`/bl link\` and paste that code here once; then paste the bounty code. After that the relay posts your bounties for you.`,
+          `🔗 **${escapeMd(r.fields.posterName || "A guildie")}**: your ${what} reached the relay, but your character isn't linked to your Discord yet. In game, type \`/bl link\` and paste that code here once; then paste the bounty code. After that the relay posts your bounties for you.`,
         )
         .catch(() => undefined);
     }

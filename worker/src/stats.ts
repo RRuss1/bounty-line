@@ -6,7 +6,8 @@ import { isAllowedGuild } from "./discord";
 import type { Env } from "./env";
 import { setBountyStatus, type BountyRow } from "./kills";
 import { log } from "./log";
-import type { DiscordRest } from "./rest";
+import type { DiscordRest } from "./rest";
+import { seasonSweep } from "./seasons";
 import { refreshPack } from "./pack";
 import { audit, getTenant, patchConfig, type Tenant } from "./tenants";
 import { escapeMd, gold } from "./wow";
@@ -132,6 +133,7 @@ export async function expirySweep(env: Env, rest: DiscordRest, now: number): Pro
       await setBountyStatus(env, rest, tenant, b, "expired", now);
       n++;
     }
+    n += await seasonSweep(env, rest, tenant, now); // Open Seasons past their end date: payout sheet
   }
   if (n) log(env, "info", "cron.expired", { count: n });
   await proofCleanup(env, now);
@@ -154,8 +156,20 @@ export async function proofCleanup(env: Env, now: number): Promise<number> {
     await env.PROOFS.delete(k.image_r2_key);
     await env.DB.prepare("UPDATE kills SET image_r2_key = NULL WHERE id = ?1").bind(k.id).run();
   }
-  if (results.length) log(env, "info", "cron.proofs_deleted", { count: results.length });
-  return results.length;
+  // Open Season proofs, the same way.
+  const { results: seasonShots } = await env.DB.prepare(
+    `SELECT k.id, k.image_r2_key FROM season_kills k JOIN seasons s ON s.id = k.season_id AND s.tenant_id = k.tenant_id
+     WHERE k.image_r2_key IS NOT NULL AND s.status IN ('paid', 'expired') AND s.closed_at IS NOT NULL AND s.closed_at <= ?1 LIMIT 50`,
+  )
+    .bind(now - days * DAY)
+    .all<{ id: number; image_r2_key: string }>();
+  for (const k of seasonShots) {
+    await env.PROOFS.delete(k.image_r2_key);
+    await env.DB.prepare("UPDATE season_kills SET image_r2_key = NULL WHERE id = ?1").bind(k.id).run();
+  }
+  const count = results.length + seasonShots.length;
+  if (count) log(env, "info", "cron.proofs_deleted", { count });
+  return count;
 }
 
 // ---------------------------------------------------------------- /bl forget-me (spec 13)
@@ -173,8 +187,28 @@ export async function forgetMe(env: Env, tenant: Tenant, user: string, now: numb
   )
     .bind(tenant.id, user)
     .all<{ id: number; image_r2_key: string }>();
+  // Open Season: the same rule. Seasons still running or awaiting payment are left alone.
+  const done = "(SELECT id FROM seasons WHERE tenant_id = ?1 AND status IN ('paid', 'expired'))";
+  const { results: seasonShots } = await env.DB.prepare(
+    `SELECT id, image_r2_key FROM season_kills WHERE tenant_id = ?1 AND killer_discord_id = ?2 AND image_r2_key IS NOT NULL AND season_id IN ${done}`,
+  )
+    .bind(tenant.id, user)
+    .all<{ id: number; image_r2_key: string }>();
+  shots.push(...seasonShots);
   for (const s of shots) await env.PROOFS.delete(s.image_r2_key);
   await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE season_kills SET killer_discord_id = NULL, killer_name = NULL, killer_guid = NULL, image_r2_key = NULL
+       WHERE tenant_id = ?1 AND killer_discord_id = ?2 AND season_id IN ${done}`,
+    ).bind(tenant.id, user),
+    env.DB.prepare(
+      `UPDATE season_funds SET poster_discord_id = NULL, poster_name = NULL, poster_guid = NULL
+       WHERE tenant_id = ?1 AND poster_discord_id = ?2 AND season_id IN ${done}`,
+    ).bind(tenant.id, user),
+    env.DB.prepare(
+      `UPDATE seasons SET poster_discord_id = NULL, poster_name = NULL, poster_guid = NULL WHERE tenant_id = ?1 AND poster_discord_id = ?2 AND status IN ('paid', 'expired')`,
+    ).bind(tenant.id, user),
+    env.DB.prepare(`DELETE FROM season_payouts WHERE tenant_id = ?1 AND hunter_discord_id = ?2 AND season_id IN ${done}`).bind(tenant.id, user),
     env.DB.prepare("DELETE FROM characters WHERE tenant_id = ?1 AND discord_user_id = ?2").bind(tenant.id, user),
     env.DB.prepare("DELETE FROM hunters WHERE tenant_id = ?1 AND discord_user_id = ?2").bind(tenant.id, user),
     env.DB.prepare(

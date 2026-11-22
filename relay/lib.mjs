@@ -19,7 +19,8 @@ export function parseSetupCode(text) {
 
 /** Bounty Line codes are uppercase letters, digits and dashes. Nothing else is ever written into the game's files. */
 export const isCode = (text) => typeof text === "string" && /^BL[0-9]+-[A-Z]{1,2}-[0-9A-Z]+(?:-[0-9A-Z]+)+$/.test(text);
-export const isBountyCode = (text) => isCode(text) && /^BL[0-9]+-B-/.test(text);
+// B: a bounty on one player. S: an Open Season on a whole guild.
+export const isBountyCode = (text) => isCode(text) && /^BL[0-9]+-[BS]-/.test(text);
 
 /**
  * The Lua file the game loads at login or /reload (BountyLine_Relay/Data.lua).

@@ -7,6 +7,7 @@ import { encodePack, FACTION, type PackEntry } from "./codec";
 import type { Env } from "./env";
 import { log } from "./log";
 import type { DiscordRest } from "./rest";
+import { packSeasons } from "./seasons";
 import { patchConfig, type Tenant } from "./tenants";
 
 /** Oldest addon that reads this pack (major*1000 + minor): 0.4 added /bl import. */
@@ -30,7 +31,7 @@ interface OpenRow {
 }
 
 /** packVersion: normally the build time; the relay passes a fixed value to compare packs by content. */
-export async function buildPack(env: Env, tenant: Tenant, now: number, packVersion = now): Promise<{ codes: string[]; count: number }> {
+export async function buildPack(env: Env, tenant: Tenant, now: number, packVersion = now): Promise<{ codes: string[]; count: number; seasons: number }> {
   const { results } = await env.DB.prepare(
     `SELECT id, target_guid, target_name, class, faction, reward_gold, poster_name, expires_at
        FROM bounties WHERE tenant_id = ?1 AND status = 'open' AND expires_at > ?2 ORDER BY id`,
@@ -47,9 +48,11 @@ export async function buildPack(env: Env, tenant: Tenant, now: number, packVersi
     posterName: r.poster_name ?? "",
     expiresAt: r.expires_at,
   }));
+  // Open seasons ride in schema 2, written only when there is one: older addons read either.
+  const seasons = await packSeasons(env, tenant, now);
   const codes = encodePack(
     {
-      schema: 1,
+      schema: seasons.length ? 2 : 1,
       boardTag: tenant.board_tag,
       packVersion,
       minAddonVersion: MIN_ADDON_VERSION,
@@ -57,14 +60,15 @@ export async function buildPack(env: Env, tenant: Tenant, now: number, packVersi
       rewardMin: tenant.config.reward_min,
       rewardMax: tenant.config.reward_max,
       bounties,
+      ...(seasons.length ? { seasons } : {}),
     },
     PACK_PART_LENGTH,
   );
-  return { codes, count: bounties.length };
+  return { codes, count: bounties.length, seasons: seasons.length };
 }
 
-export function packMessage(code: string, part: number, parts: number, count: number, now: number): string {
-  const what = count === 1 ? "1 open bounty" : `${count} open bounties`;
+export function packMessage(code: string, part: number, parts: number, count: number, now: number, seasons = 0): string {
+  const what = (count === 1 ? "1 open bounty" : `${count} open bounties`) + (seasons ? ` · ${seasons} Open Season${seasons === 1 ? "" : "s"}` : "");
   return [
     `**📦 Bounty Pack** · ${what} · updated <t:${now}:R>${parts > 1 ? ` · **part ${part} of ${parts}**` : ""}`,
     parts > 1
@@ -86,11 +90,11 @@ export async function refreshPack(env: Env, rest: DiscordRest, tenant: Tenant, n
   const channel = tenant.bounty_line_ch;
   if (!channel) return null;
   try {
-    const { codes, count } = await buildPack(env, tenant, now);
+    const { codes, count, seasons } = await buildPack(env, tenant, now);
     const old = tenant.config.pack_message_ids ?? [];
     const ids: string[] = [];
     for (let i = 0; i < codes.length; i++) {
-      const text = packMessage(codes[i]!, i + 1, codes.length, count, now);
+      const text = packMessage(codes[i]!, i + 1, codes.length, count, now, seasons);
       const existing = old[i];
       if (existing && !repost) {
         try {

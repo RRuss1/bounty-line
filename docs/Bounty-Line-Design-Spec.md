@@ -407,6 +407,25 @@ Rules:
 - **Tokens.** `/bl relay action: enable` (officers and admins) replies privately with a token `<guildId>.<secret>`, shown once and stored only as a SHA-256. A new token replaces the old one; `action: revoke` turns it off. The guild id is in the token so the allowlist check runs before any database work.
 - **Whose bounty is it?** A relayed bounty belongs to the Discord user the poster's character is linked to (`/bl link`). Unlinked posters are refused (`UNLINKED`) and paste as usual. To stop a guildie forging a bounty in someone else's name: the relay officer's addon forwards only codes whose poster name is the message's sender (the game vouches for the sender), and the Worker requires the name in the code to be the linked character's name.
 - **Limits.** 120 requests a minute per server before the token is looked up; 20 codes a minute per relay.
+- **Open Season codes** (Section 5.11) are carried the same way as bounty codes.
+
+### 5.11 Open Season (a bounty on a whole enemy guild)
+
+An **Open Season** puts a price on every member of one enemy guild. Many hunters make many kills, so it differs from a normal bounty in cost, payment and abuse rules. Decided with Rich on 2026-11-22.
+
+- **Declaring.** Right-click an enemy player → **Set Bounty**. The window offers **This player** or **Their guild: <Guild>**. The guild name comes from the game (`GetGuildInfo`, Section 23 item 27) and is never typed. Any member may declare one. One Open Season per enemy guild at a time.
+- **Three kinds**, picked at creation:
+  1. **Per head + pot:** a price per kill and a total pot. It closes when the pot is spent or the time is up. The last kill takes whatever is left.
+  2. **Prize pool:** one total, shared by kill count when it closes (each share rounded down).
+  3. **Per head, no ceiling:** a price per kill until the time is up. The window shows that the bill has no limit.
+- **Length:** 7, 14 or 28 days. The one who declared it, or an officer, can end it early with `/bl season action: end`; kills so far are still paid.
+- **Gold:** every amount is typed by hand. The price per kill, the pot and the pool each stay within the server's reward limits. Others can add gold to a pot or a pool ("Add to Open Season…", the same switch as stacking); the total can't pass the reward maximum. A no-ceiling season has one funder.
+- **Kills:** killing blow only, opposite faction only, no duels, as for bounties. **The same victim counts once per day per hunter** (UTC day of the kill, by Discord user). A denied claim doesn't use up the day. Anyone who put gold into a season can't collect on it.
+- **Knowing the victim's guild.** A kill event carries only a GUID, so the addon remembers GUID → name + guild for enemy players it sees on nameplates, targets and mouseover. A kill of a remembered member makes a K code (schema 2) with the season's number. If a season is open and the addon never saw the victim's guild, the claim is still made, flagged `guildSeen = 0`, and always goes to officer review: the officer reads the guild off the nameplate in the screenshot.
+- **A member with a personal bounty** pays both: one K code claims the bounty and the season.
+- **On the Bounty Board.** A forum post "OPEN SEASON · <Guild>" carries the terms, the status and a tally of hunters, kept up to date in its first message. Each claim's proof goes in that thread with Approve / Deny (the same checks and auto-approve setting as bounties). The season stays open while claims are reviewed.
+- **Payment: one payout sheet at close.** When the season closes, the bot posts one line per hunter with what they collect, who pays it, and Paid / Received / Force close buttons. Funders pay in the order they put gold in, so most hunters are paid by one person. When every line is settled the season is PAID and the thread is closed. If claims are still waiting for officers at the close, the sheet waits for them. With no kills, the season just ends.
+- **In the pack.** Open seasons travel in the Bounty Pack (P schema 2), so every guildie's addon marks that guild's members (skull, "OPEN SEASON" tooltip line).
 
 ---
 
@@ -532,6 +551,7 @@ on MESSAGE_CREATE (channel == tenant.bountyLineChannel, author not a bot):
 | `/bl pack` | Anyone | Post and pin a fresh Bounty Pack in `#bounty-line` and remove the old one (at most once a minute; otherwise the pinned one is updated in place) |
 | `/bl submit code: image:` | Anyone | **Fallback** if pasting doesn't work (same pipeline as chat paste) |
 | `/bl cancel id:` | Poster or officer | Cancel an open bounty |
+| `/bl season action: id:` | Anyone (end: its declarer or an officer) | List the Open Seasons running, or end one early (Section 5.11) |
 | `/bl leaderboard` | Anyone | Top hunters, most wanted, biggest payers |
 | `/bl me` | Anyone | Your stats, trust level, pending payments |
 | `/bl config` | Admin | Expiry days, min/max reward, auto-approve threshold, AI check on/off |
@@ -664,6 +684,12 @@ A tiny opt-in companion app could auto-upload. It's parked; Tier 1 never depends
 | Payment | Poster clicks Paid, hunter clicks Received | Officer can force-close |
 | Unpaid nudge | Weekly list of approved-but-unpaid | On/off |
 | Cooldown | Same hunter can't claim the same target's new bounty within 1h | Yes |
+| Open Season: kinds | Per head + pot, prize pool, or per head with no ceiling (Section 5.11) | No |
+| Open Season: length | 7, 14 or 28 days, picked at creation | No |
+| Open Season: gold | Price per kill, pot and pool each within the reward min/max | Via reward min/max |
+| Open Season: repeat kills | Same victim counts once per day per hunter | No |
+| Open Season: payment | One payout sheet when it closes, a line per hunter | Officer can force-close a line |
+| Open Season: who | Any member declares; one per enemy guild at a time | No |
 
 ---
 
@@ -755,6 +781,8 @@ CREATE TABLE audit_log (
   tenant_id TEXT, at INTEGER, actor TEXT, action TEXT, detail_json TEXT
 );
 ```
+
+Open Season (Section 5.11) adds four tables in migration `0006_seasons.sql`: `seasons` (guild, kind, amounts, gold credited so far, status `open|settling|awaiting_payment|paid|expired`), `season_funds` (who put in how much), `season_kills` (one claim: hunter, victim, UTC day, proof, verdict, gold credited) and `season_payouts` (one line of the payout sheet: hunter, gold, payers, paid/received).
 
 ---
 

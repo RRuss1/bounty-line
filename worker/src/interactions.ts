@@ -6,6 +6,7 @@ import type { Env } from "./env";
 import { gatewayState } from "./gateway";
 import { log } from "./log";
 import { refreshPack } from "./pack";
+import { endSeason, listSeasons } from "./seasons";
 import { cancel, configure, forgetMe, leaderboard, me } from "./stats";
 import { codeLimiter, packLimiter } from "./ratelimit";
 import { issueRelayToken, relayUsers, revokeRelayToken } from "./relay";
@@ -88,6 +89,18 @@ export async function runCommand(
       };
     case "pack":
       return { defer: () => pack(env, rest, guildId, now) };
+    case "season":
+      return {
+        defer: async () => {
+          const tenant = await getTenant(env.DB, guildId);
+          if (!tenant) return "This server isn't set up yet. An admin needs to run `/bl setup`.";
+          if ((o.action ?? "list") !== "end") return listSeasons(env, tenant, now);
+          if (!o.id) return "❌ Which one? Give the season number: `/bl season action: end id: 7`.";
+          const roles = interaction.member?.roles ?? [];
+          const officer = hasAdmin(interaction) || (!!tenant.officer_role_id && roles.includes(tenant.officer_role_id));
+          return endSeason(env, rest, tenant, Number(o.id), { id: actorOf(interaction), officer }, now);
+        },
+      };
     case "relay":
       return { defer: () => relayCommand(interaction, env, guildId, o.action ?? "status", now, origin) };
     case "submit":
