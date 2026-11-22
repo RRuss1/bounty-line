@@ -7,7 +7,7 @@ import { gatewayState } from "./gateway";
 import { log } from "./log";
 import { refreshPack } from "./pack";
 import { cancel, configure, forgetMe, leaderboard, me } from "./stats";
-import { codeLimiter } from "./ratelimit";
+import { codeLimiter, packLimiter } from "./ratelimit";
 import { issueRelayToken, relayUsers, revokeRelayToken } from "./relay";
 import type { DiscordRest, ForumTag } from "./rest";
 import { audit, boardCounts, FORUM_TAGS, getTenant, patchConfig, upsertTenant, type ForumTagKey, type Tenant } from "./tenants";
@@ -260,9 +260,11 @@ async function status(interaction: Interaction, env: Env, guildId: string): Prom
 async function pack(env: Env, rest: DiscordRest, guildId: string, now: number): Promise<string> {
   const tenant = await getTenant(env.DB, guildId);
   if (!tenant) return "This server isn't set up yet. An admin needs to run `/bl setup`.";
-  const link = await refreshPack(env, rest, tenant, now);
+  // A fresh copy at the bottom of the channel, at most once a minute so the command can't flood it.
+  const fresh = packLimiter.allow(guildId);
+  const link = await refreshPack(env, rest, tenant, now, fresh);
   if (!link) return "❌ I couldn't update the Bounty Pack. An admin should check my permissions in the Bounty Line channel.";
-  return `📦 The Bounty Pack is up to date: ${link}\nIn game, type \`/bl import\` and paste it.`;
+  return `📦 ${fresh ? "I posted and pinned a fresh Bounty Pack" : "The Bounty Pack is up to date"}: ${link}\nIn game, type \`/bl import\` and paste it.`;
 }
 
 async function submit(interaction: Interaction, env: Env, rest: DiscordRest, guildId: string, code: string, now: number, imageId?: string): Promise<string> {

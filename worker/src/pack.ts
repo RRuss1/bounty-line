@@ -79,8 +79,10 @@ export function packMessage(code: string, part: number, parts: number, count: nu
 /**
  * Posts or edits the pinned pack message(s) in #bounty-line. Never throws: a failed pack
  * update must not fail the bounty that triggered it. Returns the first message's link.
+ * `repost` (/bl pack) posts and pins a fresh copy at the bottom of the channel and deletes
+ * the old one; the automatic refreshes edit in place so the channel stays quiet.
  */
-export async function refreshPack(env: Env, rest: DiscordRest, tenant: Tenant, now: number): Promise<string | null> {
+export async function refreshPack(env: Env, rest: DiscordRest, tenant: Tenant, now: number, repost = false): Promise<string | null> {
   const channel = tenant.bounty_line_ch;
   if (!channel) return null;
   try {
@@ -90,7 +92,7 @@ export async function refreshPack(env: Env, rest: DiscordRest, tenant: Tenant, n
     for (let i = 0; i < codes.length; i++) {
       const text = packMessage(codes[i]!, i + 1, codes.length, count, now);
       const existing = old[i];
-      if (existing) {
+      if (existing && !repost) {
         try {
           await rest.editMessage(channel, existing, text);
           ids.push(existing);
@@ -103,7 +105,8 @@ export async function refreshPack(env: Env, rest: DiscordRest, tenant: Tenant, n
       await rest.pinMessage(channel, sent.id).catch(() => undefined);
       ids.push(sent.id);
     }
-    for (const extra of old.slice(codes.length)) await rest.deleteMessage(channel, extra).catch(() => undefined);
+    // Old copies go only after the new ones are up, so the channel is never without a pack.
+    for (const extra of repost ? old : old.slice(codes.length)) await rest.deleteMessage(channel, extra).catch(() => undefined);
     if (ids.join() !== old.join()) await patchConfig(env.DB, tenant.id, { pack_message_ids: ids });
     tenant.config.pack_message_ids = ids;
     return `https://discord.com/channels/${tenant.id}/${channel}/${ids[0]}`;

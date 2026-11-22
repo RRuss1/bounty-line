@@ -26,5 +26,7 @@ export class RateLimiter {
 
 /** Codes per user per minute (Compendium 01 Section 3.4: rate limit before work). */
 export const codeLimiter = new RateLimiter(5, 60_000);
+/** Fresh Bounty Pack posts (/bl pack) per server per minute. Over the limit, the pack is updated in place. */
+export const packLimiter = new RateLimiter(1, 60_000);
 /** Screenshots scanned for a QR code per user per minute. Over the limit, images are simply not scanned. */
 export const imageLimiter = new RateLimiter(6, 60_000);

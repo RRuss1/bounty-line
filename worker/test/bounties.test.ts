@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { onDispatch, ERROR_REPLY_TTL_MS, type ChatDeps } from "../src/chat";
 import { _unsafe, decodePack, encode, type BountyPost } from "../src/codec";
 import type { Env } from "../src/env";
+import { packLimiter } from "../src/ratelimit";
 import { DiscordRest } from "../src/rest";
 import { forbiddenDb, TestD1 } from "./helpers/d1";
 import { call, command, GUILD_A, ids, makeEnv, setupOptions, STRANGER } from "./helpers/env";
@@ -57,6 +58,7 @@ const threads = () => discord.find("POST", /\/threads$/);
 const bountyRows = () => db.sqlite.prepare("SELECT * FROM bounties").all() as Record<string, unknown>[];
 
 beforeEach(async () => {
+  packLimiter.clear();
   discord = new FakeDiscord().install();
   db = TestD1.migrated();
   env = await makeEnv(db.asD1());
@@ -339,11 +341,21 @@ describe("the Bounty Pack", () => {
     const hex = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
     for (let i = 0; i < 80; i++) insert.run(GUILD_A, `Player-4395-${hex()}`, `${hex()} ${hex()}`, NOW + 86400);
     await call(env, command(GUILD_A, "pack", [], "0"));
-    const posts = [...packEdits(), ...discord.find("POST", new RegExp(`/channels/${ids.line}/messages$`)).slice(1).map((c) => String(c.body!.content))];
+    // /bl pack posts a fresh copy (every part) and deletes the old pinned one.
+    const posts = discord
+      .find("POST", new RegExp(`/channels/${ids.line}/messages$`))
+      .map((c) => String(c.body!.content))
+      .filter((p) => /part \d+ of/.test(p));
+    expect(packEdits()).toHaveLength(0);
+    expect(discord.find("DELETE", new RegExp(`/channels/${ids.line}/messages/\\d+$`))).toHaveLength(1);
     expect(posts.length).toBeGreaterThan(1);
     for (const p of posts) expect(p.length).toBeLessThanOrEqual(2000);
     expect(posts[0]).toContain("part 1 of");
     expect(packFrom(posts.join("\n")).bounties).toHaveLength(80);
+    expect(discord.followups().at(-1)).toContain("fresh Bounty Pack");
+    // Again within the minute: updated in place, no second copy in the channel.
+    await call(env, command(GUILD_A, "pack", [], "0"));
     expect(discord.followups().at(-1)).toContain("Bounty Pack is up to date");
+    expect(packEdits().length).toBe(posts.length);
   });
 });
