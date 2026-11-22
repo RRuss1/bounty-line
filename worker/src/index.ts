@@ -125,7 +125,7 @@ async function interactions(request: Request, env: Env, ctx: ExecutionContext): 
 
 /** Approve / Deny on a kill claim's proof post. The work runs after a "deferred update". */
 async function buttons(interaction: Interaction & { application_id?: string }, env: Env, ctx: ExecutionContext): Promise<Response> {
-  const m = /^(kill|pay|skill|spay):(approve|deny|paid|received|close):(\d+)$/.exec(interaction.data?.custom_id ?? "");
+  const m = /^(kill|pay|skill|spay):(approve|deny|paid|received|close):(\d+)(?::(\d+))?$/.exec(interaction.data?.custom_id ?? "");
   if (!m) return json(reply("That button isn't supported."));
   const tenant = await getTenant(env.DB, interaction.guild_id!);
   if (!tenant) return json(reply("This server isn't set up yet. An admin needs to run `/bl setup`."));
@@ -135,12 +135,13 @@ async function buttons(interaction: Interaction & { application_id?: string }, e
   const now = Math.floor(Date.now() / 1000);
   const review = m[2] === "approve" || m[2] === "deny";
   if (review !== (m[1] === "kill" || m[1] === "skill")) return json(reply("That button isn't supported."));
+  if (m[4] && !(m[1] === "skill" && m[2] === "approve")) return json(reply("That button isn't supported."));
   const id = Number(m[3]);
   const work =
     m[1] === "kill"
       ? reviewKill(env, rest, tenant, m[2] as "approve" | "deny", id, user, now)
       : m[1] === "skill"
-        ? reviewSeasonKill(env, rest, tenant, m[2] as "approve" | "deny", id, user, now)
+        ? reviewSeasonKill(env, rest, tenant, m[2] as "approve" | "deny", id, user, now, m[4] ? Number(m[4]) : undefined)
         : m[1] === "spay"
           ? handleSeasonPayout(env, rest, tenant, m[2] as "paid" | "received" | "close", id, user, now)
           : handlePayment(env, rest, tenant, m[2] as "paid" | "received" | "close", id, user, now);

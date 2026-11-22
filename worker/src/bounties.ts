@@ -49,7 +49,10 @@ export async function processCode(
     if (!personal) return season;
     const bounty = await claimKill(env, rest, tenant, k, r.code, authorId, attachments, now);
     if (bounty.ok && season.ok) return { ok: true, message: `${bounty.message}\n${season.message}` };
-    return bounty.ok ? bounty : season.ok ? season : bounty;
+    // Half of it went through: answer with the failure (❌ and the reason), naming what did count.
+    if (bounty.ok && !season.ok) return { ok: false, code: season.code, message: `The bounty claim went in, but not the Open Season one: ${season.message}` };
+    if (season.ok && !bounty.ok) return { ok: false, code: bounty.code, message: `The Open Season kill counted, but not the bounty claim: ${bounty.message}` };
+    return bounty;
   }
   if (r.type === "L") return linkCharacter(env, tenant, r.fields, authorId, now);
   if (r.type === "S") return postSeason(env, rest, tenant, r.fields, r.code, authorId, now);

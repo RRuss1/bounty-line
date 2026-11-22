@@ -43,12 +43,14 @@ function ns.SetDuel(active, now)
 end
 
 -- flags: bit0 honor corroborated, bit1 pet kill (Compendium 02 Section 3.2).
--- season (Open Season kills only): { id, name, seen } -> schema 2.
+-- season (Open Season kills only): { id, name, guild, seen } -> schema 2. The Bounty Board finds
+-- the season by the guild, so a season declared moments ago (no number yet) still works.
 function ns.BuildKillCode(bountyId, victimGUID, killedAt, honor, pet, season)
   return ns.Codec.Encode("K", {
     schema = season and 2 or 1,
     seasonId = season and season.id or nil,
     victimName = season and (season.name or "") or nil,
+    guildName = season and (season.guild or "") or nil,
     guildSeen = season and (season.seen and 1 or 0) or nil,
     boardTag = ns.BoardTag(),
     bountyId = bountyId,
@@ -226,16 +228,13 @@ events:SetScript("OnEvent", function(_, event, a, b)
     if debug then ns.Print(L.DEBUGKILL:format(tostring(a), tostring(b))) end
     local bounty, how = ns.CheckKill(a, b, GetTime())
     if debug then ns.Print("  -> " .. tostring(bounty and ("bounty #" .. bounty.id) or how)) end
-    -- Open Season (spec 5.11): my kill, no duel. A last look at the target fills in a guild
-    -- we hadn't seen yet.
+    -- Open Season (spec 5.11): my kill, no duel.
     local season
     if bounty or how == "NO_BOUNTY" then
-      local target = UnitGUID("target")
-      if not ns.IsSecret(target) and target == b then ns.RememberUnit("target") end
-      local s, seen, name = ns.SeasonForKill(b)
+      local s, seen, name, guild = ns.SeasonForKill(b)
       if debug then ns.Print("  -> season: " .. tostring(s and (s.unknown and "guild not seen" or s.guild) or seen)) end
       -- A normal bounty claim is never held up for a guild we didn't see.
-      if s and (seen or not bounty) then season = { id = s.id, name = name, seen = seen, s = s } end
+      if s and (seen or not bounty) then season = { id = s.id, name = name, guild = guild, seen = seen, s = s } end
     end
     local petGUID = UnitGUID("pet")
     local pet = how == "PET" or (not ns.IsSecret(petGUID) and petGUID ~= nil and petGUID == a)

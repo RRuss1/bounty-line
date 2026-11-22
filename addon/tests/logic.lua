@@ -757,19 +757,31 @@ units.target = { guid = "Player-4395-0C0FFEE0", name = "Other", faction = "Horde
 ns.RememberUnit("target")
 eq("a known player in another guild doesn't count", select(2, ns.SeasonForKill("Player-4395-0C0FFEE0")), "NO_SEASON")
 units.target.guild = nil
+eq("a guild seen in the last hour isn't forgotten when the game briefly has none", ns.RememberUnit("target").g, "Nobodies")
+units.target.guild = "Nobodies"
+-- A victim on your own faction (free-for-all areas) never makes an Open Season claim.
+units.target = { guid = "Player-4395-0F0F0F0F", name = "Friend", faction = "Alliance", player = true,
+  class = { "Warrior", "WARRIOR", 1 }, race = { "Human", "Human", 1 }, level = 42 }
+eq("a victim of your own faction makes no stand-in claim", select(2, ns.SeasonForKill("Player-4395-0F0F0F0F")), "SAME_FACTION")
+units.target = { guid = "Player-4395-0C0FFEE0", name = "Other", faction = "Horde", player = true, guild = "Nobodies",
+  class = { "Warrior", "WARRIOR", 1 }, race = { "Orc", "Orc", 2 }, level = 42 }
+units.target.guild = nil
 ns.RememberUnit("target")
 eq("nor a known player with no guild", select(2, ns.SeasonForKill("Player-4395-0C0FFEE0")), "NO_SEASON")
 
-local seasonCode = ns.BuildKillCode(0, VICTIM, PACK_TIME, true, false, { id = 7, name = victimName, seen = true })
+local seasonCode = ns.BuildKillCode(0, VICTIM, PACK_TIME, true, false, { id = 7, name = victimName, guild = HV, seen = true })
 local seasonFields = (Codec.Decode(seasonCode) or {}).fields or {}
 eq("season kill code: schema 2", seasonFields.schema, 2)
 eq("season kill code: season", seasonFields.seasonId, 7)
 eq("season kill code: victim name", seasonFields.victimName, "Grimlok Ashveil")
 eq("season kill code: guild seen", seasonFields.guildSeen, 1)
+eq("season kill code: guild name", seasonFields.guildName, HV)
+eq("the guild comes back from SeasonForKill", select(4, ns.SeasonForKill(VICTIM)), HV)
 eq("season kill code: no personal bounty", seasonFields.bountyId, 0)
 local unseenFields = (Codec.Decode(ns.BuildKillCode(0, VICTIM, PACK_TIME, false, false, { id = 0, seen = false })) or {}).fields or {}
 eq("guild not seen: flagged", unseenFields.guildSeen, 0)
 eq("guild not seen: no name", unseenFields.victimName, "")
+eq("guild not seen: no guild", unseenFields.guildName, "")
 local plainFields = (Codec.Decode(ns.BuildKillCode(12, VICTIM, PACK_TIME, true, false)) or {}).fields or {}
 eq("an ordinary kill code is still schema 1", plainFields.schema, 1)
 
@@ -856,6 +868,8 @@ receive("SEAS", "garbage")
 ns.RememberUnit("target")
 local pendSeason, pendSeen = ns.SeasonForKill(VICTIM)
 check("a kill counts for it, with no number yet", pendSeason ~= nil and pendSeason.id == 0 and pendSeen == true)
+local pendCode = ns.BuildKillCode(0, VICTIM, PACK_TIME, true, false, { id = 0, name = "x", guild = HV, seen = true })
+eq("and its code names the guild, so the Bounty Board can find the season", ((Codec.Decode(pendCode) or {}).fields or {}).guildName, HV)
 check("the pack lists it: the pending copy goes", ns.StorePack(seasonPack({ hv() }, PACK_TIME - 2)))
 eq("now it has its number", ns.GetSeason(HV).id, 7)
 check("pending copy dropped", next(BountyLineDB.pendingSeasons) == nil)

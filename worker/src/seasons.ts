@@ -199,7 +199,7 @@ export async function postSeason(env: Env, rest: DiscordRest, tenant: Tenant, f:
          poster_discord_id, created_at, expires_at, status, source_code)
        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'open', ?13) RETURNING id`,
     )
-      .bind(tenant.id, f.guildName.trim(), key, factionName(f.guildFaction), f.kind, f.perKillGold, f.totalGold, f.posterGUID, f.posterName, authorId, now, expiresAt, code)
+      .bind(tenant.id, f.guildName.trim(), key, factionName(f.guildFaction), f.kind, f.perKillGold, f.totalGold, f.posterGUID, f.posterName, authorId, Math.min(now, f.createdAt), expiresAt, code)
       .first<{ id: number }>();
     id = row!.id;
   } catch (e) {
@@ -268,8 +268,19 @@ async function fundSeason(env: Env, rest: DiscordRest, tenant: Tenant, f: Season
 
 // ---------------------------------------------------------------- K (schema 2): claim a kill
 
-/** True when a kill code is an Open Season claim (it may also name a personal bounty). */
-export const isSeasonKill = (k: KillClaim) => k.schema >= 2 && ((k.seasonId ?? 0) !== 0 || k.guildSeen === 0);
+/**
+ * True when a kill code is an Open Season claim (it may also name a personal bounty). The addon
+ * writes schema 2 only for those, including kills on a guild whose season has no number yet.
+ */
+export const isSeasonKill = (k: KillClaim) => k.schema >= 2;
+
+/** Open seasons a kill by this faction could count for, newest first. */
+const openSeasonsAgainst = async (env: Env, tenantId: string, killerFaction: number, now: number) =>
+  (
+    await env.DB.prepare("SELECT * FROM seasons WHERE tenant_id = ?1 AND status = 'open' AND expires_at > ?2 AND faction != ?3 ORDER BY id DESC")
+      .bind(tenantId, now, factionName(killerFaction))
+      .all<SeasonRow>()
+  ).results;
 
 export async function claimSeasonKill(
   env: Env,
@@ -283,17 +294,37 @@ export async function claimSeasonKill(
 ): Promise<Result> {
   if (k.boardTag !== "0000" && k.boardTag !== tenant.board_tag) return fail("BOARD", "That code belongs to a different Bounty Board.");
   const victim = k.victimName || "that player";
-  // No season in the code: the addon never saw the victim's guild. File it under the newest
-  // season on the victim's side and let the officers read the guild off the screenshot.
-  const seen = k.guildSeen === 1 && !!k.seasonId;
-  const s = k.seasonId
-    ? await getSeason(env, tenant.id, k.seasonId)
-    : await env.DB.prepare("SELECT * FROM seasons WHERE tenant_id = ?1 AND status = 'open' AND expires_at > ?2 AND faction != ?3 ORDER BY id DESC LIMIT 1")
-        .bind(tenant.id, now, factionName(k.killerFaction))
-        .first<SeasonRow>();
-  if (!s) return fail("CLOSED", k.seasonId ? `Open Season #${k.seasonId} isn't on this Bounty Board.` : "There's no Open Season running that this kill could count for.");
-  if (s.status !== "open" || s.expires_at <= now) return fail("CLOSED", `Open Season #${s.id} on ${escapeMd(s.guild_name)} is no longer open.`);
+  // The season is found by the guild the addon saw, not by the number in the code: a season
+  // declared moments ago has no number yet, and an old number may belong to a season that has
+  // since closed while a new one runs on the same guild.
+  const guild = (k.guildName ?? "").trim();
+  const seen = k.guildSeen === 1 && guild !== "";
+  const open = await openSeasonsAgainst(env, tenant.id, k.killerFaction, now);
+  let candidates: SeasonRow[];
+  if (guild) {
+    candidates = open.filter((x) => x.guild_key === guildKey(guild));
+    if (!candidates.length) {
+      const own = await env.DB.prepare("SELECT 1 FROM seasons WHERE tenant_id = ?1 AND guild_key = ?2 AND status = 'open' AND faction = ?3")
+        .bind(tenant.id, guildKey(guild), factionName(k.killerFaction))
+        .first();
+      if (own) return fail("FACTION", "Bounties must be on the opposite faction.");
+      const old = k.seasonId ? await getSeason(env, tenant.id, k.seasonId) : null;
+      return fail(
+        "CLOSED",
+        old && old.guild_key === guildKey(guild)
+          ? `Open Season #${old.id} on ${escapeMd(old.guild_name)} is no longer open.`
+          : `There's no Open Season on ${escapeMd(guild)} running here.`,
+      );
+    }
+  } else {
+    // The addon never saw the victim's guild: any season on their side could be the one. The
+    // officers read the guild off the screenshot and approve it under the right season.
+    candidates = open;
+    if (!candidates.length) return fail("CLOSED", "There's no Open Season running that this kill could count for.");
+  }
+  const s = candidates[0]!;
   if (s.kind === SEASON_KIND.pot && remaining(s) <= 0) return fail("CLOSED", `Open Season #${s.id}'s pot is empty.`);
+  if (k.killedAt < s.created_at - 300) return fail("CLOSED", `That kill was before Open Season #${s.id} on ${escapeMd(s.guild_name)} started.`);
   if (k.killerFaction === factionId(s.faction)) return fail("FACTION", "Bounties must be on the opposite faction.");
   const funder = await env.DB.prepare("SELECT 1 FROM season_funds WHERE tenant_id = ?1 AND season_id = ?2 AND (poster_guid = ?3 OR poster_discord_id = ?4)")
     .bind(tenant.id, s.id, k.killerGUID, authorId)
@@ -358,8 +389,14 @@ export async function claimSeasonKill(
     .first<{ id: number }>();
   const killId = row!.id;
 
+  const others = candidates.slice(1, 4);
+  const guildLine = seen
+    ? `✅ The addon saw them in **${escapeMd(s.guild_name)}**`
+    : others.length
+      ? `⚠️ The addon never saw their guild. Check the nameplate in the screenshot and approve under the guild it shows: ${candidates.slice(0, 4).map((x) => `**${escapeMd(x.guild_name)}**`).join(", ")}. If it's none of them, deny.`
+      : `⚠️ The addon never saw their guild: check the nameplate in the screenshot says **${escapeMd(s.guild_name)}**`;
   const lines = [
-    seen ? `✅ The addon saw them in **${escapeMd(s.guild_name)}**` : `⚠️ The addon never saw their guild: check the nameplate in the screenshot says **${escapeMd(s.guild_name)}**`,
+    guildLine,
     checks.window ? `✅ Posted ${ageMin} min after the kill` : `⚠️ Posted ${ageMin} min after the kill (limit ${windowHours}h)`,
     checks.honor ? "✅ Honor kill confirmed in game" : "➖ No honor message (some kills give none)",
     checks.linked === true ? "✅ Character linked to this Discord user" : checks.linked === false ? "⚠️ Character is linked to a different Discord user" : "➖ Character not linked yet (`/bl link` in game)",
@@ -380,17 +417,22 @@ export async function claimSeasonKill(
     image: { url: `attachment://proof.${ext}` },
     footer: { text: `Claim S${killId} · Season #${s.id}` },
   };
+  // Unknown guild with several seasons running: one Approve per guild, so the officer files it
+  // under the one the screenshot shows.
+  const approve = others.length
+    ? candidates.slice(0, 4).map((x) => ({ type: 2, style: 3, label: `Approve: ${x.guild_name}`.slice(0, 80), custom_id: `skill:approve:${killId}:${x.id}` }))
+    : [{ type: 2, style: 3, label: "Approve", custom_id: `skill:approve:${killId}` }];
   const components = [
     {
       type: 1,
       components: auto
         ? [{ type: 2, style: 4, label: "Deny (officers)", custom_id: `skill:deny:${killId}` }]
-        : [
-            { type: 2, style: 3, label: "Approve", custom_id: `skill:approve:${killId}` },
-            { type: 2, style: 4, label: "Deny", custom_id: `skill:deny:${killId}` },
-          ],
+        : [...approve, { type: 2, style: 4, label: "Deny", custom_id: `skill:deny:${killId}` }],
     },
   ];
+  // No proof post means no buttons, and a claim nobody can review would hold the season's
+  // payout sheet forever: undo the claim so the hunter can post the screenshot again.
+  let posted = false;
   if (s.thread_id) {
     try {
       const sent = await rest.sendFiles(
@@ -399,9 +441,15 @@ export async function claimSeasonKill(
         [{ name: `proof.${ext}`, data: new Uint8Array(bytes), type: contentType }],
       );
       await env.DB.prepare("UPDATE season_kills SET proof_message_id = ?1 WHERE id = ?2").bind(sent.id, killId).run();
+      posted = true;
     } catch (e) {
       log(env, "error", "season.proof_post_failed", { tenant_id: tenant.id, season_id: s.id, error: String(e) });
     }
+  }
+  if (!posted) {
+    await env.DB.prepare("DELETE FROM season_kills WHERE id = ?1").bind(killId).run();
+    await env.PROOFS.delete(key).catch(() => undefined);
+    return fail("POSTER", `I couldn't post your proof in the Open Season's thread. Try posting the screenshot again in a minute; if it keeps failing, an officer should check my permissions in <#${tenant.bounty_board_forum}>.`);
   }
   if (auto) await credit(env, rest, tenant, s, killId, authorId, now);
   await audit(env.DB, tenant.id, authorId, "season.claim", { kill: killId, season: s.id, auto }, now);
@@ -418,12 +466,18 @@ export async function claimSeasonKill(
 /** An approved kill: credit the hunter's record and (kinds 1 and 3) the gold; an empty pot closes the season. */
 async function credit(env: Env, rest: DiscordRest, tenant: Tenant, s: SeasonRow, killId: number, hunterId: string | null, now: number): Promise<number> {
   if (hunterId) await creditHunter(env, tenant, hunterId);
+  // One transaction: the kill takes its price (a pot's last kill takes what's left) and the
+  // season's spent total moves by exactly that, so two approvals at once can't overspend a pot.
+  const [, , got] = await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE season_kills SET gold = (SELECT CASE s.kind WHEN 1 THEN MAX(0, MIN(s.per_kill_gold, s.total_gold - s.spent_gold))
+         WHEN 3 THEN s.per_kill_gold ELSE 0 END FROM seasons s WHERE s.id = ?2) WHERE id = ?1`,
+    ).bind(killId, s.id),
+    env.DB.prepare("UPDATE seasons SET spent_gold = spent_gold + (SELECT gold FROM season_kills WHERE id = ?1) WHERE id = ?2").bind(killId, s.id),
+    env.DB.prepare("SELECT gold FROM season_kills WHERE id = ?1").bind(killId),
+  ]);
+  const amount = Number((got?.results?.[0] as { gold?: number } | undefined)?.gold ?? 0);
   const fresh = (await getSeason(env, tenant.id, s.id)) ?? s;
-  const amount = fresh.kind === SEASON_KIND.pool ? 0 : fresh.kind === SEASON_KIND.pot ? Math.min(fresh.per_kill_gold, remaining(fresh)) : fresh.per_kill_gold;
-  if (amount > 0) {
-    await env.DB.prepare("UPDATE season_kills SET gold = ?1 WHERE id = ?2").bind(amount, killId).run();
-    await env.DB.prepare("UPDATE seasons SET spent_gold = spent_gold + ?1 WHERE id = ?2 AND tenant_id = ?3").bind(amount, s.id, tenant.id).run();
-  }
   const after = await refreshSeason(env, rest, tenant, s.id);
   if (after && after.status === "open" && after.kind === SEASON_KIND.pot && remaining(after) <= 0) await closeSeason(env, rest, tenant, after, now);
   else if (fresh.kind === SEASON_KIND.pot) await refreshPack(env, rest, tenant, now); // the pot left travels in the pack
@@ -440,23 +494,47 @@ export async function reviewSeasonKill(
   killId: number,
   officer: { id: string; roles: string[]; isAdmin: boolean },
   now: number,
+  /** Approve under this season instead (a claim whose guild the addon never saw). */
+  intoSeason?: number,
 ): Promise<ReviewResult> {
   if (!officer.isAdmin && !(tenant.officer_role_id && officer.roles.includes(tenant.officer_role_id))) {
     return { ephemeral: `Only <@&${tenant.officer_role_id}> can approve or deny kill claims.` };
   }
-  const kill = await env.DB.prepare("SELECT id, season_id, verdict, killer_discord_id, gold FROM season_kills WHERE id = ?1 AND tenant_id = ?2")
+  const kill = await env.DB.prepare(
+    "SELECT id, season_id, verdict, killer_discord_id, killer_guid, victim_guid, day, gold FROM season_kills WHERE id = ?1 AND tenant_id = ?2",
+  )
     .bind(killId, tenant.id)
-    .first<{ id: number; season_id: number; verdict: string; killer_discord_id: string | null; gold: number }>();
-  const s = kill && (await getSeason(env, tenant.id, kill.season_id));
-  if (!kill || !s) return { ephemeral: "I can't find that claim any more." };
-  const live = s.status === "open" || s.status === "settling";
+    .first<{ id: number; season_id: number; verdict: string; killer_discord_id: string | null; killer_guid: string | null; victim_guid: string; day: number; gold: number }>();
+  const filed = kill && (await getSeason(env, tenant.id, kill.season_id));
+  if (!kill || !filed) return { ephemeral: "I can't find that claim any more." };
+  const live = (x: SeasonRow) => x.status === "open" || x.status === "settling";
   // An auto-approved claim can still be denied until the payout sheet is posted.
-  const overturn = action === "deny" && kill.verdict === "auto" && live;
+  const overturn = action === "deny" && kill.verdict === "auto" && live(filed);
   if (kill.verdict !== "pending" && !overturn) return { ephemeral: `That claim was already ${kill.verdict === "auto" ? "auto-approved" : kill.verdict}.` };
-  if (!live) return { ephemeral: `Open Season #${s.id} has already been settled.` };
+  if (!live(filed)) return { ephemeral: `Open Season #${filed.id} has already been settled.` };
 
+  // Approving under another season (the officer read a different guild off the nameplate).
+  let s = filed;
+  if (action === "approve" && intoSeason && intoSeason !== filed.id) {
+    const target = await getSeason(env, tenant.id, intoSeason);
+    if (!target || target.status !== "open") return { ephemeral: `Open Season #${intoSeason} is no longer open.` };
+    const clash = await env.DB.prepare(
+      `SELECT 1 FROM season_kills WHERE season_id = ?1 AND victim_guid = ?2 AND killer_discord_id = ?3 AND day = ?4 AND verdict != 'denied' AND id != ?5
+       UNION SELECT 1 FROM season_funds WHERE tenant_id = ?6 AND season_id = ?1 AND (poster_guid = ?7 OR poster_discord_id = ?3)`,
+    )
+      .bind(target.id, kill.victim_guid, kill.killer_discord_id, kill.day, killId, tenant.id, kill.killer_guid)
+      .first();
+    if (clash) return { ephemeral: `That hunter can't collect this kill under Open Season #${target.id} (already claimed today, or they funded it).` };
+    await env.DB.prepare("UPDATE season_kills SET season_id = ?1 WHERE id = ?2").bind(target.id, killId).run();
+    s = target;
+  }
+
+  // Only the first click counts: a double-click or two officers at once can't credit it twice.
   const verdict = action === "approve" ? "approved" : "denied";
-  await env.DB.prepare("UPDATE season_kills SET verdict = ?1, reviewed_by = ?2 WHERE id = ?3").bind(verdict, officer.id, killId).run();
+  const changed = await env.DB.prepare("UPDATE season_kills SET verdict = ?1, reviewed_by = ?2 WHERE id = ?3 AND verdict = ?4")
+    .bind(verdict, officer.id, killId, kill.verdict)
+    .run();
+  if ((changed.meta?.changes ?? 0) === 0) return { ephemeral: "Another officer just reviewed that claim." };
   let line: string;
   if (action === "approve") {
     const amount = await credit(env, rest, tenant, s, killId, kill.killer_discord_id, now);
@@ -479,9 +557,13 @@ export async function reviewSeasonKill(
   }
   await audit(env.DB, tenant.id, officer.id, `season.kill_${verdict}`, { kill: killId, season: s.id }, now);
 
-  // A season that closed while claims were waiting settles once the last one is reviewed.
-  const after = await getSeason(env, tenant.id, s.id);
-  if (after?.status === "settling") await settle(env, rest, tenant, after, now);
+  // A season that closed while claims were waiting settles once the last one is reviewed (both
+  // seasons, when the claim moved).
+  for (const id of new Set([s.id, filed.id])) {
+    const after = await getSeason(env, tenant.id, id);
+    if (after?.status === "settling") await settle(env, rest, tenant, after, now);
+  }
+  if (s.id !== filed.id) line += ` Counted for **${escapeMd(s.guild_name)}** (Open Season #${s.id}).`;
   return { update: { content: line, components: [] } };
 }
 
@@ -490,18 +572,23 @@ export async function reviewSeasonKill(
 /** Stops new claims. The payout sheet follows at once, or after the officers finish any waiting claims. */
 export async function closeSeason(env: Env, rest: DiscordRest, tenant: Tenant, s: SeasonRow, now: number): Promise<void> {
   if (s.status !== "open") return;
-  await env.DB.prepare("UPDATE seasons SET status = 'settling', closed_at = ?1 WHERE id = ?2 AND tenant_id = ?3").bind(now, s.id, tenant.id).run();
+  // Only one caller closes it (the cron, /bl season end and the last kill of a pot can race).
+  const closed = await env.DB.prepare("UPDATE seasons SET status = 'settling', closed_at = ?1 WHERE id = ?2 AND tenant_id = ?3 AND status = 'open'")
+    .bind(now, s.id, tenant.id)
+    .run();
+  if ((closed.meta?.changes ?? 0) === 0) return;
   await refreshPack(env, rest, tenant, now);
-  await settle(env, rest, tenant, { ...s, status: "settling", closed_at: now }, now);
+  await settle(env, rest, tenant, { ...s, status: "settling", closed_at: now }, now, true);
 }
 
-async function settle(env: Env, rest: DiscordRest, tenant: Tenant, s: SeasonRow, now: number): Promise<void> {
+/** justClosed: say in the thread that claims are still waiting (once, at the close). */
+async function settle(env: Env, rest: DiscordRest, tenant: Tenant, s: SeasonRow, now: number, justClosed = false): Promise<void> {
   const { n: waiting } = (await env.DB.prepare("SELECT COUNT(*) AS n FROM season_kills WHERE tenant_id = ?1 AND season_id = ?2 AND verdict = 'pending'")
     .bind(tenant.id, s.id)
     .first<{ n: number }>()) ?? { n: 0 };
   if (waiting > 0) {
     await refreshSeason(env, rest, tenant, s.id);
-    if (s.thread_id) {
+    if (s.thread_id && justClosed) {
       await rest
         .sendMessage(s.thread_id, `🔒 **Open Season closed.** ${waiting} ${waiting === 1 ? "claim is" : "claims are"} still waiting for the officers; the payout sheet posts when they're done.`)
         .catch(() => undefined);
@@ -515,8 +602,13 @@ async function settle(env: Env, rest: DiscordRest, tenant: Tenant, s: SeasonRow,
     .map((r) => ({ hunter: r.hunter, kills: r.kills, gold: s.kind === SEASON_KIND.pool ? Math.floor((s.total_gold * r.kills) / kills) : r.gold }))
     .filter((r) => r.gold > 0)
     .sort((a, b) => b.gold - a.gold);
+  // Only one caller posts the sheet (two officers finishing the last reviews at once).
+  const next = owed.length ? "awaiting_payment" : "expired";
+  const moved = await env.DB.prepare("UPDATE seasons SET status = ?1, closed_at = COALESCE(closed_at, ?2) WHERE id = ?3 AND tenant_id = ?4 AND status = 'settling'")
+    .bind(next, now, s.id, tenant.id)
+    .run();
+  if ((moved.meta?.changes ?? 0) === 0) return;
   if (!owed.length) {
-    await env.DB.prepare("UPDATE seasons SET status = 'expired', closed_at = COALESCE(closed_at, ?1) WHERE id = ?2 AND tenant_id = ?3").bind(now, s.id, tenant.id).run();
     await refreshSeason(env, rest, tenant, s.id);
     if (s.thread_id) {
       await rest.sendMessage(s.thread_id, "🔒 **Open Season closed.** Nobody collected, so there is nothing to pay.").catch(() => undefined);
@@ -528,7 +620,6 @@ async function settle(env: Env, rest: DiscordRest, tenant: Tenant, s: SeasonRow,
 
   // Funders pay in the order they put gold in, so most hunters are paid by one person.
   const pots = (await funds(env, s)).map((f) => ({ id: f.poster_discord_id ?? "", name: f.poster_name ?? "?", left: s.kind === SEASON_KIND.open ? Infinity : f.gold }));
-  await env.DB.prepare("UPDATE seasons SET status = 'awaiting_payment' WHERE id = ?1 AND tenant_id = ?2").bind(s.id, tenant.id).run();
   await refreshSeason(env, rest, tenant, s.id);
   if (s.thread_id) {
     const total = owed.reduce((n, o) => n + o.gold, 0);
@@ -554,12 +645,16 @@ async function settle(env: Env, rest: DiscordRest, tenant: Tenant, s: SeasonRow,
       .first<{ id: number }>();
     if (!s.thread_id) continue;
     const p: PayoutRow = { id: row!.id, season_id: s.id, hunter_discord_id: o.hunter, kills: o.kills, gold: o.gold, payers_json: JSON.stringify(payers), received_at: null, done_at: null, message_id: null };
-    try {
-      const users = [...new Set([o.hunter, ...payers.map((x) => x.id)].filter(Boolean))];
-      const sent = await rest.send(s.thread_id, { content: payoutText(p), components: payoutButtons(p.id), allowed_mentions: { users } });
-      await env.DB.prepare("UPDATE season_payouts SET message_id = ?1 WHERE id = ?2").bind(sent.id, p.id).run();
-    } catch (e) {
-      log(env, "warn", "season.payout_post_failed", { tenant_id: tenant.id, season_id: s.id, error: String(e) });
+    const users = [...new Set([o.hunter, ...payers.map((x) => x.id)].filter(Boolean))];
+    // Two tries; a line that still has no buttons is finished by an officer with /bl season action: close.
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const sent = await rest.send(s.thread_id, { content: payoutText(p), components: payoutButtons(p.id), allowed_mentions: { users } });
+        await env.DB.prepare("UPDATE season_payouts SET message_id = ?1 WHERE id = ?2").bind(sent.id, p.id).run();
+        break;
+      } catch (e) {
+        log(env, "warn", "season.payout_post_failed", { tenant_id: tenant.id, season_id: s.id, attempt, error: String(e) });
+      }
     }
   }
   log(env, "info", "season.closed", { tenant_id: tenant.id, season_id: s.id, outcome: "payout", hunters: owed.length });
@@ -602,32 +697,51 @@ export async function handleSeasonPayout(
   user: { id: string; roles: string[]; isAdmin: boolean },
   now: number,
 ): Promise<ReviewResult> {
-  const p = await env.DB.prepare("SELECT * FROM season_payouts WHERE id = ?1 AND tenant_id = ?2").bind(payoutId, tenant.id).first<PayoutRow>();
-  const s = p && (await getSeason(env, tenant.id, p.season_id));
-  if (!p || !s) return { ephemeral: "I can't find that payout any more." };
-  if (p.done_at) return { ephemeral: "That payout is already settled." };
-  const payers = JSON.parse(p.payers_json) as Payer[];
   const officer = user.isAdmin || (!!tenant.officer_role_id && user.roles.includes(tenant.officer_role_id));
-  if (action === "paid") {
-    if (!payers.some((x) => x.id === user.id)) return { ephemeral: `Only the payers (${payers.map((x) => `<@${x.id}>`).join(", ")}) can mark their share paid.` };
-    for (const x of payers) if (x.id === user.id) x.paid_at = x.paid_at ?? now;
-  } else if (action === "received") {
-    if (user.id !== p.hunter_discord_id) return { ephemeral: `Only the hunter (<@${p.hunter_discord_id}>) can mark this received.` };
-    p.received_at = p.received_at ?? now;
-  } else if (!officer) {
-    return { ephemeral: `Only <@&${tenant.officer_role_id}> can force-close a payout.` };
+  // Read, change, write only if nobody else wrote in between (two payers clicking at once);
+  // otherwise read again. The write that finishes the line is the only one that credits it.
+  let p: PayoutRow | null = null;
+  let s: SeasonRow | null = null;
+  let done = false;
+  for (let attempt = 0; ; attempt++) {
+    p = await env.DB.prepare("SELECT * FROM season_payouts WHERE id = ?1 AND tenant_id = ?2").bind(payoutId, tenant.id).first<PayoutRow>();
+    s = p && (await getSeason(env, tenant.id, p.season_id));
+    if (!p || !s) return { ephemeral: "I can't find that payout any more." };
+    if (p.done_at) return { ephemeral: "That payout is already settled." };
+    const before = { payers: p.payers_json, received: p.received_at };
+    const payers = JSON.parse(p.payers_json) as Payer[];
+    if (action === "paid") {
+      if (!payers.some((x) => x.id === user.id)) return { ephemeral: `Only the payers (${payers.map((x) => `<@${x.id}>`).join(", ")}) can mark their share paid.` };
+      for (const x of payers) if (x.id === user.id) x.paid_at = x.paid_at ?? now;
+    } else if (action === "received") {
+      if (user.id !== p.hunter_discord_id) return { ephemeral: `Only the hunter (<@${p.hunter_discord_id}>) can mark this received.` };
+      p.received_at = p.received_at ?? now;
+    } else if (!officer) {
+      return { ephemeral: `Only <@&${tenant.officer_role_id}> can force-close a payout.` };
+    }
+    done = action === "close" || (payers.every((x) => x.paid_at) && !!p.received_at);
+    if (done) {
+      for (const x of payers) x.paid_at = x.paid_at ?? now;
+      p.received_at = p.received_at ?? now;
+      p.done_at = now;
+    }
+    p.payers_json = JSON.stringify(payers);
+    const wrote = await env.DB.prepare(
+      `UPDATE season_payouts SET payers_json = ?1, received_at = ?2, done_at = ?3
+        WHERE id = ?4 AND done_at IS NULL AND payers_json = ?5 AND received_at IS ?6`,
+    )
+      .bind(p.payers_json, p.received_at, p.done_at, p.id, before.payers, before.received)
+      .run();
+    if ((wrote.meta?.changes ?? 0) === 1) break;
+    if (attempt >= 3) return { ephemeral: "Someone else was updating that payout. Click again." };
   }
-  const done = action === "close" || (payers.every((x) => x.paid_at) && !!p.received_at);
-  if (done) {
-    for (const x of payers) x.paid_at = x.paid_at ?? now;
-    p.received_at = p.received_at ?? now;
-    p.done_at = now;
-  }
-  p.payers_json = JSON.stringify(payers);
-  await env.DB.prepare("UPDATE season_payouts SET payers_json = ?1, received_at = ?2, done_at = ?3 WHERE id = ?4").bind(p.payers_json, p.received_at, p.done_at, p.id).run();
   await audit(env.DB, tenant.id, user.id, `season.payout_${action}`, { season: s.id, payout: p.id }, now);
-  if (!done) return { update: { content: payoutText(p), components: payoutButtons(p.id) } };
+  if (!done) return { update: { content: payoutText(p!), components: payoutButtons(p!.id) } };
+  return lineSettled(env, rest, tenant, p!, s!, action === "close" ? user.id : undefined);
+}
 
+/** A payout line just settled: credit the hunter; when it was the last line, the season is PAID. */
+async function lineSettled(env: Env, rest: DiscordRest, tenant: Tenant, p: PayoutRow, s: SeasonRow, closedBy?: string): Promise<ReviewResult> {
   await env.DB.prepare(
     `INSERT INTO hunters (tenant_id, discord_user_id, gold_earned) VALUES (?1, ?2, ?3)
      ON CONFLICT(tenant_id, discord_user_id) DO UPDATE SET gold_earned = gold_earned + ?3`,
@@ -637,11 +751,12 @@ export async function handleSeasonPayout(
   const { n: open } = (await env.DB.prepare("SELECT COUNT(*) AS n FROM season_payouts WHERE tenant_id = ?1 AND season_id = ?2 AND done_at IS NULL")
     .bind(tenant.id, s.id)
     .first<{ n: number }>()) ?? { n: 0 };
-  const update = { content: payoutText(p, action === "close" ? user.id : undefined), components: [] };
+  const update = { content: payoutText(p, closedBy), components: [] };
   if (open > 0) return { update };
 
-  // Every line settled: the season is paid.
-  await env.DB.prepare("UPDATE seasons SET status = 'paid' WHERE id = ?1 AND tenant_id = ?2").bind(s.id, tenant.id).run();
+  // Every line settled: the season is paid (once, even if two last lines finish together).
+  const paid = await env.DB.prepare("UPDATE seasons SET status = 'paid' WHERE id = ?1 AND tenant_id = ?2 AND status = 'awaiting_payment'").bind(s.id, tenant.id).run();
+  if ((paid.meta?.changes ?? 0) === 0) return { update };
   await refreshSeason(env, rest, tenant, s.id);
   log(env, "info", "season.paid", { tenant_id: tenant.id, season_id: s.id });
   const threadId = s.thread_id;
@@ -649,6 +764,44 @@ export async function handleSeasonPayout(
     update,
     after: threadId ? () => rest.closeThread(threadId).catch((e) => log(env, "warn", "season.archive_failed", { tenant_id: tenant.id, error: String(e) })) : undefined,
   };
+}
+
+/**
+ * /bl season action: close (officers): finishes a season that is stuck. Claims still waiting
+ * for review are denied, so the payout sheet can post; payout lines still open are marked
+ * paid (for lines whose buttons never appeared, or a payer who left).
+ */
+export async function forceCloseSeason(env: Env, rest: DiscordRest, tenant: Tenant, id: number, officerId: string, now: number): Promise<string> {
+  let s = await getSeason(env, tenant.id, id);
+  if (!s) return `❌ Open Season #${id} isn't on this Bounty Board.`;
+  if (s.status === "paid" || s.status === "expired") return `❌ Open Season #${id} is already finished.`;
+  if (s.status === "open") {
+    await closeSeason(env, rest, tenant, s, now);
+    s = (await getSeason(env, tenant.id, id))!;
+  }
+  if (s.status === "settling") {
+    await env.DB.prepare("UPDATE season_kills SET verdict = 'denied', reviewed_by = ?1 WHERE tenant_id = ?2 AND season_id = ?3 AND verdict = 'pending'")
+      .bind(officerId, tenant.id, id)
+      .run();
+    await settle(env, rest, tenant, s, now);
+    s = (await getSeason(env, tenant.id, id))!;
+  }
+  if (s.status === "awaiting_payment") {
+    const { results } = await env.DB.prepare("SELECT * FROM season_payouts WHERE tenant_id = ?1 AND season_id = ?2 AND done_at IS NULL").bind(tenant.id, id).all<PayoutRow>();
+    for (const p of results) {
+      const payers = (JSON.parse(p.payers_json) as Payer[]).map((x) => ({ ...x, paid_at: x.paid_at ?? now }));
+      const wrote = await env.DB.prepare("UPDATE season_payouts SET payers_json = ?1, received_at = COALESCE(received_at, ?2), done_at = ?2 WHERE id = ?3 AND done_at IS NULL")
+        .bind(JSON.stringify(payers), now, p.id)
+        .run();
+      if ((wrote.meta?.changes ?? 0) !== 1) continue;
+      const r = await lineSettled(env, rest, tenant, { ...p, payers_json: JSON.stringify(payers), received_at: p.received_at ?? now, done_at: now }, s, officerId);
+      if (p.message_id && s.thread_id) await rest.editMessage(s.thread_id, p.message_id, r.update!.content).catch(() => undefined);
+      await r.after?.();
+    }
+  }
+  await audit(env.DB, tenant.id, officerId, "season.force_close", { id }, now);
+  const final = await getSeason(env, tenant.id, id);
+  return `🔒 Open Season #${id} on **${escapeMd(s.guild_name)}** is now **${final?.status === "paid" ? "PAID" : final?.status === "expired" ? "ended" : (final?.status ?? "?")}**.`;
 }
 
 // ---------------------------------------------------------------- cron, commands, pack

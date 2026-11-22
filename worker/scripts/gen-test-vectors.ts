@@ -131,9 +131,9 @@ const kRawGuids: KillClaim = {
 };
 
 // Open Season kills (K schema 2): season id, victim name, and whether the addon saw the guild.
-const kSeason: KillClaim = { ...kBasic, schema: 2, bountyId: 0, seasonId: 7, victimName: "Gaulli Gorestride", guildSeen: 1 };
-const kSeasonAndBounty: KillClaim = { ...kBasic, schema: 2, seasonId: 7, victimName: "Grimlok Ashveil", guildSeen: 1 };
-const kGuildUnknown: KillClaim = { ...kPet, schema: 2, bountyId: 0, seasonId: 0, victimName: "Zoë Brightblade", guildSeen: 0, flags: 1 };
+const kSeason: KillClaim = { ...kBasic, schema: 2, bountyId: 0, seasonId: 7, victimName: "Gaulli Gorestride", guildName: "Honor and Valor", guildSeen: 1 };
+const kSeasonAndBounty: KillClaim = { ...kBasic, schema: 2, seasonId: 7, victimName: "Grimlok Ashveil", guildName: "Honor and Valor", guildSeen: 1 };
+const kGuildUnknown: KillClaim = { ...kPet, schema: 2, bountyId: 0, seasonId: 0, victimName: "Zoë Brightblade", guildName: "", guildSeen: 0, flags: 1 };
 
 const sPot: SeasonPost = {
   schema: 1,
@@ -503,6 +503,7 @@ const encodeErrors: { name: string; type: string; fields: unknown }[] = [
   { name: "L faction 0", type: "L", fields: { ...lBasic, faction: 0 } },
   { name: "K schema 3", type: "K", fields: { ...kSeason, schema: 3 } },
   { name: "K schema 2 without a victim name", type: "K", fields: { ...kSeason, victimName: undefined } },
+  { name: "K schema 2 without a guild name", type: "K", fields: { ...kSeason, guildName: undefined } },
   { name: "K schema 2 guildSeen 2", type: "K", fields: { ...kSeason, guildSeen: 2 } },
   { name: "S schema 2", type: "S", fields: { ...sPot, schema: 2 } },
   { name: "S same faction", type: "S", fields: { ...sPot, posterFaction: 1 } },

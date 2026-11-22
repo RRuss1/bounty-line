@@ -6,7 +6,7 @@ import type { Env } from "./env";
 import { gatewayState } from "./gateway";
 import { log } from "./log";
 import { refreshPack } from "./pack";
-import { endSeason, listSeasons } from "./seasons";
+import { endSeason, forceCloseSeason, listSeasons } from "./seasons";
 import { cancel, configure, forgetMe, leaderboard, me } from "./stats";
 import { codeLimiter, packLimiter } from "./ratelimit";
 import { issueRelayToken, relayUsers, revokeRelayToken } from "./relay";
@@ -94,10 +94,15 @@ export async function runCommand(
         defer: async () => {
           const tenant = await getTenant(env.DB, guildId);
           if (!tenant) return "This server isn't set up yet. An admin needs to run `/bl setup`.";
-          if ((o.action ?? "list") !== "end") return listSeasons(env, tenant, now);
-          if (!o.id) return "❌ Which one? Give the season number: `/bl season action: end id: 7`.";
+          const action = o.action ?? "list";
+          if (action !== "end" && action !== "close") return listSeasons(env, tenant, now);
+          if (!o.id) return `❌ Which one? Give the season number: \`/bl season action: ${action} id: 7\`.`;
           const roles = interaction.member?.roles ?? [];
           const officer = hasAdmin(interaction) || (!!tenant.officer_role_id && roles.includes(tenant.officer_role_id));
+          if (action === "close") {
+            if (!officer) return "❌ Only officers can force-close an Open Season.";
+            return forceCloseSeason(env, rest, tenant, Number(o.id), actorOf(interaction), now);
+          }
           return endSeason(env, rest, tenant, Number(o.id), { id: actorOf(interaction), officer }, now);
         },
       };

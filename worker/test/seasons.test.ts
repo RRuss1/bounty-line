@@ -33,12 +33,12 @@ let now = NOW;
 
 const season = (f: Partial<SeasonPost> = {}): SeasonPost => ({
   schema: 1, boardTag: tag, guildName: GUILD, guildFaction: 1, posterFaction: 2, kind: 1, perKillGold: 25, totalGold: 100, days: 7,
-  posterGUID: POSTER, posterName: "Slac Jaw", createdAt: NOW - 60, nonce: ++seq, mode: 0, existingSeasonId: 0, ...f,
+  posterGUID: POSTER, posterName: "Slac Jaw", createdAt: NOW - 3600, nonce: ++seq, mode: 0, existingSeasonId: 0, ...f,
 });
 const kill = (f: Partial<KillClaim> = {}) =>
   encode("K", {
     schema: 2, boardTag: tag, bountyId: 0, victimGUID: "Player-4395-0A1B2C3D", killerGUID: HUNTER, killerName: "Hunter McHunterface",
-    killerFaction: 2, killedAt: now - 360, mapID: 1437, flags: 1, nonce: ++seq, seasonId: 1, victimName: "Gaulli Gorestride", guildSeen: 1, ...f,
+    killerFaction: 2, killedAt: now - 360, mapID: 1437, flags: 1, nonce: ++seq, seasonId: 1, victimName: "Gaulli Gorestride", guildName: GUILD, guildSeen: 1, ...f,
   });
 /** A fresh screenshot each time: the bot refuses a picture it has seen. */
 const shot = () => {
@@ -207,7 +207,8 @@ describe("claiming Open Season kills", () => {
     ["someone who funded the season", () => say(kill({ killerGUID: POSTER }), [shot()], HUNTER_USER), "put gold into"],
     ["the funder on another character", () => say(kill(), [shot()], POSTER_USER), "put gold into"],
     ["a killer of the guild's own faction", () => say(kill({ killerFaction: 1 }), [shot()], HUNTER_USER), "opposite faction"],
-    ["an unknown season", () => say(kill({ seasonId: 99 }), [shot()], HUNTER_USER), "isn't on this Bounty Board"],
+    ["a guild with no season", () => say(kill({ guildName: "Nobody Here" }), [shot()], HUNTER_USER), "no Open Season on Nobody Here"],
+    ["a kill from before the season", () => say(kill({ killedAt: NOW - 2 * 3600 }), [shot()], HUNTER_USER), "before Open Season #1"],
     ["no screenshot", () => say(kill(), [], HUNTER_USER), "need your screenshot"],
   ])("refuses %s", async (_, act, message) => {
     await act();
@@ -216,10 +217,43 @@ describe("claiming Open Season kills", () => {
   });
 
   it("guild not seen by the addon: filed under the open season, flagged for the officers", async () => {
-    await say(kill({ seasonId: 0, guildSeen: 0 }), [shot()], HUNTER_USER);
+    await say(kill({ seasonId: 0, guildName: "", guildSeen: 0 }), [shot()], HUNTER_USER);
     expect(rows("SELECT season_id, guild_seen, verdict FROM season_kills")).toEqual([{ season_id: 1, guild_seen: 0, verdict: "pending" }]);
     const proof = discord.find("POST", new RegExp(`/channels/${seasonRow().thread_id}/messages$`))[0]!;
     expect(JSON.stringify(proof.body)).toContain("never saw their guild");
+  });
+
+  it("a season a guildie just declared (no number in the code yet) is found by the guild", async () => {
+    await say(kill({ seasonId: 0 }), [shot()], HUNTER_USER);
+    expect(rows("SELECT season_id, guild_seen FROM season_kills")).toEqual([{ season_id: 1, guild_seen: 1 }]);
+  });
+
+  it("an old season number still lands on the season now running on that guild", async () => {
+    await say(kill({ seasonId: 99 }), [shot()], HUNTER_USER);
+    expect(rows("SELECT season_id FROM season_kills")).toEqual([{ season_id: 1 }]);
+  });
+
+  it("a double-clicked Approve credits the kill once", async () => {
+    await say(kill(), [shot()], HUNTER_USER);
+    await call(env, button("skill:approve:1", OFFICER, [ids.role]));
+    await call(env, button("skill:approve:1", OFFICER, [ids.role]));
+    expect(seasonRow()).toMatchObject({ spent_gold: 25 });
+    expect(row("SELECT approved FROM hunters WHERE discord_user_id = ?", HUNTER_USER)).toEqual({ approved: 1 });
+  });
+
+  it("guild not seen with two seasons running: one Approve per guild, and approving moves it", async () => {
+    await say(encode("S", season({ guildName: "Dawnbreakers", kind: 3, perKillGold: 10, totalGold: 0 })));
+    await say(kill({ seasonId: 0, guildName: "", guildSeen: 0 }), [shot()], HUNTER_USER);
+    const filed = row<{ season_id: number }>("SELECT season_id FROM season_kills").season_id;
+    expect(filed).toBe(2); // newest first
+    const proof = discord.find("POST", new RegExp(`/channels/${seasonRow(2).thread_id}/messages$`)).at(-1)!;
+    const ids_ = (proof.body as { components: { components: { custom_id: string; label: string }[] }[] }).components[0]!.components;
+    expect(ids_.map((c) => c.custom_id)).toEqual(["skill:approve:1:2", "skill:approve:1:1", "skill:deny:1"]);
+    expect(ids_[1]!.label).toBe("Approve: Honor and Valor");
+    await call(env, button("skill:approve:1:1", OFFICER, [ids.role]));
+    expect(rows("SELECT season_id, verdict, gold FROM season_kills")).toEqual([{ season_id: 1, verdict: "approved", gold: 25 }]);
+    expect(seasonRow(1)).toMatchObject({ spent_gold: 25 });
+    expect(seasonRow(2)).toMatchObject({ spent_gold: 0 });
   });
 
   it("a guild member with a personal bounty: one code claims both", async () => {
@@ -310,6 +344,29 @@ describe("closing and paying", () => {
     await call(env, seasonCmd(POSTER_USER, END));
     expect(seasonRow().status).toBe("awaiting_payment");
     expect(rows("SELECT hunter_discord_id, kills, gold FROM season_payouts")).toEqual([{ hunter_discord_id: HUNTER_USER, kills: 5, gold: 150 }]);
+  });
+
+  it("closing twice (the hourly sweep and /bl season end) posts one sheet", async () => {
+    await say(encode("S", season()));
+    await approvedKill({ victimGUID: victims[0]! });
+    now = NOW + 7 * DAY + 60;
+    await expirySweep(env, new DiscordRest("t"), now);
+    await expirySweep(env, new DiscordRest("t"), now);
+    await call(env, seasonCmd(POSTER_USER, END));
+    expect(rows("SELECT * FROM season_payouts")).toHaveLength(1);
+  });
+
+  it("officers can force-close a stuck season: waiting claims denied, open lines marked paid", async () => {
+    await say(encode("S", season()));
+    await approvedKill({ victimGUID: victims[0]! });
+    await say(kill({ victimGUID: victims[1]!, killerGUID: HUNTER2 }), [shot()], HUNTER2_USER); // never reviewed
+    const close = [{ name: "action", type: 3, value: "close" }, { name: "id", type: 4, value: 1 }];
+    await call(env, seasonCmd(HUNTER_USER, close));
+    expect(discord.followups().at(-1)).toContain("Only officers");
+    await call(env, { ...seasonCmd(OFFICER, close), member: { user: { id: OFFICER }, permissions: "0", roles: [ids.role] } });
+    expect(discord.followups().at(-1)).toContain("is now **PAID**");
+    expect(rows("SELECT verdict FROM season_kills ORDER BY id")).toEqual([{ verdict: "approved" }, { verdict: "denied" }]);
+    expect(rows("SELECT hunter_discord_id, gold FROM season_payouts WHERE done_at IS NOT NULL")).toEqual([{ hunter_discord_id: HUNTER_USER, gold: 25 }]);
   });
 
   it("expiry with no kills: ended, nothing to pay, thread closed", async () => {
