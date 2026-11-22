@@ -562,12 +562,30 @@
         ]
       },
       "code": "BL1-P-F3D5AMTV90A6251YVFNENKPCSV65WN3PTMEDTK2JX7QAB9Y40XBXNPGC4MGT4M0WAZDWQN5ENP7FAM0SJS8H0XKSH1FA4M1AF8M23TN11CP83FA851GT8S24AG7MABRN2G99VWZFSVK3XV7C63ZZF7BKQVQQSFY9VYRAE9B4QV8P9ZP2EXN9TJMB2S9H6TGC01600N9JQ3RTT1TCVZVJZZ8CS7PQME1HT3BHANKPD70YXBN8KA7HGXTWY32ZM8RAKQ2VAT5871WHTA9AK1FBEEB6TZD04YJ8HCMQWBA6F07F358HC6FSDF5BT21Z0JQX5Q2FF0QRP5H70YJHRV5438RWA5PAP01A6SRNGG6SNC713GBVZ41H50G0VMXNN9Y74GJ0RMXXYH46CV31WZ2YCP2Q6JNB09VHBHFZ746K0Z9AGTHZ7CKGDX447AJ28HY3QN30PZM1RFS591611XD11QGFZ7GYDHE2FDVD55WW13VPC62PDK1EY5M8J5MN2W5H3GWRE857E7XWVYCQ6AF6BTF0P14X2EMY52357BHJP8WG8EAKKT4RB46WG73D4P7M9W60PDH9FCNH16HNCVDEQ8J8161ZV4FKEKAG329WCKXGHT64S31HWRQ998GGASRMRH3M1BH9BRBEC93MJ70H2GBR3VRSWR9EM2SSWV0STZY8H3Y2NBARNTV9NN4C58XTC5PGXGPD2CYAV0GEK024YAZ26MR9PDKCQKSWMKKBCV31QAKKA21WFKTM3FXQDFZZHJAC684FZ351Z1K4A8BD30QCK0C2CV32QE88N21HAP8XZ0WM4DGDQV589RV63948J2758BKP51CSZGGV5TAPWW913V6YTWAFYNYH5CFVH86D4J4PVCEB6DD02EYAS9GJW5RK0VVDAKQQESH64A6JSS74DA1RTXE8DKDZKY0VE8341FNJADPQKSS08FZJFKP8W6D4J7NDSCM2ZZF38Q752C5QF8XNXF5HTDKHC4B3W5WMHJFXRPSWKMJS5XCXH1MM0JCC9DPS3YZJAGMJJKT44V2850Z9B7CGJ92VM7C3C2MTP73BY34J90J2CQC2P8657B1568D3GYKSMGY623456CAX3PKGQJ7EJCGXZ2QJQPBG9HP830Y7W0H979C9XY8ZWHFSBC0GQCFEJP2HTK2P15QMEBKMJ90CGFG6S7SZQX689B0WW9854FDVWFW67E9DKH0ZRCCGCTYYE2K68KYCMSJARPEEN0SN6P8H24EFT89ZRY0WQ2ZR3WE9WZ6DQE31HDRWEBDNV6X7V3KZBWYS2XG-1177"
-    }
-  ],
-  "forwardCompat": [
+    },
     {
-      "name": "K schema 2 with appended fields and new flag bit: known fields read, rest ignored",
-      "code": "BL1-K-095KEMA60000030024NGM6SC7M012AR14D2PE4T8ENQ78SBJ416P6J3NDST6AWK6C5HPA0BB084SY1CT0W103QNDQVQG-0TFP",
+      "name": "K2 season kill",
+      "type": "K",
+      "fields": {
+        "schema": 2,
+        "boardTag": "K7QF",
+        "bountyId": 0,
+        "victimGUID": "Player-4395-0A1B2C3D",
+        "killerGUID": "Player-4395-01234567",
+        "killerName": "Hunter McHunterface",
+        "killerFaction": 1,
+        "killedAt": 1795295647,
+        "mapID": 1434,
+        "flags": 1,
+        "nonce": 513,
+        "seasonId": 7,
+        "victimName": "Gaulli Gorestride",
+        "guildSeen": 1
+      },
+      "code": "BL1-K-095KEMA60000000024NGM6SC7M012AR14D2PE4T8ENQ78SBJ416P6J3NDST6AWK6C5HPA0BB084SY1CT04102000003H2HV1ENP6RT908XQQ4SBKEHS6JS3504-0THC"
+    },
+    {
+      "name": "K2 season kill that is also a personal bounty",
       "type": "K",
       "fields": {
         "schema": 2,
@@ -579,8 +597,349 @@
         "killerFaction": 1,
         "killedAt": 1795295647,
         "mapID": 1434,
+        "flags": 1,
+        "nonce": 513,
+        "seasonId": 7,
+        "victimName": "Grimlok Ashveil",
+        "guildSeen": 1
+      },
+      "code": "BL1-K-095KEMA60000030024NGM6SC7M012AR14D2PE4T8ENQ78SBJ416P6J3NDST6AWK6C5HPA0BB084SY1CT04102000003GYHVJD5PPRVVB410Q6T3PCNMPR08-1JAF"
+    },
+    {
+      "name": "K2 guild not seen",
+      "type": "K",
+      "fields": {
+        "schema": 2,
+        "boardTag": "0000",
+        "bountyId": 0,
+        "victimGUID": "Player-77-89ABCDEF",
+        "killerGUID": "Player-4395-01234567",
+        "killerName": "Ånund Ironside",
+        "killerFaction": 2,
+        "killedAt": 1795295647,
+        "mapID": 1434,
+        "flags": 1,
+        "nonce": 65535,
+        "seasonId": 0,
+        "victimName": "Zoë Brightblade",
+        "guildSeen": 0
+      },
+      "code": "BL1-K-08R30C1G00000000016RKAYDXW012AR14D2PE3Y3GNQ7AVK4414Q4VVEEDMP8S82DC10K7R5K80ZZZR00000042TDZ1TP822E9MPET3MC9P62S3500-0VFZ"
+    },
+    {
+      "name": "S per head + pot",
+      "type": "S",
+      "fields": {
+        "schema": 1,
+        "boardTag": "K7QF",
+        "guildName": "Honor and Valor",
+        "guildFaction": 1,
+        "posterFaction": 2,
+        "kind": 1,
+        "perKillGold": 25,
+        "totalGold": 2000,
+        "days": 7,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Slac Jaw",
+        "createdAt": 1795200000,
+        "nonce": 4242,
+        "mode": 0,
+        "existingSeasonId": 0
+      },
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G40800001J0000Z80E00H5C0FZVGH119PRRB341562XVB02A0044J00000000-1M0H"
+    },
+    {
+      "name": "S prize pool, unicode, no board tag",
+      "type": "S",
+      "fields": {
+        "schema": 1,
+        "boardTag": "0000",
+        "guildName": "Les Chasseurs ⚔",
+        "guildFaction": 2,
+        "posterFaction": 1,
+        "kind": 2,
+        "perKillGold": 0,
+        "totalGold": 10000,
+        "days": 28,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Slac Jaw",
+        "createdAt": 1795200000,
+        "nonce": 0,
+        "mode": 0,
+        "existingSeasonId": 0
+      },
+      "code": "BL1-S-04R30C1G2566AWS08DM62WVKCNTQ4WS0WAD980G1080000000002E40W008JP07ZXR8GGMVCC5HJ0JK1EXNG1500000000000000-00G4"
+    },
+    {
+      "name": "S per head, no ceiling",
+      "type": "S",
+      "fields": {
+        "schema": 1,
+        "boardTag": "K7QF",
+        "guildName": "Honor and Valor",
+        "guildFaction": 1,
+        "posterFaction": 2,
+        "kind": 3,
+        "perKillGold": 50,
+        "totalGold": 0,
+        "days": 14,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Slac Jaw",
+        "createdAt": 1795200000,
+        "nonce": 65535,
+        "mode": 0,
+        "existingSeasonId": 0
+      },
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G40R0000340000000W00H5C0FZVGH119PRRB341562XVB02A01ZZZ00000000-0097"
+    },
+    {
+      "name": "S add gold to a season",
+      "type": "S",
+      "fields": {
+        "schema": 1,
+        "boardTag": "K7QF",
+        "guildName": "Honor and Valor",
+        "guildFaction": 1,
+        "posterFaction": 2,
+        "kind": 0,
+        "perKillGold": 0,
+        "totalGold": 500,
+        "days": 0,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Ælfric Stormcrow",
+        "createdAt": 1795200000,
+        "nonce": 4242,
+        "mode": 1,
+        "existingSeasonId": 7
+      },
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G40000000000007T0000H5C0FZVGH271RCV36E9MP682KEHQQ4VB3E9QQETR0JG0114G1000001R-0PZK"
+    },
+    {
+      "name": "P2 bounties and seasons",
+      "type": "P",
+      "fields": {
+        "schema": 2,
+        "boardTag": "K7QF",
+        "packVersion": 1795300999,
+        "minAddonVersion": 1002,
+        "discordDisplayName": "Les Chasseurs de Primes ⚔",
+        "rewardMin": 1,
+        "rewardMax": 10000,
+        "bounties": [
+          {
+            "bountyId": 12,
+            "targetGUID": "Player-4395-0A1B2C3D",
+            "targetName": "Grimlok Ashveil",
+            "targetClassID": 1,
+            "targetFaction": 2,
+            "rewardGold": 500,
+            "posterName": "Slac Jaw",
+            "expiresAt": 1796400000
+          },
+          {
+            "bountyId": 13,
+            "targetGUID": "Player-4395-1B2C3D4E",
+            "targetName": "Mograth Skullsplitter",
+            "targetClassID": 9,
+            "targetFaction": 2,
+            "rewardGold": 10000,
+            "posterName": "Hunter McHunterface",
+            "expiresAt": 1796486400
+          },
+          {
+            "bountyId": 1000,
+            "targetGUID": "Player-11-2C3D4E5F",
+            "targetName": "Zoë Brightblade",
+            "targetClassID": 8,
+            "targetFaction": 1,
+            "rewardGold": 2500,
+            "posterName": "Ælfric Stormcrow",
+            "expiresAt": 1796572800
+          }
+        ],
+        "seasons": [
+          {
+            "seasonId": 7,
+            "guildName": "Honor and Valor",
+            "guildFaction": 1,
+            "kind": 1,
+            "perKillGold": 25,
+            "remainingGold": 1875,
+            "posterName": "Slac Jaw",
+            "expiresAt": 1795804800
+          },
+          {
+            "seasonId": 8,
+            "guildName": "Les Chasseurs ⚔",
+            "guildFaction": 2,
+            "kind": 2,
+            "perKillGold": 0,
+            "remainingGold": 10000,
+            "posterName": "Hunter McHunterface",
+            "expiresAt": 1797619200
+          },
+          {
+            "seasonId": 9,
+            "guildName": "Dawnbreakers",
+            "guildFaction": 1,
+            "kind": 3,
+            "perKillGold": 50,
+            "remainingGold": 0,
+            "posterName": "Ælfric Stormcrow",
+            "expiresAt": 1796409600
+          }
+        ]
+      },
+      "code": "BL1-P-F3D67WHP1XTCPSMJDDKQW9FDJDDASR4WJ5C5S72TB9AAS44JN885154S1CA7PD3B181G60S30E1VM0036E8CBGS0N36JBBB3SFQGX56FS77NCW1CSRM4QKECC5J05AQTR88SS4WRNKG9AP4Y5QTBG0D8K8BTG6N8V17X8DSZQMMB292344WBPD17MYW209XKMGJBB20KN13NTG6RMCT0ZJ2HY16RCC6J2A9N7CT59J0VN6AZ60R700VNRW5M9S8ZBTPY0N4MK6F534MMJEC95JG1EG8EE4E1RDPKJTA5K74GNG95Z52VKJA5Z7JXK8KD1NG6FCQKFFJEFS8Q54JED998GGJYDS0Q6417AC2808JR44BEWGY0EWH3GWGANQW17SK04EGC0HR3GKNN1RJCKJF3J9C9X5TMJJD9H7ATAK60HCPN10J8XHANRAE0R06A0XK5E-12YF"
+    },
+    {
+      "name": "P2 seasons only",
+      "type": "P",
+      "fields": {
+        "schema": 2,
+        "boardTag": "K7QF",
+        "packVersion": 1795301000,
+        "minAddonVersion": 1000,
+        "discordDisplayName": "WoW Forever",
+        "rewardMin": 1,
+        "rewardMax": 10000,
+        "bounties": [],
+        "seasons": [
+          {
+            "seasonId": 7,
+            "guildName": "Honor and Valor",
+            "guildFaction": 1,
+            "kind": 1,
+            "perKillGold": 25,
+            "remainingGold": 1875,
+            "posterName": "Slac Jaw",
+            "expiresAt": 1795804800
+          }
+        ]
+      },
+      "code": "BL1-P-F3D67WHP1XTCPSMJXDG7XG8XKRFTXR4PBYA5N5JTRK0C1G68R2G2W05137CFJFFJYFS8P50JYD919GGJEFS8P621MA9412B0HVG9SH340PQW9WKCSSSGT05KYG90P-0MZE"
+    }
+  ],
+  "forwardCompat": [
+    {
+      "name": "K schema 3 with appended fields and new values: known fields read, rest ignored",
+      "code": "BL1-K-0D5KEMA60000000024NGM6SC7M012AR14D2PE4T8ENQ78SBJ416P6J3NDST6AWK6C5HPA0BB084SY1CT0W102000003H2HV1ENP6RT908XQQ4SBKEHS6JS3517FAVFQF-1EED",
+      "type": "K",
+      "fields": {
+        "schema": 3,
+        "boardTag": "K7QF",
+        "bountyId": 0,
+        "victimGUID": "Player-4395-0A1B2C3D",
+        "killerGUID": "Player-4395-01234567",
+        "killerName": "Hunter McHunterface",
+        "killerFaction": 1,
+        "killedAt": 1795295647,
+        "mapID": 1434,
         "flags": 7,
-        "nonce": 513
+        "nonce": 513,
+        "seasonId": 7,
+        "victimName": "Gaulli Gorestride",
+        "guildSeen": 9
+      }
+    },
+    {
+      "name": "S schema 2 with an appended field and new kind: known fields read, rest ignored",
+      "code": "BL1-S-095KEMA61X46YVKFE8G62VK441B62V3FE80G42800001J0000Z80600H5C0FZVGH119PRRB341562XVB02A0044J0000000004-07Y7",
+      "type": "S",
+      "fields": {
+        "schema": 2,
+        "boardTag": "K7QF",
+        "guildName": "Honor and Valor",
+        "guildFaction": 1,
+        "posterFaction": 2,
+        "kind": 9,
+        "perKillGold": 25,
+        "totalGold": 2000,
+        "days": 3,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Slac Jaw",
+        "createdAt": 1795200000,
+        "nonce": 4242,
+        "mode": 0,
+        "existingSeasonId": 0
+      }
+    },
+    {
+      "name": "P schema 3 with appended data: known fields read, rest ignored",
+      "code": "BL1-P-F3D67XHP1XTCPSMJDDKQW9FDJDDASR4WJ5C5S72TB9AAS44JN885154S1CA7PD3B181G60S30E1VM0036E8CBGS0N36JBBB3SFQGX56FS77NCW1CSRM4QKECC5J05AQTR88SS4WRNKG9AP4Y5QTBG0D8K8BTG6N8V17X8DSZQMMB292344WBPD17MYW209XKMGJBB20KN13NTG6RMCT0ZJ2HY16RCC6J2A9N7CT59J0VN6AZ60R700VNRW5M9S8ZBTPY0N4MK6F534MMJEC95JG1EG8EE4E1RDPKJTA5K74GNG95Z52VKJA5Z7JXK8KD1NG6FCQKFFJEFS8Q54JED998GGJYDS0Q6417AC2808JR44BEWGY0EWH3GWGANQW17SK04EGC0HR3GKNN1RJCKJF3J9C9X5TMJJD9H7ATAK60HCPN10J8XHANRAE0R32T02C5RSM2-0Y17",
+      "type": "P",
+      "fields": {
+        "schema": 3,
+        "boardTag": "K7QF",
+        "packVersion": 1795300999,
+        "minAddonVersion": 1002,
+        "discordDisplayName": "Les Chasseurs de Primes ⚔",
+        "rewardMin": 1,
+        "rewardMax": 10000,
+        "bounties": [
+          {
+            "bountyId": 12,
+            "targetGUID": "Player-4395-0A1B2C3D",
+            "targetName": "Grimlok Ashveil",
+            "targetClassID": 1,
+            "targetFaction": 2,
+            "rewardGold": 500,
+            "posterName": "Slac Jaw",
+            "expiresAt": 1796400000
+          },
+          {
+            "bountyId": 13,
+            "targetGUID": "Player-4395-1B2C3D4E",
+            "targetName": "Mograth Skullsplitter",
+            "targetClassID": 9,
+            "targetFaction": 2,
+            "rewardGold": 10000,
+            "posterName": "Hunter McHunterface",
+            "expiresAt": 1796486400
+          },
+          {
+            "bountyId": 1000,
+            "targetGUID": "Player-11-2C3D4E5F",
+            "targetName": "Zoë Brightblade",
+            "targetClassID": 8,
+            "targetFaction": 1,
+            "rewardGold": 2500,
+            "posterName": "Ælfric Stormcrow",
+            "expiresAt": 1796572800
+          }
+        ],
+        "seasons": [
+          {
+            "seasonId": 7,
+            "guildName": "Honor and Valor",
+            "guildFaction": 1,
+            "kind": 1,
+            "perKillGold": 25,
+            "remainingGold": 1875,
+            "posterName": "Slac Jaw",
+            "expiresAt": 1795804800
+          },
+          {
+            "seasonId": 8,
+            "guildName": "Les Chasseurs ⚔",
+            "guildFaction": 2,
+            "kind": 2,
+            "perKillGold": 0,
+            "remainingGold": 10000,
+            "posterName": "Hunter McHunterface",
+            "expiresAt": 1797619200
+          },
+          {
+            "seasonId": 9,
+            "guildName": "Dawnbreakers",
+            "guildFaction": 1,
+            "kind": 3,
+            "perKillGold": 50,
+            "remainingGold": 0,
+            "posterName": "Ælfric Stormcrow",
+            "expiresAt": 1796409600
+          }
+        ]
       }
     }
   ],
@@ -920,6 +1279,116 @@
       "name": "pack with corrupt deflate data",
       "code": "BL1-P-F3DFZZZZZYGB6FK3-0E21",
       "error": "PAYLOAD"
+    },
+    {
+      "name": "S same faction",
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE81040800001J0000Z80E00H5C0FZVGH119PRRB341562XVB02A0044J00000000-0SE5",
+      "error": "FACTION"
+    },
+    {
+      "name": "S faction 0",
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80040800001J0000Z80E00H5C0FZVGH119PRRB341562XVB02A0044J00000000-07GS",
+      "error": "FACTION"
+    },
+    {
+      "name": "S kind 0 on a new season",
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G40000001J0000Z80E00H5C0FZVGH119PRRB341562XVB02A0044J00000000-0AH5",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S kind 4",
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G41000001J0000Z80E00H5C0FZVGH119PRRB341562XVB02A0044J00000000-13VV",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S 10 days",
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G40800001J0000Z80M00H5C0FZVGH119PRRB341562XVB02A0044J00000000-1KSK",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S pot smaller than one kill",
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G40800003400000RGE00H5C0FZVGH119PRRB341562XVB02A0044J00000000-1WTZ",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S pot with no price per kill",
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G4080000000000Z80E00H5C0FZVGH119PRRB341562XVB02A0044J00000000-0FFS",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S prize pool with a price per kill",
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G40G00001J0000Z80E00H5C0FZVGH119PRRB341562XVB02A0044J00000000-0RTS",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S no-ceiling with a total",
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G40R00001J0000Z80E00H5C0FZVGH119PRRB341562XVB02A0044J00000000-0VAW",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S empty guild name",
+      "code": "BL1-S-055KEMA6000G40800001J0000Z80E00H5C0FZVGH119PRRB341562XVB02A0044J00000000-18X8",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S new season with an existing id",
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G40800001J0000Z80E00H5C0FZVGH119PRRB341562XVB02A0044J00000007-187P",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S add gold with no season id",
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G40000000000007T0000H5C0FZVGH271RCV36E9MP682KEHQQ4VB3E9QQETR0JG0114G10000000-0916",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S add gold that sets a kind",
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G40800000000007T0000H5C0FZVGH271RCV36E9MP682KEHQQ4VB3E9QQETR0JG0114G1000001R-0EKQ",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S add gold of 0",
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G4000000000000000000H5C0FZVGH271RCV36E9MP682KEHQQ4VB3E9QQETR0JG0114G1000001R-1HXV",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S mode 2",
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G40800001J0000Z80E00H5C0FZVGH119PRRB341562XVB02A0044J08000000-0GXW",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S trailing byte",
+      "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G40800001J0000Z80E00H5C0FZVGH119PRRB341562XVB02A0044J0000000000-097H",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "K2 guildSeen 2",
+      "code": "BL1-K-095KEMA60000000024NGM6SC7M012AR14D2PE4T8ENQ78SBJ416P6J3NDST6AWK6C5HPA0BB084SY1CT04102000003H2HV1ENP6RT908XQQ4SBKEHS6JS3508-1AX0",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "K2 unknown flag bit",
+      "code": "BL1-K-095KEMA60000000024NGM6SC7M012AR14D2PE4T8ENQ78SBJ416P6J3NDST6AWK6C5HPA0BB084SY1CT0G102000003H2HV1ENP6RT908XQQ4SBKEHS6JS3504-03SW",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "K2 trailing byte",
+      "code": "BL1-K-095KEMA60000000024NGM6SC7M012AR14D2PE4T8ENQ78SBJ416P6J3NDST6AWK6C5HPA0BB084SY1CT04102000003H2HV1ENP6RT908XQQ4SBKEHS6JS350400-0CP9",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "K2 cut off after the schema 1 fields",
+      "code": "BL1-K-095KEMA60000030024NGM6SC7M012AR14D2PE4T8ENQ78SBJ416P6J3NDST6AWK6C5HPA0BB084SY1CT04102-04DM",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "K1 with schema 2 fields appended",
+      "code": "BL1-K-055KEMA60000000024NGM6SC7M012AR14D2PE4T8ENQ78SBJ416P6J3NDST6AWK6C5HPA0BB084SY1CT04102000003H2HV1ENP6RT908XQQ4SBKEHS6JS3504-04QM",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "pack season with faction 3",
+      "code": "BL1-P-F3D67WHP1XTCPSMJDDKQW9FDJDDASR4WJ5C5S72TB9AAS44JN885154S1CA7PD3B181G60S30E1VM0036E8CBGS0N36JBBB3SFQGX56FS77NCW1CSRM4QKECC5J05AQTR88SS4WRNKG9AP4Y5QTBG0D8K8BTG6N8V17X8DSZQMMB292344WBPD17MYW209XKMGJBB20KN13NTG6RMCT0ZJ2HY16RCC6J2A9N7CT59J0VN6AZ60R700VNRW5M9S8ZBTPY0N4MK6F534MMJEC95JG1EG8EE4E1RDPKJTA5K74GNG95Z52VKJA5Z7JXK8KD1MGCECNGYDXY9SZ52WMJ9SN55222BSQ42WRR6H15G49C221QEAF6P000TT6MJV8-0E5Q",
+      "error": "FACTION"
     },
     {
       "name": "pack count larger than contents",
@@ -1638,6 +2107,212 @@
         "guildName": "Knights of the Long Night",
         "createdAt": 1795190400,
         "nonce": 77
+      }
+    },
+    {
+      "name": "K schema 3",
+      "type": "K",
+      "fields": {
+        "schema": 3,
+        "boardTag": "K7QF",
+        "bountyId": 0,
+        "victimGUID": "Player-4395-0A1B2C3D",
+        "killerGUID": "Player-4395-01234567",
+        "killerName": "Hunter McHunterface",
+        "killerFaction": 1,
+        "killedAt": 1795295647,
+        "mapID": 1434,
+        "flags": 1,
+        "nonce": 513,
+        "seasonId": 7,
+        "victimName": "Gaulli Gorestride",
+        "guildSeen": 1
+      }
+    },
+    {
+      "name": "K schema 2 without a victim name",
+      "type": "K",
+      "fields": {
+        "schema": 2,
+        "boardTag": "K7QF",
+        "bountyId": 0,
+        "victimGUID": "Player-4395-0A1B2C3D",
+        "killerGUID": "Player-4395-01234567",
+        "killerName": "Hunter McHunterface",
+        "killerFaction": 1,
+        "killedAt": 1795295647,
+        "mapID": 1434,
+        "flags": 1,
+        "nonce": 513,
+        "seasonId": 7,
+        "guildSeen": 1
+      }
+    },
+    {
+      "name": "K schema 2 guildSeen 2",
+      "type": "K",
+      "fields": {
+        "schema": 2,
+        "boardTag": "K7QF",
+        "bountyId": 0,
+        "victimGUID": "Player-4395-0A1B2C3D",
+        "killerGUID": "Player-4395-01234567",
+        "killerName": "Hunter McHunterface",
+        "killerFaction": 1,
+        "killedAt": 1795295647,
+        "mapID": 1434,
+        "flags": 1,
+        "nonce": 513,
+        "seasonId": 7,
+        "victimName": "Gaulli Gorestride",
+        "guildSeen": 2
+      }
+    },
+    {
+      "name": "S schema 2",
+      "type": "S",
+      "fields": {
+        "schema": 2,
+        "boardTag": "K7QF",
+        "guildName": "Honor and Valor",
+        "guildFaction": 1,
+        "posterFaction": 2,
+        "kind": 1,
+        "perKillGold": 25,
+        "totalGold": 2000,
+        "days": 7,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Slac Jaw",
+        "createdAt": 1795200000,
+        "nonce": 4242,
+        "mode": 0,
+        "existingSeasonId": 0
+      }
+    },
+    {
+      "name": "S same faction",
+      "type": "S",
+      "fields": {
+        "schema": 1,
+        "boardTag": "K7QF",
+        "guildName": "Honor and Valor",
+        "guildFaction": 1,
+        "posterFaction": 1,
+        "kind": 1,
+        "perKillGold": 25,
+        "totalGold": 2000,
+        "days": 7,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Slac Jaw",
+        "createdAt": 1795200000,
+        "nonce": 4242,
+        "mode": 0,
+        "existingSeasonId": 0
+      }
+    },
+    {
+      "name": "S 30 days",
+      "type": "S",
+      "fields": {
+        "schema": 1,
+        "boardTag": "K7QF",
+        "guildName": "Honor and Valor",
+        "guildFaction": 1,
+        "posterFaction": 2,
+        "kind": 1,
+        "perKillGold": 25,
+        "totalGold": 2000,
+        "days": 30,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Slac Jaw",
+        "createdAt": 1795200000,
+        "nonce": 4242,
+        "mode": 0,
+        "existingSeasonId": 0
+      }
+    },
+    {
+      "name": "S kind 4",
+      "type": "S",
+      "fields": {
+        "schema": 1,
+        "boardTag": "K7QF",
+        "guildName": "Honor and Valor",
+        "guildFaction": 1,
+        "posterFaction": 2,
+        "kind": 4,
+        "perKillGold": 25,
+        "totalGold": 2000,
+        "days": 7,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Slac Jaw",
+        "createdAt": 1795200000,
+        "nonce": 4242,
+        "mode": 0,
+        "existingSeasonId": 0
+      }
+    },
+    {
+      "name": "S pot smaller than one kill",
+      "type": "S",
+      "fields": {
+        "schema": 1,
+        "boardTag": "K7QF",
+        "guildName": "Honor and Valor",
+        "guildFaction": 1,
+        "posterFaction": 2,
+        "kind": 1,
+        "perKillGold": 25,
+        "totalGold": 24,
+        "days": 7,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Slac Jaw",
+        "createdAt": 1795200000,
+        "nonce": 4242,
+        "mode": 0,
+        "existingSeasonId": 0
+      }
+    },
+    {
+      "name": "S empty guild name",
+      "type": "S",
+      "fields": {
+        "schema": 1,
+        "boardTag": "K7QF",
+        "guildName": "",
+        "guildFaction": 1,
+        "posterFaction": 2,
+        "kind": 1,
+        "perKillGold": 25,
+        "totalGold": 2000,
+        "days": 7,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Slac Jaw",
+        "createdAt": 1795200000,
+        "nonce": 4242,
+        "mode": 0,
+        "existingSeasonId": 0
+      }
+    },
+    {
+      "name": "S add gold that sets days",
+      "type": "S",
+      "fields": {
+        "schema": 1,
+        "boardTag": "K7QF",
+        "guildName": "Honor and Valor",
+        "guildFaction": 1,
+        "posterFaction": 2,
+        "kind": 0,
+        "perKillGold": 0,
+        "totalGold": 500,
+        "days": 7,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Ælfric Stormcrow",
+        "createdAt": 1795200000,
+        "nonce": 4242,
+        "mode": 1,
+        "existingSeasonId": 7
       }
     }
   ]

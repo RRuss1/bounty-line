@@ -37,6 +37,8 @@ export async function processCode(
   if (r.type === "P") return { ok: null };
   if (r.type === "K") return claimKill(env, rest, tenant, r.fields, r.code, authorId, attachments, now);
   if (r.type === "L") return linkCharacter(env, tenant, r.fields, authorId, now);
+  // Open Season (spec 5.11): the code format is in place; the Bounty Board side comes next.
+  if (r.type === "S") return { ok: false, code: "TYPE", message: "Open Season bounties aren't switched on yet." };
   return postBounty(env, rest, tenant, r.fields, r.code, authorId, now);
 }
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.9.0 (unreleased): Open Season
+
+- Code format: new `S` code (a bounty on a whole enemy guild) and a second schema of the kill and pack codes that carries seasons. Ordinary bounty codes are unchanged, and older addons still read packs.
+
 ## v0.8.1: dungeon menu fix, class-coloured Set Bounty window, quieter relay
 
 - Relay program: no more beep, and it no longer announces a "changed" pack every minute when nothing changed.

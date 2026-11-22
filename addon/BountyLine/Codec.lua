@@ -9,7 +9,7 @@
 -- client, stock Lua 5.1 and LuaJIT. Pack decompression uses LibDeflate.
 --
 -- API:
---   Codec.Encode(codeType, fields) -> code                     | nil, "INVALID", message   (B, K, L)
+--   Codec.Encode(codeType, fields) -> code                     | nil, "INVALID", message   (B, K, L, S)
 --   Codec.Decode(text)             -> { type, fields, code }   | nil, errorCode, message
 --   Codec.DecodePack(text)         -> { fields, codes }        | nil, errorCode, message, received, total
 --
@@ -61,8 +61,18 @@ local PACK_ENTRY = {
   { "expiresAt", "u32" },
 }
 
--- Field layouts after the leading u8 schema byte (Compendium 02 Section 3).
-local SCHEMAS = {
+local PACK_SEASON = {
+  { "seasonId", "u32" },
+  { "guildName", "vstr", 255 },
+  { "guildFaction", "faction" },
+  { "kind", "u8" },
+  { "perKillGold", "u32" },
+  { "remainingGold", "u32" },
+  { "posterName", "vstr", 255 },
+  { "expiresAt", "u32" },
+}
+
+local LAYOUT = {
   B = {
     { "boardTag", "tag" },
     { "targetGUID", "guid" },
@@ -112,6 +122,39 @@ local SCHEMAS = {
     { "rewardMax", "u32" },
     { "bounties", "list", PACK_ENTRY },
   },
+  S = {
+    { "boardTag", "tag" },
+    { "guildName", "vstr", 255 },
+    { "guildFaction", "faction" },
+    { "posterFaction", "faction" },
+    { "kind", "u8" },
+    { "perKillGold", "u32" },
+    { "totalGold", "u32" },
+    { "days", "u8" },
+    { "posterGUID", "guid" },
+    { "posterName", "vstr", 255 },
+    { "createdAt", "u32" },
+    { "nonce", "u16" },
+    { "mode", "u8" },
+    { "existingSeasonId", "u32" },
+  },
+}
+
+local function extend(base, extra)
+  local out = {}
+  for i, f in ipairs(base) do out[i] = f end
+  for _, f in ipairs(extra) do out[#out + 1] = f end
+  return out
+end
+
+-- Field layouts after the leading u8 schema byte (Compendium 02 Section 3), one per schema:
+-- SCHEMAS.K[1] is K schema 1, SCHEMAS.K[2] is K schema 2. A later schema only appends fields.
+local SCHEMAS = {
+  B = { LAYOUT.B },
+  K = { LAYOUT.K, extend(LAYOUT.K, { { "seasonId", "u32" }, { "victimName", "vstr", 255 }, { "guildSeen", "u8" } }) },
+  L = { LAYOUT.L },
+  P = { LAYOUT.P, extend(LAYOUT.P, { { "seasons", "list", PACK_SEASON } }) },
+  S = { LAYOUT.S },
 }
 
 local SIZE = { u8 = 1, u16 = 2, u32 = 4 }
@@ -129,8 +172,33 @@ local function crossCheck(codeType, f, strict)
     end
   elseif codeType == "K" then
     if strict and f.flags > 3 then return "PAYLOAD", "unknown flag bits" end
+    if strict and f.guildSeen ~= nil and f.guildSeen ~= 0 and f.guildSeen ~= 1 then return "PAYLOAD", "invalid guildSeen" end
   elseif codeType == "P" then
     if f.rewardMin > f.rewardMax then return "PAYLOAD", "rewardMin is above rewardMax" end
+  elseif codeType == "S" then
+    if f.guildFaction == f.posterFaction then return "FACTION", "an Open Season must be on the opposite faction" end
+    if strict then
+      local per, total = f.perKillGold, f.totalGold
+      if f.guildName == "" then return "PAYLOAD", "guildName is empty" end
+      if f.mode == 0 then
+        if f.existingSeasonId ~= 0 then return "PAYLOAD", "existingSeasonId must be 0 for a new season" end
+        if f.days ~= 7 and f.days ~= 14 and f.days ~= 28 then return "PAYLOAD", "days must be 7, 14 or 28" end
+        if f.kind == 1 then
+          if per < 1 or total < per then return "PAYLOAD", "a pot must hold at least the price of one kill" end
+        elseif f.kind == 2 then
+          if per ~= 0 or total < 1 then return "PAYLOAD", "a prize pool has a total and no price per kill" end
+        elseif f.kind == 3 then
+          if per < 1 or total ~= 0 then return "PAYLOAD", "a no-ceiling season has a price per kill and no total" end
+        else
+          return "PAYLOAD", "invalid kind"
+        end
+      elseif f.mode == 1 then
+        if f.existingSeasonId == 0 then return "PAYLOAD", "existingSeasonId is required to add gold" end
+        if f.kind ~= 0 or per ~= 0 or f.days ~= 0 or total < 1 then return "PAYLOAD", "adding gold carries only the amount" end
+      else
+        return "PAYLOAD", "invalid mode"
+      end
+    end
   end
   return nil
 end
@@ -438,10 +506,12 @@ end
 local function writePayload(codeType, fields)
   if type(fields) ~= "table" then fail("INVALID", "fields must be a table") end
   local schema = fields.schema == nil and SCHEMA or fields.schema
-  if schema ~= SCHEMA then fail("INVALID", "schema must be " .. SCHEMA) end
+  local layouts = SCHEMAS[codeType]
+  local layout = type(schema) == "number" and layouts[schema]
+  if not layout then fail("INVALID", "schema must be 1 to " .. #layouts) end
   local w = newWriter()
   put(w, schema)
-  writeFields(w, SCHEMAS[codeType], fields, "")
+  writeFields(w, layout, fields, "")
   local bad, msg = crossCheck(codeType, fields, true)
   if bad then fail("INVALID", msg) end
   return writerBytes(w)
@@ -452,8 +522,9 @@ local function readPayload(codeType, bytes)
   local schema = r:uint(1)
   if schema == 0 then fail("SCHEMA", "unknown schema 0") end
   -- A newer schema appends fields: read the ones we know, ignore the rest (Compendium 01 Section 5.2).
-  local strict = schema == SCHEMA
-  local fields = readFields(r, SCHEMAS[codeType])
+  local layouts = SCHEMAS[codeType]
+  local strict = schema <= #layouts
+  local fields = readFields(r, layouts[math.min(schema, #layouts)])
   fields.schema = schema
   local bad, msg = crossCheck(codeType, fields, strict)
   if bad then fail(bad, msg) end

@@ -14,13 +14,13 @@ BL1-<T>-<PAYLOAD>-<CHECK>
 | Part | Definition |
 |---|---|
 | `BL1` | Magic + format generation. Literal. |
-| `<T>` | One char: `B` bounty post, `K` kill claim, `P` bounty pack, `L` character link |
+| `<T>` | One char: `B` bounty post, `K` kill claim, `P` bounty pack, `L` character link, `S` Open Season |
 | `<PAYLOAD>` | Crockford Base32 of the payload bytes (Section 3) |
 | `<CHECK>` | 4 Crockford Base32 chars = CRC-16/CCITT-FALSE (Section 4), left-padded |
 
 **Regex (case-insensitive):**
 ```
-BL1-[BKPL]-[0-9A-HJKMNP-TV-Z]+-[0-9A-HJKMNP-TV-Z]{4}
+BL1-[BKPLS]-[0-9A-HJKMNP-TV-Z]+-[0-9A-HJKMNP-TV-Z]{4}
 ```
 
 ### 1.1 Normalization before decoding (both sides)
@@ -61,9 +61,11 @@ Enums:
 
 ---
 
-## 3. Payload layouts (schema 1)
+## 3. Payload layouts
 
-Every payload starts with **`u8 schema`**. Schema `0` is invalid. For a **newer** schema than the reader knows, it reads the fields it knows and ignores trailing bytes (forward compatibility). For the schema it knows, trailing bytes are an error, so every code has exactly one valid form (needed for duplicate detection).
+Every payload starts with **`u8 schema`**. Schema `0` is invalid. For a **newer** schema than the reader knows, it reads the fields it knows and ignores trailing bytes (forward compatibility). For a schema it knows, trailing bytes are an error, so every code has exactly one valid form (needed for duplicate detection).
+
+**Schemas are per code type.** `B`, `L` and `S` have schema 1. `K` and `P` have schemas 1 and 2: schema 2 is schema 1 with fields appended (Open Season, Sections 3.2 and 3.3). A writer uses schema 1 unless it needs the appended fields, so codes for ordinary bounties are unchanged and older addons keep reading packs.
 
 ### 3.1 `B`: bounty post (addon → Discord)
 | # | Field | Type |
@@ -109,6 +111,15 @@ Every payload starts with **`u8 schema`**. Schema `0` is invalid. For a **newer*
 
 No victim name: the Worker already has it on the bounty (matched by `victimGUID`), and the proof stamp prints it separately. Leaving it out keeps K codes short for the stamp OCR.
 
+**Schema 2 (Open Season kill)** appends:
+| # | Field | Type |
+|---|---|---|
+| 12 | seasonId | u32: the Open Season the victim's guild is under; `0` = none matched |
+| 13 | victimName | vstr: the Worker has no bounty row to take it from |
+| 14 | guildSeen | u8: `1` the addon saw the victim in that guild; `0` guild unknown (officer review) |
+
+`bountyId` and `seasonId` may both be set: the victim has a personal bounty and is in a guild under Open Season, and one code claims both. Both `0` with `guildSeen = 0` is a kill of an enemy whose guild the addon never saw while a season was open.
+
 ### 3.3 `P`: bounty pack (Discord → addon)
 The payload bytes below are **zlib-compressed** before Base32: 2-byte zlib header (`78 DA`), raw DEFLATE, then the big-endian **Adler-32** of the uncompressed bytes. Readers verify the header (CM=8, FCHECK, no preset dictionary) and the Adler-32. Worker: `fflate` (pinned version); addon: LibDeflate `DecompressDeflate`. Only the Worker writes packs.
 
@@ -136,6 +147,18 @@ Pack entry:
 | posterName | vstr |
 | expiresAt | u32 |
 
+**Schema 2** appends, after the entries, a `u16` count and that many Open Season entries. The Worker writes schema 2 only when at least one season is open.
+| Field | Type |
+|---|---|
+| seasonId | u32 |
+| guildName | vstr |
+| guildFaction | u8 |
+| kind | u8 (Section 3.5) |
+| perKillGold | u32 (`0` for a prize pool) |
+| remainingGold | u32: pot left (kind 1), the pool (kind 2), `0` (kind 3) |
+| posterName | vstr |
+| expiresAt | u32 |
+
 ### 3.4 `L`: character link (addon → Discord)
 Links a Discord user to a WoW character. Pasted once with `/bl link`.
 | # | Field | Type |
@@ -148,6 +171,28 @@ Links a Discord user to a WoW character. Pasted once with `/bl link`.
 | 6 | guildName | vstr |
 | 7 | createdAt | u32 |
 | 8 | nonce | u16 |
+
+### 3.5 `S`: Open Season (addon → Discord)
+Declares a bounty on every member of an enemy guild, or adds gold to one (design spec 5.11).
+| # | Field | Type |
+|---|---|---|
+| 1 | schema (=1) | u8 |
+| 2 | boardTag | str4 |
+| 3 | guildName | vstr (not empty) |
+| 4 | guildFaction | u8 |
+| 5 | posterFaction | u8 |
+| 6 | kind | u8: `1` per head + pot, `2` prize pool, `3` per head with no ceiling |
+| 7 | perKillGold | u32 |
+| 8 | totalGold | u32 |
+| 9 | days | u8: `7`, `14` or `28` |
+| 10 | posterGUID | guid |
+| 11 | posterName | vstr |
+| 12 | createdAt | u32 |
+| 13 | nonce | u16 |
+| 14 | mode | u8: `0` new season, `1` add gold to an existing one |
+| 15 | existingSeasonId | u32 (0 when mode=0) |
+
+**Validation (both sides):** guildFaction ≠ posterFaction. For `mode = 0`: kind 1 needs `perKillGold ≥ 1` and `totalGold ≥ perKillGold`; kind 2 needs `perKillGold = 0` and `totalGold ≥ 1`; kind 3 needs `perKillGold ≥ 1` and `totalGold = 0`. For `mode = 1`: `kind`, `perKillGold` and `days` are `0`, `totalGold ≥ 1` is the gold added, and `existingSeasonId ≠ 0`. The Worker also applies the tenant reward limits to `perKillGold` and `totalGold`.
 
 ---
 
@@ -225,6 +270,8 @@ Structure:
 - Lua: `addon/tests/run.lua` on stock Lua 5.1 and LuaJIT (loads LibStub → LibDeflate → Codec in TOC order, like the client)
 
 Packs are decode-only in Lua; their frozen codes are byte-exact only for the pinned `fflate` version. The actual file also has `adler32`, `forwardCompat`, `packs` (multi-part cases) and `encodeErrors` sections.
+
+`forwardCompat` holds codes from a schema newer than any shipped one. When `K` schema 2 became real (Open Season), its entry moved from a made-up "K schema 2" to "K schema 3"; no shipped code changed meaning, because no addon ever wrote K schema 2 before.
 
 The Base32 vectors above other than the empty and single-byte cases should be double-checked by the reference implementation before freezing.
 
