@@ -724,15 +724,15 @@ local function seasonPack(seasons, version)
     minAddonVersion = 4, bounties = {}, seasons = seasons,
   }
 end
-local function hv(f)
+local function hv(changes)
   local s = { seasonId = 7, guildName = HV, guildFaction = 2, kind = 1, perKillGold = 25, remainingGold = 100, posterName = "Someone Else",
     expiresAt = PACK_TIME + 3 * 86400 }
-  for k, v in pairs(f or {}) do s[k] = v end
+  for k, v in pairs(changes or {}) do s[k] = v end
   return s
 end
 check("a pack with seasons is stored", ns.StorePack(seasonPack({
   hv(),
-  { seasonId = 8, guildName = "Long Gone", guildFaction = 2, kind = 3, perKillGold = 5, remainingGold = 0, posterName = "X", expiresAt = PACK_TIME - 5 },
+  hv({ seasonId = 8, guildName = "Long Gone", kind = 3, perKillGold = 5, remainingGold = 0, expiresAt = PACK_TIME - 5 }),
 })))
 eq("seasons are found by guild, whatever the case", (ns.GetSeason("  HONOR and valor ") or {}).id, 7)
 check("an expired season isn't kept", ns.GetSeason("Long Gone") == nil)
@@ -749,7 +749,8 @@ eq("NPC kills never count", select(2, ns.SeasonForKill("Creature-0-4395-1-2-3-00
 eq("hidden GUIDs never count", select(2, ns.SeasonForKill(SECRET)), "NOT_PLAYER")
 
 local unseen, unseenSeen = ns.SeasonForKill("Player-4395-0BADF00D")
-check("an enemy whose guild we never saw: claimed for review", unseen ~= nil and unseen.unknown == true and unseen.id == 0 and unseenSeen == false)
+check("an enemy whose guild we never saw: claimed for review",
+  unseen ~= nil and unseen.unknown == true and unseen.id == 0 and unseenSeen == false)
 
 units.target = { guid = "Player-4395-0C0FFEE0", name = "Other", faction = "Horde", player = true, guild = "Nobodies",
   class = { "Warrior", "WARRIOR", 1 }, race = { "Orc", "Orc", 2 }, level = 42 }
@@ -769,7 +770,8 @@ eq("season kill code: no personal bounty", seasonFields.bountyId, 0)
 local unseenFields = (Codec.Decode(ns.BuildKillCode(0, VICTIM, PACK_TIME, false, false, { id = 0, seen = false })) or {}).fields or {}
 eq("guild not seen: flagged", unseenFields.guildSeen, 0)
 eq("guild not seen: no name", unseenFields.victimName, "")
-eq("an ordinary kill code is still schema 1", ((Codec.Decode(ns.BuildKillCode(12, VICTIM, PACK_TIME, true, false)) or {}).fields or {}).schema, 1)
+local plainFields = (Codec.Decode(ns.BuildKillCode(12, VICTIM, PACK_TIME, true, false)) or {}).fields or {}
+eq("an ordinary kill code is still schema 1", plainFields.schema, 1)
 
 -- the whole flow: stamp line, popup, and "done for today"
 local before = #shown
@@ -800,7 +802,10 @@ check("so an unseen enemy makes no claim either", ns.SeasonForKill("Player-4395-
 check("a pack without seasons clears them", ns.StorePack(seasonPack(nil, PACK_TIME - 3)))
 eq("none listed", #ns.ListSeasons(), 0)
 
-BountyLineDB.guilds = { old = { n = "Old", g = "G", f = 2, t = PACK_TIME - 15 * 86400 }, fresh = { n = "New", g = "G", f = 2, t = PACK_TIME - 60 } }
+BountyLineDB.guilds = {
+  old = { n = "Old", g = "G", f = 2, t = PACK_TIME - 15 * 86400 },
+  fresh = { n = "New", g = "G", f = 2, t = PACK_TIME - 60 },
+}
 eq("pruning keeps recent players", ns.PruneGuilds(), 1)
 check("and drops ones not seen for two weeks", BountyLineDB.guilds.old == nil and BountyLineDB.guilds.fresh ~= nil)
 
