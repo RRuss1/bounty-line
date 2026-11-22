@@ -201,6 +201,20 @@ Follow spec Section 20. Track bugs as GitHub Issues with labels `addon`, `worker
 
 ---
 
+## Phase 9: Open Season (v0.9.0)
+
+A bounty on a whole enemy guild (spec Section 5.11). Built in this order, one PR each:
+
+1. `/bl debug guild`: check the addon can read an enemy's guild on Forever (spec Section 23 item 27). ✅
+2. Codec: the `S` code, and schema 2 of `K` and `P` (Compendium 02), with shared vectors. ✅
+3. Worker: migration `0006`, `seasons.ts` (declare, add gold, claims, once per day per hunter, close, payout sheet), seasons in the pack, `/bl season`, the relay carries `S` codes.
+4. Addon: remember enemy guilds, the Player / Guild choice in Set Bounty, skull and tooltip for members, season kills, guild sync.
+5. Docs and the CurseForge description; tag `v0.9.0`.
+
+**Acceptance:** declare each of the three kinds on a test guild; its members get the skull; a kill's screenshot is accepted and the tally moves; a second kill of the same player the same day is refused with the reason; ending the season posts the payout sheet, and Paid + Received on every line closes it. An addon on v0.8.x still imports a pack that has seasons in it.
+
+---
+
 ## Working agreements for Claude Code sessions
 
 - Start every session: *"Read CLAUDE.md and the compendiums. We're on Phase N."*

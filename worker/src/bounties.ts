@@ -10,6 +10,7 @@ import { refreshPack } from "./pack";
 import { SKULL, wantedPoster, wantedPosterImage } from "./poster";
 import type { DiscordRest } from "./rest";
 import { checkBountyPost, decodeErrorMessage } from "./rules";
+import { claimSeasonKill, isSeasonKill, postSeason } from "./seasons";
 import { audit, type Tenant } from "./tenants";
 import { escapeMd, gold } from "./wow";
 
@@ -35,10 +36,23 @@ export async function processCode(
   const r = decode(raw);
   if (!r.ok) return { ok: false, ...decodeErrorMessage(r.error) };
   if (r.type === "P") return { ok: null };
-  if (r.type === "K") return claimKill(env, rest, tenant, r.fields, r.code, authorId, attachments, now);
+  if (r.type === "K") {
+    const k = r.fields;
+    if (!isSeasonKill(k)) return claimKill(env, rest, tenant, k, r.code, authorId, attachments, now);
+    // An Open Season kill (spec 5.11). The victim may have a personal bounty too: one code claims both.
+    const season = await claimSeasonKill(env, rest, tenant, k, r.code, authorId, attachments, now);
+    const personal =
+      k.bountyId !== 0 ||
+      !!(await env.DB.prepare("SELECT 1 FROM bounties WHERE tenant_id = ?1 AND target_guid = ?2 AND status = 'open' AND expires_at > ?3")
+        .bind(tenant.id, k.victimGUID, now)
+        .first());
+    if (!personal) return season;
+    const bounty = await claimKill(env, rest, tenant, k, r.code, authorId, attachments, now);
+    if (bounty.ok && season.ok) return { ok: true, message: `${bounty.message}\n${season.message}` };
+    return bounty.ok ? bounty : season.ok ? season : bounty;
+  }
   if (r.type === "L") return linkCharacter(env, tenant, r.fields, authorId, now);
-  // Open Season (spec 5.11): the code format is in place; the Bounty Board side comes next.
-  if (r.type === "S") return { ok: false, code: "TYPE", message: "Open Season bounties aren't switched on yet." };
+  if (r.type === "S") return postSeason(env, rest, tenant, r.fields, r.code, authorId, now);
   return postBounty(env, rest, tenant, r.fields, r.code, authorId, now);
 }
 

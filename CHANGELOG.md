@@ -2,6 +2,7 @@
 
 ## v0.9.0 (unreleased): Open Season
 
+- Bounty Board: **Open Season**, a bounty on every member of an enemy guild. Three kinds (a price per head from a pot, a prize pool shared by kills, or a price per head with no ceiling), 7, 14 or 28 days, the same player counts once a day per hunter, and everyone is paid from one payout sheet when it closes. `/bl season` lists them or ends one early. The addon side (declaring one in game, marking that guild's members, claiming kills) comes next; until then nothing in game makes these codes.
 - Code format: new `S` code (a bounty on a whole enemy guild) and a second schema of the kill and pack codes that carries seasons. Ordinary bounty codes are unchanged, and older addons still read packs.
 
 ## v0.8.1: dungeon menu fix, class-coloured Set Bounty window, quieter relay

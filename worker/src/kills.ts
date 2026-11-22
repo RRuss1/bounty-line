@@ -28,8 +28,8 @@ export interface Attachment {
 
 export type Result = { ok: true; message: string } | { ok: false; code: string; message: string };
 
-const IMAGE_TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg" };
-const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+export const IMAGE_TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg" };
+export const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 
 export interface BountyRow {
   id: number;
@@ -70,7 +70,7 @@ export async function linkCharacter(env: Env, tenant: Tenant, f: CharacterLink, 
 
 // ---------------------------------------------------------------- K: claim a kill
 
-async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
+export async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -361,20 +361,22 @@ export async function reviewKill(
 
 /** Approved (by an officer or automatically): credit the hunter, await payment, post the payment buttons. */
 async function onApproved(env: Env, rest: DiscordRest, tenant: Tenant, b: BountyRow, killId: number, hunterId: string | null, now: number) {
-  if (hunterId) {
-    // Trusted after trust_threshold approvals in a row (a denial resets the streak).
-    await env.DB.prepare(
-      `INSERT INTO hunters (tenant_id, discord_user_id, approved, streak, trust) VALUES (?1, ?2, 1, 1, CASE WHEN 1 >= ?3 THEN 'trusted' ELSE 'new' END)
-       ON CONFLICT(tenant_id, discord_user_id) DO UPDATE SET approved = approved + 1, streak = COALESCE(streak, 0) + 1,
-         trust = CASE WHEN COALESCE(streak, 0) + 1 >= ?3 THEN 'trusted' ELSE trust END`,
-    )
-      .bind(tenant.id, hunterId, tenant.config.trust_threshold)
-      .run();
-  }
+  if (hunterId) await creditHunter(env, tenant, hunterId);
   await setBountyStatus(env, rest, tenant, b, "awaiting_payment", now);
   await postPaymentPrompt(env, rest, b, killId, hunterId).catch((e) =>
     log(env, "warn", "bounty.payment_prompt_failed", { tenant_id: tenant.id, error: String(e) }),
   );
+}
+
+/** One more approved kill for a hunter. Trusted after trust_threshold approvals in a row (a denial resets the streak). */
+export async function creditHunter(env: Env, tenant: Tenant, hunterId: string): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO hunters (tenant_id, discord_user_id, approved, streak, trust) VALUES (?1, ?2, 1, 1, CASE WHEN 1 >= ?3 THEN 'trusted' ELSE 'new' END)
+     ON CONFLICT(tenant_id, discord_user_id) DO UPDATE SET approved = approved + 1, streak = COALESCE(streak, 0) + 1,
+       trust = CASE WHEN COALESCE(streak, 0) + 1 >= ?3 THEN 'trusted' ELSE trust END`,
+  )
+    .bind(tenant.id, hunterId, tenant.config.trust_threshold)
+    .run();
 }
 
 function aiLine(ai: StampResult): string {
