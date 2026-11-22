@@ -149,6 +149,8 @@ local COMMANDS = {
     if rest == "guild" then return ns.DebugGuild() end
     ns.Debug()
   end,
+  seasons = function() ns.PrintSeasons() end,
+  season = function() ns.PrintSeasons() end,
   version = function()
     ns.Print(L.VERSION:format(ns.AddonVersion() or L.VERSION_DEV, ns.Codec.PREFIX))
     local newer = ns.NewerVersion()

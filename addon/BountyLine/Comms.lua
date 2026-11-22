@@ -9,6 +9,8 @@
 --   PEND   "<guid>\t<name>\t<classID>\t<faction>\t<reward>\t<poster>\t<time>"
 --                                       a guildie made a bounty code: hunt it before any pack lists it
 --   KILLP  "<guid>\t<killer>\t<name>"   a guildie collected a pending bounty
+--   SEAS   "<guild>\t<faction>\t<kind>\t<perKill>\t<total>\t<poster>\t<time>"
+--                                       a guildie declared an Open Season: hunt that guild before any pack lists it
 --   VER    "<addon version>"            on login: so guildies on older versions are told to update
 --   BCODE  "<bounty code>"              a guildie's bounty code, for a relay officer to carry to Discord
 --   RLY    "<bounty code>\t<officer>"    a relay officer picked that code up
@@ -175,6 +177,10 @@ function Comms.Pending(snap, reward, poster, t)
   Comms.Send("PEND", table.concat({ snap.guid, snap.name, snap.classID or 0, snap.faction, reward, poster or "", t }, "\t"))
 end
 
+function Comms.Season(guild, faction, kind, perKill, total, poster, t)
+  Comms.Send("SEAS", table.concat({ guild, faction, kind, perKill, total, poster or "", t }, "\t"))
+end
+
 function Comms.KillPending(guid, killer, name)
   Comms.Send("KILLP", ("%s\t%s\t%s"):format(guid, killer or "", name or ""))
 end
@@ -255,6 +261,20 @@ function handlers.PEND(data, _, senderId)
   end
 end
 
+-- guild, faction (1 or 2), kind (1-3), price per kill, total, poster, time
+local SEAS_PATTERN = "^([^\t]+)\t([12])\t([123])\t(%d+)\t(%d+)\t([^\t]*)\t(%d+)$"
+
+function handlers.SEAS(data, senderName, senderId)
+  local guild, faction, kind, perKill, total, poster, t = data:match(SEAS_PATTERN)
+  if not guild or not Comms.AllowBanner("seas:" .. senderId, GetTime()) then return end
+  local at = math.min(tonumber(t), GetServerTime())
+  if ns.AddPendingSeason(guild, tonumber(faction), tonumber(kind), tonumber(perKill), tonumber(total), poster, at) then
+    ns.RefreshMarks()
+    local who = poster ~= "" and poster or (senderName and senderName:match("^[^-]+")) or "?"
+    ns.Banner(L.BANNER_SEASON:format(who, guild, ns.SeasonTerms(ns.GetSeason(guild)), ns.BoardName()))
+  end
+end
+
 function handlers.KILLP(data, _, senderId)
   local guid, killer, name = data:match("^([^\t]+)\t([^\t]*)\t([^\t]*)$")
   if not guid then return end
@@ -280,7 +300,7 @@ function handlers.BCODE(data, senderName, senderId)
   if not (ns.RelayActive and ns.RelayActive()) then return end
   if not Comms.AllowBanner("relay:" .. senderId, GetTime()) then return end
   local r = ns.Codec.Decode(data)
-  if not r or r.type ~= "B" or not Comms.SenderIsPoster(senderName, r.fields.posterName) then return end
+  if not r or (r.type ~= "B" and r.type ~= "S") or not Comms.SenderIsPoster(senderName, r.fields.posterName) then return end
   if ns.RelayQueue(r.code) then Comms.Send("RLY", r.code .. "\t" .. (ns.FullName("player") or "")) end
 end
 

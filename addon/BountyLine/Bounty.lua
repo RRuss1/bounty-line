@@ -101,6 +101,9 @@ function ns.SnapshotUnit(unit)
   local className, _, classID = UnitClass(unit)
   local raceName, _, raceID = UnitRace(unit)
   local level = UnitLevel(unit)
+  -- Their guild, for an Open Season on it (spec 5.11). Hidden mid-combat on some clients.
+  local guild = GetGuildInfo and GetGuildInfo(unit) or nil
+  local guildHidden = ns.IsSecret(guild)
   -- Enemies far above you report -1 ("??"); codes carry 0 for unknown.
   if type(level) ~= "number" or ns.IsSecret(level) or level < 1 or level > 255 then level = 0 end
   return {
@@ -113,6 +116,8 @@ function ns.SnapshotUnit(unit)
     level = level,
     faction = FACTION_ID[theirs],
     factionName = theirs,
+    guild = not guildHidden and guild or nil,
+    guildHidden = guildHidden or nil,
   }
 end
 
@@ -162,6 +167,8 @@ local COPY = {
   K = "CLAIMED: **%s** · %s " .. SPOILER .. "%s" .. SPOILER,
   L = "LINK: **%s** " .. SPOILER .. "%s" .. SPOILER,
   A = "ADDED: **%s** · +%s " .. SPOILER .. "%s" .. SPOILER,
+  S = "OPEN SEASON: **%s** · %s " .. SPOILER .. "%s" .. SPOILER,
+  G = "ADDED: **%s** · +%s " .. SPOILER .. "%s" .. SPOILER,
 }
 function ns.CopyLine(kind, name, detail, code)
   if kind == "L" then return COPY.L:format(name, code) end
@@ -169,7 +176,10 @@ function ns.CopyLine(kind, name, detail, code)
 end
 
 -- The tidy label shown over the (invisible) code box in game: the line without the code.
-local DISPLAY = { B = "WANTED: %s · %s", K = "CLAIMED: %s · %s", L = "LINK: %s", A = "ADDED: %s · +%s" }
+local DISPLAY = {
+  B = "WANTED: %s · %s", K = "CLAIMED: %s · %s", L = "LINK: %s", A = "ADDED: %s · +%s",
+  S = "OPEN SEASON: %s · %s", G = "ADDED: %s · +%s",
+}
 function ns.DisplayLine(line)
   if not line then return "" end
   return DISPLAY[line[1]]:format(line[2], line[3]) .. "  "

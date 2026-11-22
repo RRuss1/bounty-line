@@ -22,6 +22,18 @@ Put a price on an enemy's head in game, hunt them down, auto-screenshot the kill
 - Rewards are real gold, paid player to player, **1g–10,000g** by default (each guild can change this).
 - Any guild member can post a bounty.
 
+### Open Season: a bounty on a whole guild
+
+Put a price on **every member of an enemy guild**. Right-click one of them → **Set Bounty…** and pick **Their guild** instead of **This player**. You choose:
+
+- **Per head + pot:** a price per kill and a total pot. It closes when the pot is spent.
+- **Prize pool:** one total, shared between the hunters by kill count when it closes.
+- **Per head, no ceiling:** a price per kill until the time is up. Your bill has no limit, and the window says so.
+
+It runs **7, 14 or 28 days**. That guild's members get the skull, and a killing blow on one makes a kill screenshot as usual. The same player counts **once a day per hunter**. Nobody is paid kill by kill: when the season closes, the Bounty Board posts **one payout sheet** with a line per hunter. Guildies can add gold to a pot or a pool. `/bl seasons` lists the ones running.
+
+The addon learns which guild an enemy is in by seeing them (nameplate, target or mouseover). If it never saw the victim's guild, the claim still goes in and an officer checks the screenshot.
+
 ---
 
 ## For players: install the addon

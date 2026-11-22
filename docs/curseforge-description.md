@@ -22,6 +22,18 @@
 - **Killing blow only.** Assists don't claim the bounty.
 - Rewards are real gold, paid player to player (honor system). **1g to 10,000g** by default; each guild can change the limits.
 
+## Open Season: a bounty on a whole guild
+
+Put a price on **every member of an enemy guild**. Right-click one of them → **Set Bounty…** and pick **Their guild** instead of **This player**. You choose:
+
+- **Per head + pot:** a price per kill and a total pot. It closes when the pot is spent.
+- **Prize pool:** one total, shared between the hunters by kill count when it closes.
+- **Per head, no ceiling:** a price per kill until the time is up. Your bill has no limit, and the window says so.
+
+It runs **7, 14 or 28 days**. That guild's members get the skull, and a killing blow on one makes a kill screenshot as usual. The same player counts **once a day per hunter**. Nobody is paid kill by kill: when the season closes, the Bounty Board posts **one payout sheet** with a line per hunter. Guildies can add gold to a pot or a pool. `/bl seasons` lists the ones running.
+
+The addon learns which guild an enemy is in by seeing them (nameplate, target or mouseover). If it never saw the victim's guild, the claim still goes in and an officer checks the screenshot.
+
 ## Commands
 
 You don't need to remember any of these: **right-click the minimap button** for a menu of everything, and **left-click** it for the Bounty Board (with tabs for your bounties and your kill codes, and a Settings button).
@@ -31,6 +43,7 @@ You don't need to remember any of these: **right-click the minimap button** for 
 | `/bl mark [gold] [note]` | Set a bounty on your target (same as right-click → Set Bounty…) |
 | `/bl import` | Paste the Bounty Pack from your Discord |
 | `/bl list` | Show open bounties |
+| `/bl seasons` | Show the Open Seasons (bounties on a whole enemy guild) that are running |
 | `/bl last` | Show your last code again |
 | `/bl link` | Link your character to your Discord account so kills are credited to you |
 | `/bl test` | Practice run: stamp, screenshot and kill code on a pretend target |
