@@ -3,6 +3,7 @@
 ## v0.8.1 (unreleased)
 
 - Relay program: no more beep, and it no longer announces a "changed" pack every minute when nothing changed.
+- `/bl debug guild`: prints the guilds of nearby players, to check what Forever lets the addon see (groundwork for Open Season).
 - Fixed: right-clicking an enemy NPC inside a dungeon could break the menu's submenus. Bounty Line now stays out of unit menus in dungeons, raids and scenarios.
 - Set Bounty window: the glow and the target's name take the target's class colour (red when the class isn't known). Other windows keep the red glow.
 - `/bl pack` now posts and pins a fresh Bounty Pack at the bottom of `#bounty-line` and removes the old one, so it's easy to find. Automatic updates after each bounty still edit the pinned one quietly.

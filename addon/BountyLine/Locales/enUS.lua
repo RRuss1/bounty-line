@@ -65,6 +65,7 @@ ns.L = {
   M_DEBUG = "Debug",
   M_DEBUG_INFO = "Print debug info",
   M_DEBUG_SOUNDS = "Play every sound",
+  M_DEBUG_GUILD = "Print guilds of nearby players",
 
   -- settings
   OPT_TITLE = "Bounty Line Settings",

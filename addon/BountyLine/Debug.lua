@@ -47,6 +47,38 @@ function ns.DebugSounds()
   end
 end
 
+-- /bl debug guild: can the addon read an enemy player's guild? Open Season (a bounty on a
+-- whole guild) depends on it (spec Section 23 item 27). Run it out of combat and in combat,
+-- with an enemy player targeted, moused over, and with nameplates showing.
+local function guildOf(unit)
+  local ok, exists = pcall(UnitExists, unit)
+  if not ok or ns.IsSecret(exists) or not exists then return false end
+  local isPlayer = UnitIsPlayer(unit)
+  if not ns.IsSecret(isPlayer) and not isPlayer then return false end
+  line(unit, UnitName(unit))
+  line("  GetGuildInfo", GetGuildInfo(unit))
+  line("  GUID / faction", UnitGUID(unit), UnitFactionGroup(unit))
+  local tip = C_TooltipInfo and C_TooltipInfo.GetUnit and C_TooltipInfo.GetUnit(unit)
+  local second = tip and tip.lines and tip.lines[2]
+  line("  tooltip line 2", second and second.leftText)
+  return true
+end
+
+function ns.DebugGuild()
+  ns.Print("debug guild (paste this into bug reports)")
+  line("in combat", InCombatLockdown())
+  line("my guild", GetGuildInfo("player"))
+  local shown = 0
+  for _, unit in ipairs({ "target", "mouseover", "focus" }) do
+    if guildOf(unit) then shown = shown + 1 end
+  end
+  local plates = 0
+  for i = 1, 40 do
+    if plates < 5 and guildOf("nameplate" .. i) then plates = plates + 1 end
+  end
+  if shown + plates == 0 then line("no players", "target or mouse over an enemy player, then run it again") end
+end
+
 function ns.Debug()
   ns.Print("debug (paste this into bug reports)")
   local version, build, buildDate, toc = GetBuildInfo()
