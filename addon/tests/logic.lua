@@ -849,6 +849,11 @@ eq("adding gold: only the amount travels", addFields.kind + addFields.perKillGol
 eq("adding gold: the amount", addFields.totalGold, 300)
 eq("adding gold: to that season", addFields.existingSeasonId, 7)
 check("a pot smaller than one kill makes no code", ns.BuildSeasonCode(guildSnap, 1, 50, 20, 7) == nil)
+local poolFields = (Codec.Decode(ns.BuildSeasonCode(guildSnap, 2, 0, 500, 14, nil, 10)) or {}).fields or {}
+eq("a prize pool with a minimum: schema 2", poolFields.schema, 2)
+eq("a prize pool with a minimum: the minimum", poolFields.minKills, 10)
+eq("a per head season ignores a minimum: schema 1", ((Codec.Decode(ns.BuildSeasonCode(guildSnap, 1, 25, 100, 7, nil, 10)) or {}).fields or {}).schema, 1)
+check("a prize pool minimum of 0 makes no code", ns.BuildSeasonCode(guildSnap, 2, 0, 500, 14, nil, 0) == nil)
 check("10 days makes no code", ns.BuildSeasonCode(guildSnap, 3, 50, 0, 10) == nil)
 check("no guild makes no code", ns.BuildSeasonCode({ faction = 2 }, 3, 50, 0, 7) == nil)
 eq("copy line for Discord", ns.CopyLine("S", HV, "25g a head", "CODE"), "OPEN SEASON: **Honor and Valor** · 25g a head ||||CODE||||")

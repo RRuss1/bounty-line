@@ -154,6 +154,8 @@ const sPot: SeasonPost = {
 };
 const sPool: SeasonPost = { ...sPot, boardTag: "0000", guildName: "Les Chasseurs ⚔", guildFaction: 2, posterFaction: 1, kind: 2, perKillGold: 0, totalGold: 10000, days: 28, nonce: 0 };
 const sOpen: SeasonPost = { ...sPot, kind: 3, perKillGold: 50, totalGold: 0, days: 14, nonce: 65535 };
+const sPool2: SeasonPost = { ...sPool, schema: 2, minKills: 10, nonce: 31 };
+const sPot2: SeasonPost = { ...sPot, schema: 2, minKills: 0, nonce: 32 };
 const sAddGold: SeasonPost = { ...sPot, kind: 0, perKillGold: 0, totalGold: 500, days: 0, posterName: "Ælfric Stormcrow", mode: 1, existingSeasonId: 7 };
 
 const lBasic: CharacterLink = {
@@ -241,6 +243,8 @@ const codes = [
   { name: "S prize pool, unicode, no board tag", type: "S", fields: sPool },
   { name: "S per head, no ceiling", type: "S", fields: sOpen },
   { name: "S add gold to a season", type: "S", fields: sAddGold },
+  { name: "S2 prize pool with a minimum of kills", type: "S", fields: sPool2 },
+  { name: "S2 per head + pot, no minimum", type: "S", fields: sPot2 },
   { name: "P2 bounties and seasons", type: "P", fields: packSeasons },
   { name: "P2 seasons only", type: "P", fields: packSeasonsOnly },
 ].map((v) => {
@@ -256,7 +260,7 @@ const code = (name: string) => codes.find((c) => c.name === name)!.code;
 
 // K schema 2 is now a real schema (Open Season), so "a newer schema" is 3 for K and P, 2 for S.
 const futureK = _unsafe.wrapBytes("K", [..._unsafe.payload("K", { ...kSeason, schema: 3, flags: 7, guildSeen: 9 }), 0xde, 0xad, 0xbe, 0xef]);
-const futureS = _unsafe.wrapBytes("S", [..._unsafe.payload("S", { ...sPot, schema: 2, kind: 9, days: 3 }), 0x01]);
+const futureS = _unsafe.wrapBytes("S", [..._unsafe.payload("S", { ...sPot, schema: 3, kind: 9, days: 3, minKills: 7 }), 0x01]);
 const futureP = _unsafe.wrapBytes("P", _unsafe.packBytes([..._unsafe.payload("P", { ...packSeasons, schema: 3 }), 0x00, 0x2a]));
 const forwardCompat = [
   {
@@ -266,10 +270,10 @@ const forwardCompat = [
     fields: { ...kSeason, schema: 3, flags: 7, guildSeen: 9 },
   },
   {
-    name: "S schema 2 with an appended field and new kind: known fields read, rest ignored",
+    name: "S schema 3 with an appended field and new kind: known fields read, rest ignored",
     code: futureS,
     type: "S",
-    fields: { ...sPot, schema: 2, kind: 9, days: 3 },
+    fields: { ...sPot, schema: 3, kind: 9, days: 3, minKills: 7 },
   },
   {
     name: "P schema 3 with appended data: known fields read, rest ignored",
@@ -423,6 +427,10 @@ const invalid: { name: string; code: string; error: string }[] = [
   { name: "S add gold that sets a kind", code: wrapS({ ...sAddGold, kind: 1 }), error: "PAYLOAD" },
   { name: "S add gold of 0", code: wrapS({ ...sAddGold, totalGold: 0 }), error: "PAYLOAD" },
   { name: "S mode 2", code: wrapS({ mode: 2 }), error: "PAYLOAD" },
+  { name: "S2 prize pool with a minimum of 0", code: wrapS({ ...sPool2, guildFaction: 1, posterFaction: 2, minKills: 0 }), error: "PAYLOAD" },
+  { name: "S2 per head + pot with a minimum", code: wrapS({ schema: 2, minKills: 5 }), error: "PAYLOAD" },
+  { name: "S2 add gold with a minimum", code: wrapS({ ...sAddGold, schema: 2, minKills: 5 }), error: "PAYLOAD" },
+  { name: "S2 cut off before the minimum", code: _unsafe.wrapBytes("S", [2, ..._unsafe.payload("S", sPot).slice(1)]), error: "PAYLOAD" },
   { name: "S trailing byte", code: _unsafe.wrapBytes("S", [..._unsafe.payload("S", sPot), 0]), error: "PAYLOAD" },
   { name: "K2 guildSeen 2", code: wrapK2({ guildSeen: 2 }), error: "PAYLOAD" },
   { name: "K2 unknown flag bit", code: wrapK2({ flags: 4 }), error: "PAYLOAD" },
@@ -505,7 +513,9 @@ const encodeErrors: { name: string; type: string; fields: unknown }[] = [
   { name: "K schema 2 without a victim name", type: "K", fields: { ...kSeason, victimName: undefined } },
   { name: "K schema 2 without a guild name", type: "K", fields: { ...kSeason, guildName: undefined } },
   { name: "K schema 2 guildSeen 2", type: "K", fields: { ...kSeason, guildSeen: 2 } },
-  { name: "S schema 2", type: "S", fields: { ...sPot, schema: 2 } },
+  { name: "S schema 3", type: "S", fields: { ...sPot, schema: 3 } },
+  { name: "S schema 2 without a minimum", type: "S", fields: { ...sPot, schema: 2 } },
+  { name: "S2 prize pool with a minimum of 0", type: "S", fields: { ...sPool2, minKills: 0 } },
   { name: "S same faction", type: "S", fields: { ...sPot, posterFaction: 1 } },
   { name: "S 30 days", type: "S", fields: { ...sPot, days: 30 } },
   { name: "S kind 4", type: "S", fields: { ...sPot, kind: 4 } },

@@ -718,6 +718,52 @@
       "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G40000000000007T0000H5C0FZVGH271RCV36E9MP682KEHQQ4VB3E9QQETR0JG0114G1000001R-0PZK"
     },
     {
+      "name": "S2 prize pool with a minimum of kills",
+      "type": "S",
+      "fields": {
+        "schema": 2,
+        "boardTag": "0000",
+        "guildName": "Les Chasseurs ⚔",
+        "guildFaction": 2,
+        "posterFaction": 1,
+        "kind": 2,
+        "perKillGold": 0,
+        "totalGold": 10000,
+        "days": 28,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Slac Jaw",
+        "createdAt": 1795200000,
+        "nonce": 31,
+        "mode": 0,
+        "existingSeasonId": 0,
+        "minKills": 10
+      },
+      "code": "BL1-S-08R30C1G2566AWS08DM62WVKCNTQ4WS0WAD980G1080000000002E40W008JP07ZXR8GGMVCC5HJ0JK1EXNG150000FG0000000002G-1W1E"
+    },
+    {
+      "name": "S2 per head + pot, no minimum",
+      "type": "S",
+      "fields": {
+        "schema": 2,
+        "boardTag": "K7QF",
+        "guildName": "Honor and Valor",
+        "guildFaction": 1,
+        "posterFaction": 2,
+        "kind": 1,
+        "perKillGold": 25,
+        "totalGold": 2000,
+        "days": 7,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Slac Jaw",
+        "createdAt": 1795200000,
+        "nonce": 32,
+        "mode": 0,
+        "existingSeasonId": 0,
+        "minKills": 0
+      },
+      "code": "BL1-S-095KEMA61X46YVKFE8G62VK441B62V3FE80G40800001J0000Z80E00H5C0FZVGH119PRRB341562XVB02A00010000000000000-0QY7"
+    },
+    {
       "name": "P2 bounties and seasons",
       "type": "P",
       "fields": {
@@ -847,11 +893,11 @@
       }
     },
     {
-      "name": "S schema 2 with an appended field and new kind: known fields read, rest ignored",
-      "code": "BL1-S-095KEMA61X46YVKFE8G62VK441B62V3FE80G42800001J0000Z80600H5C0FZVGH119PRRB341562XVB02A0044J0000000004-07Y7",
+      "name": "S schema 3 with an appended field and new kind: known fields read, rest ignored",
+      "code": "BL1-S-0D5KEMA61X46YVKFE8G62VK441B62V3FE80G42800001J0000Z80600H5C0FZVGH119PRRB341562XVB02A0044J00000000003G2-1NYF",
       "type": "S",
       "fields": {
-        "schema": 2,
+        "schema": 3,
         "boardTag": "K7QF",
         "guildName": "Honor and Valor",
         "guildFaction": 1,
@@ -865,7 +911,8 @@
         "createdAt": 1795200000,
         "nonce": 4242,
         "mode": 0,
-        "existingSeasonId": 0
+        "existingSeasonId": 0,
+        "minKills": 7
       }
     },
     {
@@ -1357,6 +1404,26 @@
     {
       "name": "S mode 2",
       "code": "BL1-S-055KEMA61X46YVKFE8G62VK441B62V3FE80G40800001J0000Z80E00H5C0FZVGH119PRRB341562XVB02A0044J08000000-0GXW",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S2 prize pool with a minimum of 0",
+      "code": "BL1-S-08R30C1G2566AWS08DM62WVKCNTQ4WS0WAD98082080000000002E40W008JP07ZXR8GGMVCC5HJ0JK1EXNG150000FG00000000000-19TF",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S2 per head + pot with a minimum",
+      "code": "BL1-S-095KEMA61X46YVKFE8G62VK441B62V3FE80G40800001J0000Z80E00H5C0FZVGH119PRRB341562XVB02A0044J00000000002G-1JHK",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S2 add gold with a minimum",
+      "code": "BL1-S-095KEMA61X46YVKFE8G62VK441B62V3FE80G40000000000007T0000H5C0FZVGH271RCV36E9MP682KEHQQ4VB3E9QQETR0JG0114G1000001R00M-15NK",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "S2 cut off before the minimum",
+      "code": "BL1-S-095KEMA61X46YVKFE8G62VK441B62V3FE80G40800001J0000Z80E00H5C0FZVGH119PRRB341562XVB02A0044J00000000-04PN",
       "error": "PAYLOAD"
     },
     {
@@ -2196,7 +2263,28 @@
       }
     },
     {
-      "name": "S schema 2",
+      "name": "S schema 3",
+      "type": "S",
+      "fields": {
+        "schema": 3,
+        "boardTag": "K7QF",
+        "guildName": "Honor and Valor",
+        "guildFaction": 1,
+        "posterFaction": 2,
+        "kind": 1,
+        "perKillGold": 25,
+        "totalGold": 2000,
+        "days": 7,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Slac Jaw",
+        "createdAt": 1795200000,
+        "nonce": 4242,
+        "mode": 0,
+        "existingSeasonId": 0
+      }
+    },
+    {
+      "name": "S schema 2 without a minimum",
       "type": "S",
       "fields": {
         "schema": 2,
@@ -2214,6 +2302,28 @@
         "nonce": 4242,
         "mode": 0,
         "existingSeasonId": 0
+      }
+    },
+    {
+      "name": "S2 prize pool with a minimum of 0",
+      "type": "S",
+      "fields": {
+        "schema": 2,
+        "boardTag": "0000",
+        "guildName": "Les Chasseurs ⚔",
+        "guildFaction": 2,
+        "posterFaction": 1,
+        "kind": 2,
+        "perKillGold": 0,
+        "totalGold": 10000,
+        "days": 28,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Slac Jaw",
+        "createdAt": 1795200000,
+        "nonce": 31,
+        "mode": 0,
+        "existingSeasonId": 0,
+        "minKills": 0
       }
     },
     {

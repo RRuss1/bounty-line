@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.9.1 (unreleased)
+
+- Open Season window: wider (long guild names fit), glows guild green, the kind and the length are two stacks of tick boxes, and the gold fields sit below them.
+- **Prize pool minimum.** A prize pool now has a minimum number of kills for the whole season; if it isn't reached, nobody is paid and the funders keep their gold.
+
+### Deployer notes
+
+- Migration `0007_season_min_kills.sql` adds one column; the deploy applies it.
+
 ## v0.9.0: Open Season
 
 - **Open Season in game.** Right-click an enemy → Set Bounty… now offers **This player** or **Their guild**. Pick the kind (per head + pot, prize pool, or per head with no ceiling), type the amounts, pick 7, 14 or 28 days. That guild's members get the skull, a tooltip line and one alert per season; a killing blow on one makes the usual kill screenshot. The addon remembers the guilds of enemies it sees. Open Seasons have their own scrollable table above the bounties on the in-game Bounty Board (and on My Bounties if you declared one), and `/bl seasons` prints them. Guildies see a new season at once through guild sync.

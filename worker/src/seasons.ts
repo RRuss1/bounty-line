@@ -34,6 +34,8 @@ export interface SeasonRow {
   per_kill_gold: number;
   total_gold: number;
   spent_gold: number;
+  /** Prize pool only: no payout unless the season reaches this many approved kills (0 = none). */
+  min_kills: number;
   poster_guid: string | null;
   poster_name: string | null;
   poster_discord_id: string | null;
@@ -95,7 +97,10 @@ const funds = async (env: Env, s: SeasonRow) =>
 /** "25g a head · pot 2,000g (1,875g left)" */
 export function seasonTerms(s: SeasonRow): string {
   if (s.kind === SEASON_KIND.pot) return `**${gold(s.per_kill_gold)}** a head · pot **${gold(s.total_gold)}** (**${gold(remaining(s))}** left)`;
-  if (s.kind === SEASON_KIND.pool) return `prize pool **${gold(s.total_gold)}**, shared by kills when it closes`;
+  if (s.kind === SEASON_KIND.pool) {
+    const min = s.min_kills > 0 ? `, paid only if it reaches **${s.min_kills} kills**` : "";
+    return `prize pool **${gold(s.total_gold)}**, shared by kills when it closes${min}`;
+  }
   return `**${gold(s.per_kill_gold)}** a head, no ceiling (**${gold(s.spent_gold)}** owed so far)`;
 }
 
@@ -176,6 +181,8 @@ export async function postSeason(env: Env, rest: DiscordRest, tenant: Tenant, f:
 
   if (f.kind !== SEASON_KIND.pool && !within(f.perKillGold)) return limits;
   if (f.kind !== SEASON_KIND.open && !within(f.totalGold)) return limits;
+  const minKills = f.kind === SEASON_KIND.pool ? (f.minKills ?? 0) : 0;
+  if (minKills > 1000) return fail("LIMITS", "The minimum can be at most 1,000 kills.");
 
   const key = guildKey(f.guildName);
   const existing = await env.DB.prepare("SELECT id, kind, thread_id FROM seasons WHERE tenant_id = ?1 AND guild_key = ?2 AND status IN ('open', 'settling')")
@@ -196,10 +203,10 @@ export async function postSeason(env: Env, rest: DiscordRest, tenant: Tenant, f:
   try {
     const row = await env.DB.prepare(
       `INSERT INTO seasons (tenant_id, guild_name, guild_key, faction, kind, per_kill_gold, total_gold, poster_guid, poster_name,
-         poster_discord_id, created_at, expires_at, status, source_code)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'open', ?13) RETURNING id`,
+         poster_discord_id, created_at, expires_at, status, source_code, min_kills)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'open', ?13, ?14) RETURNING id`,
     )
-      .bind(tenant.id, f.guildName.trim(), key, factionName(f.guildFaction), f.kind, f.perKillGold, f.totalGold, f.posterGUID, f.posterName, authorId, Math.min(now, f.createdAt), expiresAt, code)
+      .bind(tenant.id, f.guildName.trim(), key, factionName(f.guildFaction), f.kind, f.perKillGold, f.totalGold, f.posterGUID, f.posterName, authorId, Math.min(now, f.createdAt), expiresAt, code, minKills)
       .first<{ id: number }>();
     id = row!.id;
   } catch (e) {
@@ -598,7 +605,9 @@ async function settle(env: Env, rest: DiscordRest, tenant: Tenant, s: SeasonRow,
 
   const rows = await tally(env, s);
   const kills = rows.reduce((n, r) => n + r.kills, 0);
-  const owed = rows
+  // A prize pool that didn't reach its minimum pays nobody: the funders keep their gold.
+  const short = s.kind === SEASON_KIND.pool && kills < s.min_kills;
+  const owed = (short ? [] : rows)
     .map((r) => ({ hunter: r.hunter, kills: r.kills, gold: s.kind === SEASON_KIND.pool ? Math.floor((s.total_gold * r.kills) / kills) : r.gold }))
     .filter((r) => r.gold > 0)
     .sort((a, b) => b.gold - a.gold);
@@ -611,7 +620,10 @@ async function settle(env: Env, rest: DiscordRest, tenant: Tenant, s: SeasonRow,
   if (!owed.length) {
     await refreshSeason(env, rest, tenant, s.id);
     if (s.thread_id) {
-      await rest.sendMessage(s.thread_id, "🔒 **Open Season closed.** Nobody collected, so there is nothing to pay.").catch(() => undefined);
+      const why = short
+        ? `🔒 **Open Season closed.** It needed **${s.min_kills} kills** to pay out and got **${kills}**, so the prize pool isn't paid: the funders keep their gold.`
+        : "🔒 **Open Season closed.** Nobody collected, so there is nothing to pay.";
+      await rest.sendMessage(s.thread_id, why).catch(() => undefined);
       await rest.closeThread(s.thread_id).catch(() => undefined);
     }
     log(env, "info", "season.closed", { tenant_id: tenant.id, season_id: s.id, outcome: "no_kills" });
