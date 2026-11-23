@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { onDispatch, ERROR_REPLY_TTL_MS, type ChatDeps } from "../src/chat";
 import { _unsafe, decodePack, encode, type BountyPost } from "../src/codec";
 import type { Env } from "../src/env";
-import { packLimiter } from "../src/ratelimit";
+import { codeLimiter, packLimiter } from "../src/ratelimit";
 import { DiscordRest } from "../src/rest";
 import { forbiddenDb, TestD1 } from "./helpers/d1";
-import { call, command, GUILD_A, ids, makeEnv, setupOptions, STRANGER } from "./helpers/env";
+import { call, command, GUILD_A, ids, makeEnv, setupOptions, STRANGER, USER } from "./helpers/env";
 import { FakeDiscord } from "./helpers/fakes";
 
 const NOW = 1795200000;
@@ -61,6 +61,7 @@ const forumTags = () =>
 
 beforeEach(async () => {
   packLimiter.clear();
+  codeLimiter.clear();
   discord = new FakeDiscord().install();
   db = TestD1.migrated();
   env = await makeEnv(db.asD1());
@@ -214,6 +215,90 @@ describe("posting a bounty from #bounty-line", () => {
     const embed = (threads()[0]!.body!.message as { embeds: { fields: { value: string }[] }[] }).embeds[0]!;
     expect(embed.fields[0]!.value).not.toContain("[click](");
     expect(embed.fields[0]!.value).toContain("@​everyone");
+  });
+});
+
+describe("poster limits (honor system)", () => {
+  const POSTER_USER = { id: "700000000000004444" };
+  const post = (n: number) => (codeLimiter.clear(), say(code({ targetGUID: `Player-4395-0000CC${String(n).padStart(2, "0")}`, targetName: `Target ${n}`, nonce: 900 + n }), { author: POSTER_USER }));
+  const owe = (approvedDaysAgo: number) => {
+    const id = (bountyRows()[0] as { id: number }).id;
+    db.sqlite.prepare("UPDATE bounties SET status = 'awaiting_payment' WHERE id = ?").run(id);
+    db.sqlite.prepare("INSERT INTO kills (tenant_id, bounty_id, verdict, code, approved_at) VALUES (?, ?, 'approved', 'K-test', ?)").run(GUILD_A, id, NOW - approvedDaysAgo * 86400);
+  };
+
+  it("no new bounty while you owe on one approved 3+ days ago", async () => {
+    await post(1);
+    owe(4);
+    await post(2);
+    expect(bountyRows()).toHaveLength(1);
+    expect(replies().at(-1)).toContain(`You still owe the reward on bounty #${(bountyRows()[0] as { id: number }).id}`);
+  });
+  it("a fresh debt (under 3 days) doesn't block, and paying clears it", async () => {
+    await post(1);
+    owe(1);
+    await post(2);
+    expect(bountyRows()).toHaveLength(2);
+    db.sqlite.prepare("UPDATE kills SET approved_at = ?").run(NOW - 10 * 86400);
+    db.sqlite.prepare("UPDATE contributions SET paid_at = ? WHERE poster_discord_id = ?").run(NOW, POSTER_USER.id);
+    await post(3);
+    expect(bountyRows()).toHaveLength(3);
+  });
+  it("caps open bounties per poster", async () => {
+    db.sqlite.prepare("UPDATE tenants SET config_json = json_patch(config_json, ?)").run(JSON.stringify({ max_open_per_poster: 2 }));
+    for (let n = 1; n <= 3; n++) await post(n);
+    expect(bountyRows()).toHaveLength(2);
+    expect(replies().at(-1)).toContain("You have 2 open bounties, the most this Bounty Board allows");
+  });
+});
+
+describe("/bl extend", () => {
+  const extendAs = (userId: string, id: number, days: number) => {
+    const body = command(GUILD_A, "extend", [{ name: "id", type: 4, value: String(id) }, { name: "days", type: 4, value: String(days) }], "0");
+    body.member.user.id = userId;
+    return call(env, body);
+  };
+  const row = () => bountyRows()[0] as { id: number; expires_at: number };
+
+  it("the poster adds days; the poster and the pack are refreshed", async () => {
+    await say(code(), { author: { id: USER } });
+    const before = row().expires_at;
+    await extendAs(USER, row().id, 7);
+    expect(row().expires_at).toBe(before + 7 * 86400);
+    expect(discord.followups().at(-1)).toContain(`Bounty #${row().id}`);
+    expect(discord.followups().at(-1)).toContain("now runs until");
+  });
+  it("someone else can't", async () => {
+    await say(code(), { author: { id: USER } });
+    const before = row().expires_at;
+    await extendAs("700000000000005555", row().id, 7);
+    expect(row().expires_at).toBe(before);
+    expect(discord.followups().at(-1)).toContain("Only the poster");
+  });
+  it("can't run past 60 days from now", async () => {
+    await say(code(), { author: { id: USER } });
+    await extendAs(USER, row().id, 60);
+    expect(row().expires_at).toBe(NOW + 60 * 86400);
+    expect(discord.followups().at(-1)).toContain("capped at 60 days");
+  });
+});
+
+describe("the Hunters ping", () => {
+  const ROLE = "300000000000000077";
+  beforeEach(() => {
+    db.sqlite.prepare("UPDATE tenants SET config_json = json_patch(config_json, ?)").run(JSON.stringify({ hunter_role: ROLE, hunter_ping_min_gold: 100 }));
+  });
+  const message = () => threads().at(-1)!.body!.message as { content: string; allowed_mentions: { parse: string[]; roles?: string[] } };
+
+  it("pings only that role, on new bounties at or above the line", async () => {
+    await say(code({ rewardGold: 100 }));
+    expect(message().content).toContain(`<@&${ROLE}> new bounty!`);
+    expect(message().allowed_mentions).toEqual({ parse: [], roles: [ROLE] });
+  });
+  it("stays quiet below it", async () => {
+    await say(code({ rewardGold: 99 }));
+    expect(message().content).not.toContain("<@&");
+    expect(message().allowed_mentions).toEqual({ parse: [] });
   });
 });
 
