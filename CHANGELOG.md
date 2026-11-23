@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.9.2: open world only
+
+- **Bounties are open world only.** A killing blow in a battleground, arena, dungeon, raid or scenario never makes a kill code, for a bounty or an Open Season; if the victim was wanted, a chat line says the kill doesn't count there. Inside instances wanted players get no skull, target badge, tooltip line, alert or last-seen report. You can still set a bounty on someone you met in a battleground: the hunt happens outside.
+- Bounty Board backstop: every kill claim now says where the kill happened ("Killed in Wetlands (open world)"). A kill whose map isn't a known open-world zone is flagged for the officers and is never auto-approved.
+
+### Deployer notes
+
+Nothing to do. The bot change deploys when merged; players need the addon update for the in-game part.
+
 ## v0.9.1: Open Season window, prize pool minimum
 
 - Open Season window: wider (long guild names fit), glows guild green, the kind and the length are two stacks of tick boxes, and the gold fields sit below them.

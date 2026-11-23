@@ -62,6 +62,7 @@
 | Reward | **Real in-game gold, honor system** (poster pays hunter player-to-player) |
 | Who can post bounties | **Any guild member** |
 | Valid targets | **Opposite faction only.** No same-faction targets, **no duel kills** |
+| Where kills count | **Open world only.** Kills in battlegrounds, arenas, dungeons, raids and scenarios never count (addon + server) |
 | Other guilds | **Self-host on their own Cloudflare account.** Rich's bot is private and allowlisted to his server only, so other guilds never touch his Worker costs |
 | Distribution | CurseForge (addon), public GitHub repo (all code) |
 | Install tiers | **Tier 1 only** (addon only, copy/paste codes) |
@@ -302,6 +303,7 @@ When a unit's GUID matches an open bounty:
 1. `PARTY_KILL` fires → `attackerGUID == UnitGUID("player")` (or your pet's GUID) and `targetGUID` matches an open bounty → **killing blow confirmed**.
    - **Duel guard:** the addon tracks duel state (`DUEL_REQUESTED` / `DUEL_INBOUNDS` / `DUEL_FINISHED`) and ignores everything while a duel is active or for 10s after it ends. Duels end at 1 HP and shouldn't produce a `PARTY_KILL` anyway, so this is belt-and-suspenders.
    - **Faction guard:** the bounty's stored faction must be opposite yours. A same-faction "kill" (arena, odd edge cases) never produces a code.
+   - **Open-world guard:** inside any instance (battleground, arena, dungeon, raid, scenario; `IsInInstance()` is true) no kill code is made, for bounties or Open Seasons, and wanted players get no skull, badge, tooltip line, alert or last-seen report. Setting a bounty on someone you met in a battleground is still fine: the hunt happens outside.
 2. Corroborate with `CHAT_MSG_COMBAT_HONOR_GAIN` naming the victim within ~2 seconds (logged as `honor=1/0`; not required, since some kills award no honor).
 3. **Proof stamp** (Section 9) is drawn full-width at screen center.
 4. Next frame: `Screenshot()`. Listen for `SCREENSHOT_SUCCEEDED` / `SCREENSHOT_FAILED`.
@@ -674,6 +676,7 @@ A tiny opt-in companion app could auto-upload. It's parked; Tier 1 never depends
 | Who can post | Any guild member | Min guild rank |
 | Target faction | **Opposite faction only** (addon + server check) | No |
 | Duels | **Never count.** Duel kills are ignored; no "duel bounties" | No |
+| Where | **Open world only.** No kill counts in a battleground, arena, dungeon, raid or scenario. The addon makes no code there; the Bounty Board flags any kill whose map isn't a known open-world zone and never auto-approves it | No |
 | Bounties on guildmates | Blocked (implied by opposite-faction rule) | No |
 | Claim own bounty | Blocked | No |
 | One bounty per target | Multiple posters can **stack** gold on the same GUID (shows total) | Stacking on/off |
@@ -1096,7 +1099,7 @@ The same packager can upload to **Wago** (`-a <wago-id>`) and **WoWInterface** (
 | Codec | Lua and TS decode the same `shared/test-vectors.json`; checksum catches 1-char edits and truncation; case-insensitive paste; extra whitespace/newlines tolerated |
 | Marking | Same-faction target blocked; NPC blocked; guildmate blocked; reward parsing (`500`, `500g`, `1k`, `0`, negative, huge) |
 | Detection | Nameplate on/off; target/focus/mouseover; tooltip; stealth re-appearance; in-combat secret values; 20+ nameplates performance |
-| Kill | Your killing blow ✔; pet killing blow ✔ (if enabled); assist ✗; someone else's kill ✗; duel (win, loss, out-of-bounds) ✗; same-faction kill ✗; kill in battleground (decide: allowed?); screenshot failed path |
+| Kill | Your killing blow ✔; pet killing blow ✔ (if enabled); assist ✗; someone else's kill ✗; duel (win, loss, out-of-bounds) ✗; same-faction kill ✗; kill in a battleground, arena or dungeon ✗ (no code; a "doesn't count" chat line); screenshot failed path |
 | Comms | Pack propagation to 5 online clients; late login gets pack; older pack ignored; instance restriction queue/flush; throttle under spam |
 | Bot paste | Multiple codes in one message; code without image (K); image without code; wrong server's code; duplicate code; expired bounty |
 | AI proof | Clean stamp; blurred/cropped stamp; mismatched stamp; non-WoW image; dark/bright scenes; 4K and 1080p |
@@ -1128,7 +1131,7 @@ The same packager can upload to **Wago** (`-a <wago-id>`) and **WoWInterface** (
 5. **Right-click menu tags** for enemy players on Forever's target/focus/party frames, and whether the unit data is readable mid-combat (Section 5.4b).
 6. **Atlas/texture names** on the Forever client (browse in game before finalizing art).
 7. **Character linking UX:** first-claim prompt that links a Discord user to a WoW character (`/bl link` code from the addon is the cleanest Tier 1 option).
-8. **Battleground/arena kills:** count or not? (Default proposal: open-world only.)
+8. **Battleground/arena kills:** ✅ **Decided 2026-11-23: open world only.** No kill in any instance counts (Sections 2, 5.7, 10). Still to confirm on Forever: `IsInInstance()` returns `true, "pvp"` in a battleground and `false` everywhere outdoors, capitals included.
 9. **Duplicate posters:** stacking UX when two members mark the same GUID.
 10. **Player GUID shape on Forever:** confirm `UnitGUID` returns `Player-<serverID>-<8 hex>` with an unpadded decimal server ID ≤ 65535 (print a few with `/bl debug`). Codes use the 7-byte compact form for that shape; anything else still works through the raw fallback, just ~25 characters longer per GUID (Compendium 02 Section 2).
     - ✅ **Verified 2026-11-21** (client 1.60.1 build 71037): `Player-6935-00156D68`, `Player-6935-007356CE`. Compact form applies.

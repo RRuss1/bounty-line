@@ -22,7 +22,7 @@ Build compendiums (also binding):
   - Addons can't make network requests or write to the clipboard (select text + Ctrl+C only).
   - Secret values may hide unit data in combat; degrade gracefully.
   - Addon comms (`SendAddonMessage`) are restricted during instance encounters; queue and flush.
-- **Game rules:** opposite faction only, no duels, killing blow only, reward 1g–10,000g (default), always typed by hand.
+- **Game rules:** opposite faction only, open world only (no battleground, arena or dungeon kills), no duels, killing blow only, reward 1g–10,000g (default), always typed by hand.
 - **Costs:** Rich's bot is private (`ALLOWED_GUILD_IDS` allowlist checked FIRST, before any D1/R2/AI work). Other guilds self-host.
 - Keep the addon free, unobfuscated and ad-free (Blizzard UI Add-On Development Policy).
 
