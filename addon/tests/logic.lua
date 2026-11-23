@@ -905,15 +905,15 @@ check("pending copy dropped", next(BountyLineDB.pendingSeasons) == nil)
 -- A window opened outside and submitted after zoning into an instance still makes no code.
 do
   local built = false
-  local real = ns.BuildSeasonCode
-  ns.BuildSeasonCode = function(...) built = true return real(...) end
+  local realBuild = ns.BuildSeasonCode
+  ns.BuildSeasonCode = function(...) built = true return realBuild(...) end
   IsInInstance = function() return true, "pvp" end
-  local before = #prints
+  local printedBefore = #prints
   ns.PostSeason({ guild = HV, faction = 2 }, 1, 25, 500, 14)
   check("no Open Season code from inside a battleground", not built)
-  eq("  ...and the player is told why", prints[before + 1], ns.L.INSTANCE)
+  eq("  ...and the player is told why", prints[printedBefore + 1], ns.L.INSTANCE)
   IsInInstance = nil
-  ns.BuildSeasonCode = real
+  ns.BuildSeasonCode = realBuild
 end
 
 print(("%d passed, %d failed"):format(passed, failed))
