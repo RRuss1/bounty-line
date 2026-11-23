@@ -867,6 +867,86 @@
         ]
       },
       "code": "BL1-P-F3D67WHP1XTCPSMJXDG7XG8XKRFTXR4PBYA5N5JTRK0C1G68R2G2W05137CFJFFJYFS8P50JYD919GGJEFS8P621MA9412B0HVG9SH340PQW9WKCSSSGT05KYG90P-0MZE"
+    },
+    {
+      "name": "W one sighting",
+      "type": "W",
+      "fields": {
+        "schema": 1,
+        "boardTag": "K7QF",
+        "sentAt": 1795203600,
+        "nonce": 777,
+        "sightings": [
+          {
+            "bountyId": 42,
+            "mapID": 1437,
+            "seenAt": 1795203540,
+            "spotterName": "Slac Jaw"
+          }
+        ]
+      },
+      "code": "BL1-W-055KEMA6DC0A44031400200000N0B7BB02GX822KDHGP682AC5VG-0ZEK"
+    },
+    {
+      "name": "W eight sightings, unicode and unknown spotter, no board tag",
+      "type": "W",
+      "fields": {
+        "schema": 1,
+        "boardTag": "0000",
+        "sentAt": 4294967295,
+        "nonce": 65535,
+        "sightings": [
+          {
+            "bountyId": 100,
+            "mapID": 1400,
+            "seenAt": 1795200000,
+            "spotterName": ""
+          },
+          {
+            "bountyId": 101,
+            "mapID": 1401,
+            "seenAt": 1795200060,
+            "spotterName": "Äsk Ñøøb"
+          },
+          {
+            "bountyId": 102,
+            "mapID": 1402,
+            "seenAt": 1795200120,
+            "spotterName": "Spotter 2"
+          },
+          {
+            "bountyId": 103,
+            "mapID": 1403,
+            "seenAt": 1795200180,
+            "spotterName": "Spotter 3"
+          },
+          {
+            "bountyId": 104,
+            "mapID": 1404,
+            "seenAt": 1795200240,
+            "spotterName": "Spotter 4"
+          },
+          {
+            "bountyId": 105,
+            "mapID": 1405,
+            "seenAt": 1795200300,
+            "spotterName": "Spotter 5"
+          },
+          {
+            "bountyId": 106,
+            "mapID": 1406,
+            "seenAt": 1795200360,
+            "spotterName": "Spotter 6"
+          },
+          {
+            "bountyId": 4294967295,
+            "mapID": 65535,
+            "seenAt": 1795200420,
+            "spotterName": "Spotter 7"
+          }
+        ]
+      },
+      "code": "BL1-W-04R30C1GZZZZZZZZZW00G00001J0AY3B02A000000006A1BSDC098F0CRE276TS0RE8W7E63Q1H00000CR2QMTR0JHW0JMVGDXT78SBJ40S00000CW2QPTR0JJT0JMVGDXT78SBJ40SG0000D02QRTR0JKR0JMVGDXT78SBJ40T00000D42QTTR0JMP0JMVGDXT78SBJ40TG0000D82QWTR0JNM0JMVGDXT78SBJ40VFZZZZZZZZYTR0JPJ0JMVGDXT78SBJ40VG-0RQV"
     }
   ],
   "forwardCompat": [
@@ -991,6 +1071,18 @@
             "expiresAt": 1796409600
           }
         ]
+      }
+    },
+    {
+      "name": "W schema 2 with an appended byte and no sightings: known fields read, rest ignored",
+      "code": "BL1-W-095KEMA6DC0A4403140001R-1AG4",
+      "type": "W",
+      "fields": {
+        "schema": 2,
+        "boardTag": "K7QF",
+        "sentAt": 1795203600,
+        "nonce": 777,
+        "sightings": []
       }
     }
   ],
@@ -1460,6 +1552,26 @@
       "name": "pack season with faction 3",
       "code": "BL1-P-F3D67WHP1XTCPSMJDDKQW9FDJDDASR4WJ5C5S72TB9AAS44JN885154S1CA7PD3B181G60S30E1VM0036E8CBGS0N36JBBB3SFQGX56FS77NCW1CSRM4QKECC5J05AQTR88SS4WRNKG9AP4Y5QTBG0D8K8BTG6N8V17X8DSZQMMB292344WBPD17MYW209XKMGJBB20KN13NTG6RMCT0ZJ2HY16RCC6J2A9N7CT59J0VN6AZ60R700VNRW5M9S8ZBTPY0N4MK6F534MMJEC95JG1EG8EE4E1RDPKJTA5K74GNG95Z52VKJA5Z7JXK8KD1MGCECNGYDXY9SZ52WMJ9SN55222BSQ42WRR6H15G49C221QEAF6P000TT6MJV8-0E5Q",
       "error": "FACTION"
+    },
+    {
+      "name": "W no sightings",
+      "code": "BL1-W-055KEMA6DC0A440314000-1TRW",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "W nine sightings",
+      "code": "BL1-W-055KEMA6DC0A44031400J00001J0AY3B02A000000006A1BSDC098F0CRE276TS0RE8W7E63Q1H00000CR2QMTR0JHW0JMVGDXT78SBJ40S00000CW2QPTR0JJT0JMVGDXT78SBJ40SG0000D02QRTR0JKR0JMVGDXT78SBJ40T00000D42QTTR0JMP0JMVGDXT78SBJ40TG0000D82QWTR0JNM0JMVGDXT78SBJ40VFZZZZZZZZYTR0JPJ0JMVGDXT78SBJ40VG0000582STTR0M7A0GMVCC5HJ0JK1EW-1WZ5",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "W sighting with bounty 0",
+      "code": "BL1-W-055KEMA6DC0A4403140020000000B7BB02GX822KDHGP682AC5VG-1CZW",
+      "error": "PAYLOAD"
+    },
+    {
+      "name": "W trailing byte",
+      "code": "BL1-W-055KEMA6DC0A44031400200000N0B7BB02GX822KDHGP682AC5VG0-0JK9",
+      "error": "PAYLOAD"
     },
     {
       "name": "pack count larger than contents",
@@ -2450,6 +2562,130 @@
         "nonce": 4242,
         "mode": 1,
         "existingSeasonId": 7
+      }
+    },
+    {
+      "name": "W no sightings",
+      "type": "W",
+      "fields": {
+        "schema": 1,
+        "boardTag": "K7QF",
+        "sentAt": 1795203600,
+        "nonce": 777,
+        "sightings": []
+      }
+    },
+    {
+      "name": "W nine sightings",
+      "type": "W",
+      "fields": {
+        "schema": 1,
+        "boardTag": "0000",
+        "sentAt": 4294967295,
+        "nonce": 65535,
+        "sightings": [
+          {
+            "bountyId": 100,
+            "mapID": 1400,
+            "seenAt": 1795200000,
+            "spotterName": ""
+          },
+          {
+            "bountyId": 101,
+            "mapID": 1401,
+            "seenAt": 1795200060,
+            "spotterName": "Äsk Ñøøb"
+          },
+          {
+            "bountyId": 102,
+            "mapID": 1402,
+            "seenAt": 1795200120,
+            "spotterName": "Spotter 2"
+          },
+          {
+            "bountyId": 103,
+            "mapID": 1403,
+            "seenAt": 1795200180,
+            "spotterName": "Spotter 3"
+          },
+          {
+            "bountyId": 104,
+            "mapID": 1404,
+            "seenAt": 1795200240,
+            "spotterName": "Spotter 4"
+          },
+          {
+            "bountyId": 105,
+            "mapID": 1405,
+            "seenAt": 1795200300,
+            "spotterName": "Spotter 5"
+          },
+          {
+            "bountyId": 106,
+            "mapID": 1406,
+            "seenAt": 1795200360,
+            "spotterName": "Spotter 6"
+          },
+          {
+            "bountyId": 4294967295,
+            "mapID": 65535,
+            "seenAt": 1795200420,
+            "spotterName": "Spotter 7"
+          },
+          {
+            "bountyId": 42,
+            "mapID": 1437,
+            "seenAt": 1795203540,
+            "spotterName": "Slac Jaw"
+          }
+        ]
+      }
+    },
+    {
+      "name": "W sighting with bounty 0",
+      "type": "W",
+      "fields": {
+        "schema": 1,
+        "boardTag": "K7QF",
+        "sentAt": 1795203600,
+        "nonce": 777,
+        "sightings": [
+          {
+            "bountyId": 0,
+            "mapID": 1437,
+            "seenAt": 1795203540,
+            "spotterName": "Slac Jaw"
+          }
+        ]
+      }
+    },
+    {
+      "name": "W schema 2",
+      "type": "W",
+      "fields": {
+        "schema": 2,
+        "boardTag": "K7QF",
+        "sentAt": 1795203600,
+        "nonce": 777,
+        "sightings": [
+          {
+            "bountyId": 42,
+            "mapID": 1437,
+            "seenAt": 1795203540,
+            "spotterName": "Slac Jaw"
+          }
+        ]
+      }
+    },
+    {
+      "name": "W sightings not a list",
+      "type": "W",
+      "fields": {
+        "schema": 1,
+        "boardTag": "K7QF",
+        "sentAt": 1795203600,
+        "nonce": 777,
+        "sightings": "nope"
       }
     }
   ]

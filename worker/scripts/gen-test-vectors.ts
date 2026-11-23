@@ -28,6 +28,7 @@ import {
   type CodeType,
   type KillClaim,
   type SeasonPost,
+  type SightingReport,
 } from "../src/codec";
 
 const OUT = fileURLToPath(new URL("../../shared/test-vectors.json", import.meta.url));
@@ -224,6 +225,26 @@ const packMany: BountyPack = {
   })),
 };
 
+const wOne: SightingReport = {
+  schema: 1,
+  boardTag: "K7QF",
+  sentAt: 1795203600,
+  nonce: 777,
+  sightings: [{ bountyId: 42, mapID: 1437, seenAt: 1795203540, spotterName: "Slac Jaw" }],
+};
+const wFull: SightingReport = {
+  schema: 1,
+  boardTag: "0000",
+  sentAt: 4294967295,
+  nonce: 65535,
+  sightings: Array.from({ length: 8 }, (_, i) => ({
+    bountyId: i === 7 ? 4294967295 : 100 + i,
+    mapID: i === 7 ? 65535 : 1400 + i,
+    seenAt: 1795200000 + i * 60,
+    spotterName: i === 0 ? "" : i === 1 ? "Äsk Ñøøb" : `Spotter ${i}`,
+  })),
+};
+
 const codes = [
   { name: "B basic", type: "B", fields: bBasic },
   { name: "B add to existing, unicode, note, no board tag", type: "B", fields: bStack },
@@ -247,6 +268,8 @@ const codes = [
   { name: "S2 per head + pot, no minimum", type: "S", fields: sPot2 },
   { name: "P2 bounties and seasons", type: "P", fields: packSeasons },
   { name: "P2 seasons only", type: "P", fields: packSeasonsOnly },
+  { name: "W one sighting", type: "W", fields: wOne },
+  { name: "W eight sightings, unicode and unknown spotter, no board tag", type: "W", fields: wFull },
 ].map((v) => {
   const code = v.type === "P" ? encodePack(v.fields as BountyPack) : [encode(v.type as CodeType, v.fields)];
   assert(code.length === 1, `${v.name} should be a single code`);
@@ -262,6 +285,7 @@ const code = (name: string) => codes.find((c) => c.name === name)!.code;
 const futureK = _unsafe.wrapBytes("K", [..._unsafe.payload("K", { ...kSeason, schema: 3, flags: 7, guildSeen: 9 }), 0xde, 0xad, 0xbe, 0xef]);
 const futureS = _unsafe.wrapBytes("S", [..._unsafe.payload("S", { ...sPot, schema: 3, kind: 9, days: 3, minKills: 7 }), 0x01]);
 const futureP = _unsafe.wrapBytes("P", _unsafe.packBytes([..._unsafe.payload("P", { ...packSeasons, schema: 3 }), 0x00, 0x2a]));
+const futureW = _unsafe.wrapBytes("W", [..._unsafe.payload("W", { ...wOne, schema: 2, sightings: [] }), 0x07]);
 const forwardCompat = [
   {
     name: "K schema 3 with appended fields and new values: known fields read, rest ignored",
@@ -280,6 +304,12 @@ const forwardCompat = [
     code: futureP,
     type: "P",
     fields: { ...packSeasons, schema: 3 },
+  },
+  {
+    name: "W schema 2 with an appended byte and no sightings: known fields read, rest ignored",
+    code: futureW,
+    type: "W",
+    fields: { ...wOne, schema: 2, sightings: [] },
   },
 ];
 for (const v of forwardCompat) {
@@ -321,6 +351,7 @@ const wrapB = (f: object) => _unsafe.wrapBytes("B", _unsafe.payload("B", { ...bB
 const wrapK = (f: object) => _unsafe.wrapBytes("K", _unsafe.payload("K", { ...kBasic, ...f }));
 const wrapK2 = (f: object) => _unsafe.wrapBytes("K", _unsafe.payload("K", { ...kSeason, ...f }));
 const wrapS = (f: object) => _unsafe.wrapBytes("S", _unsafe.payload("S", { ...sPot, ...f }));
+const wrapW = (f: object) => _unsafe.wrapBytes("W", _unsafe.payload("W", { ...wOne, ...f }));
 const wrapPackBody = (bytes: number[]) => _unsafe.wrapBytes("P", bytes);
 const packBody = (f: object) => _unsafe.payload("P", { ...packThree, ...f });
 
@@ -438,6 +469,10 @@ const invalid: { name: string; code: string; error: string }[] = [
   { name: "K2 cut off after the schema 1 fields", code: _unsafe.wrapBytes("K", [2, ..._unsafe.payload("K", kBasic).slice(1)]), error: "PAYLOAD" },
   { name: "K1 with schema 2 fields appended", code: _unsafe.wrapBytes("K", [1, ..._unsafe.payload("K", kSeason).slice(1)]), error: "PAYLOAD" },
   { name: "pack season with faction 3", code: wrapPackBody(_unsafe.packBytes(_unsafe.payload("P", { ...packSeasons, seasons: [{ ...packSeasons.seasons![0]!, guildFaction: 3 }] }))), error: "FACTION" },
+  { name: "W no sightings", code: wrapW({ sightings: [] }), error: "PAYLOAD" },
+  { name: "W nine sightings", code: wrapW({ sightings: [...wFull.sightings, wOne.sightings[0]] }), error: "PAYLOAD" },
+  { name: "W sighting with bounty 0", code: wrapW({ sightings: [{ ...wOne.sightings[0], bountyId: 0 }] }), error: "PAYLOAD" },
+  { name: "W trailing byte", code: _unsafe.wrapBytes("W", [..._unsafe.payload("W", wOne), 0]), error: "PAYLOAD" },
   { name: "pack count larger than contents", code: wrapPackBody(_unsafe.packBytes([...packBody({ bounties: [] }).slice(0, -2), 0, 5])), error: "PAYLOAD" },
 ];
 for (const v of invalid) {
@@ -522,6 +557,11 @@ const encodeErrors: { name: string; type: string; fields: unknown }[] = [
   { name: "S pot smaller than one kill", type: "S", fields: { ...sPot, totalGold: 24 } },
   { name: "S empty guild name", type: "S", fields: { ...sPot, guildName: "" } },
   { name: "S add gold that sets days", type: "S", fields: { ...sAddGold, days: 7 } },
+  { name: "W no sightings", type: "W", fields: { ...wOne, sightings: [] } },
+  { name: "W nine sightings", type: "W", fields: { ...wFull, sightings: [...wFull.sightings, wOne.sightings[0]] } },
+  { name: "W sighting with bounty 0", type: "W", fields: { ...wOne, sightings: [{ ...wOne.sightings[0]!, bountyId: 0 }] } },
+  { name: "W schema 2", type: "W", fields: { ...wOne, schema: 2 } },
+  { name: "W sightings not a list", type: "W", fields: { ...wOne, sightings: "nope" } },
 ];
 for (const v of encodeErrors) {
   let threw = false;

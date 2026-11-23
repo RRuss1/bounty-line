@@ -9,7 +9,7 @@
 -- client, stock Lua 5.1 and LuaJIT. Pack decompression uses LibDeflate.
 --
 -- API:
---   Codec.Encode(codeType, fields) -> code                     | nil, "INVALID", message   (B, K, L, S)
+--   Codec.Encode(codeType, fields) -> code                     | nil, "INVALID", message   (B, K, L, S, W)
 --   Codec.Decode(text)             -> { type, fields, code }   | nil, errorCode, message
 --   Codec.DecodePack(text)         -> { fields, codes }        | nil, errorCode, message, received, total
 --
@@ -71,6 +71,18 @@ local PACK_SEASON = {
   { "posterName", "vstr", 255 },
   { "expiresAt", "u32" },
 }
+
+-- One sighting of a wanted player, as guild sync carried it (W codes).
+local SIGHTING = {
+  { "bountyId", "u32" },
+  { "mapID", "u16" },
+  { "seenAt", "u32" },
+  { "spotterName", "vstr", 255 },
+}
+
+-- Most sightings in one W code: keeps its QR code small enough to read in a screenshot.
+local MAX_SIGHTINGS = 8
+Codec.MAX_SIGHTINGS = MAX_SIGHTINGS
 
 local LAYOUT = {
   B = {
@@ -138,6 +150,12 @@ local LAYOUT = {
     { "mode", "u8" },
     { "existingSeasonId", "u32" },
   },
+  W = {
+    { "boardTag", "tag" },
+    { "sentAt", "u32" },
+    { "nonce", "u16" },
+    { "sightings", "list", SIGHTING },
+  },
 }
 
 local function extend(base, extra)
@@ -158,6 +176,7 @@ local SCHEMAS = {
   L = { LAYOUT.L },
   P = { LAYOUT.P, extend(LAYOUT.P, { { "seasons", "list", PACK_SEASON } }) },
   S = { LAYOUT.S, extend(LAYOUT.S, { { "minKills", "u16" } }) },
+  W = { LAYOUT.W },
 }
 
 local SIZE = { u8 = 1, u16 = 2, u32 = 4 }
@@ -178,6 +197,16 @@ local function crossCheck(codeType, f, strict)
     if strict and f.guildSeen ~= nil and f.guildSeen ~= 0 and f.guildSeen ~= 1 then return "PAYLOAD", "invalid guildSeen" end
   elseif codeType == "P" then
     if f.rewardMin > f.rewardMax then return "PAYLOAD", "rewardMin is above rewardMax" end
+  elseif codeType == "W" then
+    local list = f.sightings
+    if strict and (#list < 1 or #list > MAX_SIGHTINGS) then
+      return "PAYLOAD", ("a sighting report holds 1 to %d sightings"):format(MAX_SIGHTINGS)
+    end
+    if strict then
+      for _, x in ipairs(list) do
+        if x.bountyId == 0 then return "PAYLOAD", "a sighting needs a bounty number" end
+      end
+    end
   elseif codeType == "S" then
     if f.guildFaction == f.posterFaction then return "FACTION", "an Open Season must be on the opposite faction" end
     if strict then

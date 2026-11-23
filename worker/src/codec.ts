@@ -19,7 +19,7 @@ const MAX_PACK_BYTES = 262144;
 
 export const FACTION = { Alliance: 1, Horde: 2 } as const;
 
-export type CodeType = "B" | "K" | "P" | "L" | "S";
+export type CodeType = "B" | "K" | "P" | "L" | "S" | "W";
 export type ErrorCode =
   | "FORMAT"
   | "VERSION"
@@ -126,6 +126,27 @@ export interface CharacterLink {
   nonce: number;
 }
 
+/** One sighting of a wanted player, as guild sync carried it. */
+export interface Sighting {
+  bountyId: number;
+  mapID: number;
+  seenAt: number;
+  /** Who saw them (character name), "" if unknown. */
+  spotterName: string;
+}
+
+/** W: the latest sightings of wanted players, sent by a relay officer's addon (spec 5.10). */
+export interface SightingReport {
+  schema: number;
+  boardTag: string;
+  sentAt: number;
+  nonce: number;
+  sightings: Sighting[];
+}
+
+/** Most sightings in one W code: keeps its QR code small enough to read in a screenshot. */
+export const MAX_SIGHTINGS = 8;
+
 export interface PackEntry {
   bountyId: number;
   targetGUID: string;
@@ -155,6 +176,7 @@ export type Decoded =
   | { type: "K"; fields: KillClaim }
   | { type: "L"; fields: CharacterLink }
   | { type: "S"; fields: SeasonPost }
+  | { type: "W"; fields: SightingReport }
   | { type: "P"; fields: BountyPack };
 
 export type DecodeResult = ({ ok: true; code: string } & Decoded) | { ok: false; error: ErrorCode; message: string };
@@ -205,6 +227,13 @@ const PACK_SEASON: readonly Field[] = [
   ["remainingGold", "u32"],
   ["posterName", "vstr", 255],
   ["expiresAt", "u32"],
+];
+
+const SIGHTING: readonly Field[] = [
+  ["bountyId", "u32"],
+  ["mapID", "u16"],
+  ["seenAt", "u32"],
+  ["spotterName", "vstr", 255],
 ];
 
 const LAYOUT: Readonly<Record<CodeType, readonly Field[]>> = {
@@ -273,6 +302,12 @@ const LAYOUT: Readonly<Record<CodeType, readonly Field[]>> = {
     ["mode", "u8"],
     ["existingSeasonId", "u32"],
   ],
+  W: [
+    ["boardTag", "tag"],
+    ["sentAt", "u32"],
+    ["nonce", "u16"],
+    ["sightings", "list", SIGHTING],
+  ],
 };
 
 /**
@@ -285,9 +320,10 @@ export const SCHEMAS: Readonly<Record<CodeType, readonly (readonly Field[])[]>> 
   L: [LAYOUT.L],
   P: [LAYOUT.P, [...LAYOUT.P, ["seasons", "list", PACK_SEASON]]],
   S: [LAYOUT.S, [...LAYOUT.S, ["minKills", "u16"]]],
+  W: [LAYOUT.W],
 };
 
-const isCodeType = (t: string): t is CodeType => t === "B" || t === "K" || t === "P" || t === "L" || t === "S";
+const isCodeType = (t: string): t is CodeType => t === "B" || t === "K" || t === "P" || t === "L" || t === "S" || t === "W";
 const MAX: Record<"u8" | "u16" | "u32", number> = { u8: 0xff, u16: 0xffff, u32: 0xffffffff };
 
 /**
@@ -308,6 +344,10 @@ function crossCheck(type: CodeType, f: Record<string, unknown>, strict: boolean)
     if (strict && f.guildSeen !== undefined && f.guildSeen !== 0 && f.guildSeen !== 1) return ["PAYLOAD", "invalid guildSeen"];
   } else if (type === "P") {
     if ((f.rewardMin as number) > (f.rewardMax as number)) return ["PAYLOAD", "rewardMin is above rewardMax"];
+  } else if (type === "W") {
+    const list = f.sightings as Sighting[];
+    if (strict && (list.length < 1 || list.length > MAX_SIGHTINGS)) return ["PAYLOAD", `a sighting report holds 1 to ${MAX_SIGHTINGS} sightings`];
+    if (strict && list.some((x) => x.bountyId === 0)) return ["PAYLOAD", "a sighting needs a bounty number"];
   } else if (type === "S") {
     if (f.guildFaction === f.posterFaction) return ["FACTION", "an Open Season must be on the opposite faction"];
     if (strict) {
@@ -789,11 +829,12 @@ function catchResult<T>(fn: () => T): T | { ok: false; error: ErrorCode; message
 
 // ---------------------------------------------------------------- public API
 
-/** Encodes a B, K, L or S code. Throws CodecError("INVALID") if the fields don't fit. */
+/** Encodes a B, K, L, S or W code. Throws CodecError("INVALID") if the fields don't fit. */
 export function encode(type: "B", fields: BountyPost): string;
 export function encode(type: "K", fields: KillClaim): string;
 export function encode(type: "L", fields: CharacterLink): string;
 export function encode(type: "S", fields: SeasonPost): string;
+export function encode(type: "W", fields: SightingReport): string;
 export function encode(type: CodeType, fields: unknown): string;
 export function encode(type: CodeType, fields: unknown): string {
   if (type === "P") fail("INVALID", "use encodePack for packs");
