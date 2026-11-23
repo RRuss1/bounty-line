@@ -126,6 +126,25 @@ describe("verdicts", () => {
     expect(replies().filter((r) => r.includes("auto-approved"))).toEqual([]); // no chat reply on success
   });
 
+  it("open world only: a kill outside the known zones goes to officers, even for a trusted hunter", async () => {
+    db.sqlite.prepare("INSERT INTO hunters (tenant_id, discord_user_id, approved, streak, trust) VALUES (?, ?, 5, 5, 'trusted')").run(GUILD_A, HUNTER_USER);
+    const code = kill({ mapID: 1460 }); // not in the verified open-world table (a battleground on classic)
+    stampMatches(code);
+    await say(code, [shot()], HUNTER_USER);
+    expect(lastKill().verdict).toBe("pending");
+    expect(status()).toBe("review");
+    expect(JSON.parse(String(lastKill().checks_json))).toMatchObject({ openWorld: false });
+    const description = (proofPost().body as { embeds: { description: string }[] }).embeds[0]!.description;
+    expect(description).toContain("Not a known open-world zone (map 1460)");
+  });
+
+  it("names the open-world zone on the proof post", async () => {
+    const code = kill();
+    stampMatches(code);
+    await say(code, [shot()], HUNTER_USER);
+    expect((proofPost().body as { embeds: { description: string }[] }).embeds[0]!.description).toContain("✅ Killed in Wetlands (open world)");
+  });
+
   it("all_clean approves any clean claim; a stamp mismatch never auto-approves", async () => {
     setConfig("auto_approve", "all_clean");
     const code = kill();

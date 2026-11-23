@@ -17,7 +17,7 @@ import { SKULL, wantedPoster, wantedPosterImage } from "./poster";
 import type { PosterStatus } from "./poster-image";
 import type { DiscordRest } from "./rest";
 import { audit, type ForumTagKey, type Tenant } from "./tenants";
-import { escapeMd, gold } from "./wow";
+import { escapeMd, gold, openWorldCheck } from "./wow";
 
 export interface Attachment {
   url: string;
@@ -150,6 +150,7 @@ export async function claimKill(
     window: k.killedAt <= now + 300 && now - k.killedAt <= windowHours * 3600,
     ageMinutes: ageMin,
     linked: linked ? linked.discord_user_id === authorId : null, // null = not linked yet
+    openWorld: openWorldCheck(k.mapID).ok,
     imageHash: hash,
   };
 
@@ -159,7 +160,7 @@ export async function claimKill(
     .bind(tenant.id, authorId)
     .first<{ trust: string | null }>();
   const trusted = hunter?.trust === "trusted";
-  const clean = checks.window && checks.linked !== false && ai.status === "match";
+  const clean = checks.openWorld && checks.window && checks.linked !== false && ai.status === "match";
   const mode = tenant.config.auto_approve;
   const auto = clean && (mode === "all_clean" || (mode === "trusted_only" && trusted));
   const allChecks = { ...checks, ai: ai.status, aiRead: "read" in ai ? ai.read : undefined, trusted };
@@ -177,6 +178,7 @@ export async function claimKill(
   const lines = [
     `✅ Victim matches the bounty (GUID)`,
     `✅ Killer isn't the poster`,
+    openWorldCheck(k.mapID).line,
     checks.window ? `✅ Posted ${ageMin} min after the kill` : `⚠️ Posted ${ageMin} min after the kill (limit ${windowHours}h)`,
     checks.honor ? "✅ Honor kill confirmed in game" : "➖ No honor message (some kills give none)",
     checks.linked === true ? "✅ Character linked to this Discord user" : checks.linked === false ? "⚠️ Character is linked to a different Discord user" : "➖ Character not linked yet (`/bl link` in game)",

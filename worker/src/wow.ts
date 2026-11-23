@@ -113,6 +113,23 @@ const ZONES: Record<number, string> = {
 };
 export const zoneName = (mapId: number): string | null => ZONES[mapId] ?? null;
 
+/**
+ * Bounties are open world only (spec Section 10). The addon makes no kill code inside a
+ * battleground, arena, dungeon, raid or scenario; this is the Bounty Board's backstop for the
+ * code's mapID. Every zone in the verified table is open world. Anything else isn't refused
+ * (instance map IDs on Forever aren't verified, and some caves have their own map), but it
+ * can't be auto-approved: an officer looks at the screenshot.
+ */
+export function openWorldCheck(mapId: number): { ok: boolean; line: string } {
+  const zone = zoneName(mapId);
+  return zone
+    ? { ok: true, line: `✅ Killed in ${zone} (open world)` }
+    : {
+        ok: false,
+        line: `⚠️ Not a known open-world zone (map ${mapId}). Bounties don't count in battlegrounds, arenas or dungeons: check the screenshot.`,
+      };
+}
+
 /** "Grief Bounty Board", or just "Bounty Board" before a name is set. */
 export const boardName = (displayName: string) => `${displayName.trim()} Bounty Board`.trim();
 
