@@ -56,6 +56,8 @@ const reactions = () => discord.find("PUT", /\/reactions\//).map((c) => decodeUR
 const replies = () => discord.find("POST", new RegExp(`/channels/${ids.line}/messages$`)).slice(1).map((c) => String(c.body!.content)); // [0] is the how-to
 const threads = () => discord.find("POST", /\/threads$/);
 const bountyRows = () => db.sqlite.prepare("SELECT * FROM bounties").all() as Record<string, unknown>[];
+const forumTags = () =>
+  JSON.parse((db.sqlite.prepare("SELECT config_json FROM tenants").get() as { config_json: string }).config_json).forum_tags as Record<string, string>;
 
 beforeEach(async () => {
   packLimiter.clear();
@@ -81,8 +83,8 @@ describe("posting a bounty from #bounty-line", () => {
 
     const [thread] = threads();
     expect(thread!.path).toBe(`/channels/${ids.forum}/threads`);
-    const openTag = JSON.parse((db.sqlite.prepare("SELECT config_json FROM tenants").get() as { config_json: string }).config_json).forum_tags.open;
-    expect(thread!.body).toMatchObject({ name: "☠️ Grimlok Ashveil · 500g", applied_tags: [openTag] });
+    const { open: openTag, hardcore: hardcoreTag } = forumTags();
+    expect(thread!.body).toMatchObject({ name: "☠️ Grimlok Ashveil · 500g", applied_tags: [openTag, hardcoreTag] }); // 500g: Hardcore too
     const message = thread!.body!.message as { content: string; embeds: { title: string; description: string }[] };
     const embed = message.embeds[0]!;
     expect(embed.title).toBe("☠️ WANTED: GRIMLOK ASHVEIL");
@@ -212,6 +214,30 @@ describe("posting a bounty from #bounty-line", () => {
     const embed = (threads()[0]!.body!.message as { embeds: { fields: { value: string }[] }[] }).embeds[0]!;
     expect(embed.fields[0]!.value).not.toContain("[click](");
     expect(embed.fields[0]!.value).toContain("@​everyone");
+  });
+});
+
+describe("the Hardcore tag (big bounties)", () => {
+  const tagsOf = (i = 0) => threads()[i]!.body!.applied_tags as string[];
+  it("is added at 50g or more, not below", async () => {
+    await say(code({ rewardGold: 49, targetGUID: "Player-4395-00000049", nonce: 49 }));
+    await say(code({ rewardGold: 50, targetGUID: "Player-4395-00000050", nonce: 50 }));
+    const { open, hardcore } = forumTags();
+    expect(tagsOf(0)).toEqual([open]);
+    expect(tagsOf(1)).toEqual([open, hardcore]);
+  });
+  it("follows the board's threshold, and 0 turns it off", async () => {
+    db.sqlite.prepare("UPDATE tenants SET config_json = json_patch(config_json, ?)").run(JSON.stringify({ hardcore_min_gold: 0 }));
+    await say(code({ rewardGold: 10000 }));
+    expect(tagsOf()).toEqual([forumTags().open]);
+  });
+  it("/bl config moves the threshold and re-tags live bounties", async () => {
+    await say(code({ rewardGold: 100 }));
+    const thread = (bountyRows()[0] as { thread_id: string }).thread_id;
+    discord.calls = [];
+    await call(env, command(GUILD_A, "config", [{ name: "hardcore_min_gold", type: 4, value: "500" }]));
+    expect(discord.followups().at(-1) ?? "").toContain("bounties of 500g or more");
+    expect(discord.find("PATCH", new RegExp(`^/channels/${thread}$`)).map((c) => c.body)).toEqual([{ applied_tags: [forumTags().open] }]);
   });
 });
 

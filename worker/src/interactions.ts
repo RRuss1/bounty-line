@@ -4,6 +4,7 @@ import { PREFIX, SCHEMA } from "./codec";
 import { hasAdmin, reply, type CommandOption, type Interaction, type InteractionResponse } from "./discord";
 import type { Env } from "./env";
 import { gatewayState } from "./gateway";
+import { retagBounties } from "./kills";
 import { log } from "./log";
 import { refreshPack } from "./pack";
 import { endSeason, forceCloseSeason, listSeasons } from "./seasons";
@@ -171,6 +172,8 @@ function setup(interaction: Interaction, env: Env, rest: DiscordRest, guildId: s
       const warnings: string[] = [];
       try {
         await patchConfig(env.DB, guildId, { forum_tags: await ensureForumTags(rest, tenant.bounty_board_forum!) });
+        // A tag added in an update (e.g. Hardcore) reaches bounties that are already up.
+        await retagBounties(env, rest, (await getTenant(env.DB, guildId))!);
       } catch (e) {
         log(env, "warn", "setup.forum_tags_failed", { tenant_id: guildId, error: String(e) });
         warnings.push(

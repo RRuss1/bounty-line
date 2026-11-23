@@ -11,7 +11,7 @@ import { SKULL, wantedPoster, wantedPosterImage } from "./poster";
 import type { DiscordRest } from "./rest";
 import { checkBountyPost, decodeErrorMessage } from "./rules";
 import { claimSeasonKill, isSeasonKill, postSeason } from "./seasons";
-import { audit, type Tenant } from "./tenants";
+import { audit, bountyTagIds, type Tenant } from "./tenants";
 import { escapeMd, gold } from "./wow";
 
 export type Outcome =
@@ -118,12 +118,11 @@ async function postBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bounty
 
   const poster = wantedPoster(b, { id, expiresAt, postedBy: authorId, tenant });
   const image = await wantedPosterImage(env, b, { id, expiresAt, tenant });
-  const openTag = tenant.config.forum_tags.open;
   let threadId: string;
   try {
     const thread = await rest.createForumPost(tenant.bounty_board_forum!, {
       name: poster.threadName,
-      tagIds: openTag ? [openTag] : [],
+      tagIds: bountyTagIds(tenant, "open", b.rewardGold),
       content: poster.content,
       embed: poster.embed,
       image,

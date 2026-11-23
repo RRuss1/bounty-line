@@ -4,9 +4,9 @@
  */
 import { isAllowedGuild } from "./discord";
 import type { Env } from "./env";
-import { setBountyStatus, type BountyRow } from "./kills";
+import { retagBounties, setBountyStatus, type BountyRow } from "./kills";
 import { log } from "./log";
-import type { DiscordRest } from "./rest";
+import type { DiscordRest } from "./rest";
 import { seasonSweep } from "./seasons";
 import { refreshPack } from "./pack";
 import { audit, getTenant, patchConfig, type Tenant } from "./tenants";
@@ -256,6 +256,7 @@ export async function configure(env: Env, rest: DiscordRest, tenant: Tenant, o: 
   int("expiry_days", 1, 60);
   int("proof_window_hours", 1, 168);
   int("trust_threshold", 1, 50);
+  int("hardcore_min_gold", 0, 1_000_000);
   if (o.auto_approve !== undefined) {
     if ((AUTO as readonly string[]).includes(o.auto_approve)) patch.auto_approve = o.auto_approve;
     else errors.push("`auto_approve` must be off, trusted_only or all_clean.");
@@ -272,12 +273,14 @@ export async function configure(env: Env, rest: DiscordRest, tenant: Tenant, o: 
   }
   const fresh = (await getTenant(env.DB, tenant.id))!;
   if (patch.reward_min !== undefined || patch.reward_max !== undefined) await refreshPack(env, rest, fresh, now); // limits travel in the pack
+  if (patch.hardcore_min_gold !== undefined) await retagBounties(env, rest, fresh); // add or drop Hardcore on live bounties
   if (Object.keys(patch).length || o.hall_of_fame !== undefined) await audit(env.DB, tenant.id, "admin", "config", { ...patch, hall_of_fame: o.hall_of_fame }, now);
   const f = fresh.config;
   return [
     Object.keys(patch).length || o.hall_of_fame !== undefined ? "✅ **Settings saved.**" : "**Bounty Board settings**",
     `Rewards: ${gold(f.reward_min)} to ${gold(f.reward_max)} · bounties last ${f.expiry_days} days · kill proof within ${f.proof_window_hours}h`,
     `Auto-approve: **${f.auto_approve}** · trusted after ${f.trust_threshold} approved kills in a row`,
+    `Hardcore tag: ${f.hardcore_min_gold > 0 ? `bounties of ${gold(f.hardcore_min_gold)} or more` : "off"}`,
     `Stacking: ${f.allow_stacking ? "on" : "off"} · weekly recap: ${f.weekly_recap ? "on" : "off"} in ${fresh.hall_of_fame_ch ? `<#${fresh.hall_of_fame_ch}>` : `<#${fresh.bounty_line_ch}>`}`,
   ].join("\n");
 }
