@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.4 (unreleased)
+## v0.9.4: bounties by name from Discord, /bl hunters
 
 - **`/bl hunters`**: anyone can turn pings for big new bounties on or off for themselves. It gives or takes the hunter role set with `/bl config hunter_role`.
 - **`/bl wanted`: a bounty by name, from Discord** (spec 5.12). For someone who only has the enemy's name: `/bl wanted name: faction: gold:` posts the wanted poster with no addon. Guildies' addons mark the player the first time anyone sees them (nameplate, target or mouseover), or match them on the kill. Kills on it always go to officer review, and the first approved kill locks the bounty to that player. No gold can be added to it.
