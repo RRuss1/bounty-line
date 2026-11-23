@@ -73,6 +73,65 @@ local PACK_SEASON = {
 }
 
 -- One sighting of a wanted player, as guild sync carried it (W codes).
+-- Bounty terms (B schema 2, the Expand section): bonuses (gold > 0) and restrictions (gold = 0).
+local TERM_FIELDS = {
+  { "kind", "u8" },
+  { "value", "u16" },
+  { "gold", "u32" },
+}
+
+local PACK_TERMS = {
+  { "bountyId", "u32" },
+  { "kills", "u8" },
+  { "killsLeft", "u8" },
+  { "payout", "u8" },
+  { "terms", "list", TERM_FIELDS },
+}
+
+-- Term kinds (Compendium 02 Section 3.1). Bonuses are below 64, restrictions from 65.
+local TERM = {
+  zoneBonus = 1, classBonus = 2, soloBonus = 3, underdogBonus = 4, rushBonus = 5, insultBonus = 6,
+  zoneOnly = 65, classOnly = 66, soloOnly = 67,
+}
+local MAX_TERMS, MAX_KILLS = 8, 10
+Codec.TERM, Codec.MAX_TERMS, Codec.MAX_KILLS = TERM, MAX_TERMS, MAX_KILLS
+Codec.FACT = { solo = 1, insult = 2 }
+
+local function termValueOk(kind, value)
+  if kind == TERM.zoneBonus or kind == TERM.zoneOnly then return value >= 1 end
+  if kind == TERM.classBonus or kind == TERM.classOnly then return value >= 1 and value <= 30 end
+  if kind == TERM.rushBonus then return value >= 1 and value <= 168 end
+  if kind == TERM.soloBonus or kind == TERM.underdogBonus or kind == TERM.insultBonus or kind == TERM.soloOnly then
+    return value == 0
+  end
+  return false
+end
+
+-- Rules for a B schema 2 code's extras. Returns a message, or nil when they are fine.
+local function termsProblem(f)
+  if f.kills == nil then return nil end
+  local terms = f.terms or {}
+  if f.mode ~= 0 then return "adding gold carries no terms" end
+  if f.kills < 1 or f.kills > MAX_KILLS then return ("kills must be 1 to %d"):format(MAX_KILLS) end
+  if f.payout ~= 0 and f.payout ~= 1 then return "invalid payout" end
+  if f.payout == 1 and f.kills < 2 then return "all-or-nothing needs at least 2 kills" end
+  if f.days ~= 0 and f.days ~= 7 and f.days ~= 14 and f.days ~= 28 then return "days must be 0, 7, 14 or 28" end
+  if #terms > MAX_TERMS then return ("at most %d terms"):format(MAX_TERMS) end
+  local seen = {}
+  for _, t in ipairs(terms) do
+    if seen[t.kind] then return "each term kind at most once" end
+    seen[t.kind] = true
+    if not termValueOk(t.kind, t.value) then return "invalid term " .. t.kind end
+    if t.kind < 64 then
+      if t.gold < 1 then return "a bonus needs gold" end
+    elseif t.gold ~= 0 then
+      return "a restriction carries no gold"
+    end
+  end
+  return nil
+end
+Codec.TermsProblem = termsProblem
+
 local SIGHTING = {
   { "bountyId", "u32" },
   { "mapID", "u16" },
@@ -167,14 +226,14 @@ end
 
 -- Field layouts after the leading u8 schema byte (Compendium 02 Section 3), one per schema:
 -- SCHEMAS.K[1] is K schema 1, SCHEMAS.K[2] is K schema 2. A later schema only appends fields.
+local K2 = extend(LAYOUT.K, { { "seasonId", "u32" }, { "victimName", "vstr", 255 }, { "guildName", "vstr", 255 }, { "guildSeen", "u8" } })
+local P2 = extend(LAYOUT.P, { { "seasons", "list", PACK_SEASON } })
+
 local SCHEMAS = {
-  B = { LAYOUT.B },
-  K = {
-    LAYOUT.K,
-    extend(LAYOUT.K, { { "seasonId", "u32" }, { "victimName", "vstr", 255 }, { "guildName", "vstr", 255 }, { "guildSeen", "u8" } }),
-  },
+  B = { LAYOUT.B, extend(LAYOUT.B, { { "kills", "u8" }, { "payout", "u8" }, { "days", "u8" }, { "terms", "list", TERM_FIELDS } }) },
+  K = { LAYOUT.K, K2, extend(K2, { { "killerClassID", "u8" }, { "killerLevel", "u8" }, { "victimLevel", "u8" }, { "facts", "u8" } }) },
   L = { LAYOUT.L },
-  P = { LAYOUT.P, extend(LAYOUT.P, { { "seasons", "list", PACK_SEASON } }) },
+  P = { LAYOUT.P, P2, extend(P2, { { "bountyTerms", "list", PACK_TERMS } }) },
   S = { LAYOUT.S, extend(LAYOUT.S, { { "minKills", "u16" } }) },
   W = { LAYOUT.W },
 }
@@ -191,10 +250,13 @@ local function crossCheck(codeType, f, strict)
       if f.mode ~= 0 and f.mode ~= 1 then return "PAYLOAD", "invalid mode" end
       if f.mode == 0 and f.existingBountyId ~= 0 then return "PAYLOAD", "existingBountyId must be 0 for a new bounty" end
       if f.mode == 1 and f.existingBountyId == 0 then return "PAYLOAD", "existingBountyId is required to add to a bounty" end
+      local bad = f.schema >= 2 and termsProblem(f) or nil
+      if bad then return "PAYLOAD", bad end
     end
   elseif codeType == "K" then
     if strict and f.flags > 3 then return "PAYLOAD", "unknown flag bits" end
     if strict and f.guildSeen ~= nil and f.guildSeen ~= 0 and f.guildSeen ~= 1 then return "PAYLOAD", "invalid guildSeen" end
+    if strict and f.facts ~= nil and f.facts > 3 then return "PAYLOAD", "unknown fact bits" end
   elseif codeType == "P" then
     if f.rewardMin > f.rewardMax then return "PAYLOAD", "rewardMin is above rewardMax" end
   elseif codeType == "W" then

@@ -51,6 +51,82 @@ export interface BountyPost {
   /** 0 = new bounty, 1 = add to existing */
   mode: number;
   existingBountyId: number;
+  /** Schema 2 only (the Expand section, spec 5.4c): how many kills the reward buys, 1 to 10. */
+  kills?: number;
+  /** Schema 2: 0 = each kill pays its share, 1 = one hunter must land every kill. */
+  payout?: number;
+  /** Schema 2: 0 = the server's default length, or 7, 14 or 28 days. */
+  days?: number;
+  /** Schema 2: bonuses and restrictions, at most MAX_TERMS, one of each kind. */
+  terms?: BountyTerm[];
+}
+
+/** One bonus (gold > 0) or restriction (gold = 0) on a bounty. Kinds: TERM. */
+export interface BountyTerm {
+  kind: number;
+  value: number;
+  gold: number;
+}
+
+/** Bounty term kinds (Compendium 02 Section 3.1). Bonuses are below 64, restrictions from 65. */
+export const TERM = {
+  zoneBonus: 1, // value: mapID
+  classBonus: 2, // value: the hunter's classID
+  soloBonus: 3,
+  underdogBonus: 4, // the hunter was a lower level than the target
+  rushBonus: 5, // value: hours after the bounty was made
+  insultBonus: 6, // /lol at the corpse within 10 seconds
+  zoneOnly: 65, // value: mapID
+  classOnly: 66, // value: classID
+  soloOnly: 67,
+} as const;
+export const MAX_TERMS = 8;
+export const MAX_KILLS = 10;
+export const BOUNTY_DAYS = [0, 7, 14, 28] as const;
+
+/** K schema 3 facts bits. */
+export const FACT = { solo: 1, insult: 2 } as const;
+
+/** Which term kinds carry a value, and its range. */
+function termValueOk(kind: number, value: number): boolean {
+  switch (kind) {
+    case TERM.zoneBonus:
+    case TERM.zoneOnly:
+      return value >= 1;
+    case TERM.classBonus:
+    case TERM.classOnly:
+      return value >= 1 && value <= 30;
+    case TERM.rushBonus:
+      return value >= 1 && value <= 168;
+    case TERM.soloBonus:
+    case TERM.underdogBonus:
+    case TERM.insultBonus:
+    case TERM.soloOnly:
+      return value === 0;
+    default:
+      return false;
+  }
+}
+
+/** Rules for a B schema 2 code's extras. Returns a message, or null when they are fine. */
+export function termsProblem(f: { mode: number; kills?: number; payout?: number; days?: number; terms?: BountyTerm[] }): string | null {
+  if (f.kills === undefined) return null;
+  const terms = f.terms ?? [];
+  if (f.mode !== 0) return "adding gold carries no terms";
+  if (f.kills < 1 || f.kills > MAX_KILLS) return `kills must be 1 to ${MAX_KILLS}`;
+  if (f.payout !== 0 && f.payout !== 1) return "invalid payout";
+  if (f.payout === 1 && f.kills < 2) return "all-or-nothing needs at least 2 kills";
+  if (!(BOUNTY_DAYS as readonly number[]).includes(f.days ?? -1)) return "days must be 0, 7, 14 or 28";
+  if (terms.length > MAX_TERMS) return `at most ${MAX_TERMS} terms`;
+  const seen = new Set<number>();
+  for (const t of terms) {
+    if (seen.has(t.kind)) return "each term kind at most once";
+    seen.add(t.kind);
+    if (!termValueOk(t.kind, t.value)) return `invalid term ${t.kind}`;
+    const bonus = t.kind < 64;
+    if (bonus ? t.gold < 1 : t.gold !== 0) return bonus ? "a bonus needs gold" : "a restriction carries no gold";
+  }
+  return null;
 }
 
 export interface KillClaim {
@@ -73,6 +149,12 @@ export interface KillClaim {
   guildName?: string;
   /** 1 = the addon saw the victim in the season's guild; 0 = guild unknown, officers decide. */
   guildSeen?: number;
+  /** Schema 3 only (kills on bounties with terms): the hunter's class and level, the victim's level (0 = unknown). */
+  killerClassID?: number;
+  killerLevel?: number;
+  victimLevel?: number;
+  /** Schema 3: FACT bits. bit0 not in a group, bit1 /lol at the corpse within 10 seconds. */
+  facts?: number;
 }
 
 export const SEASON_KIND = { pot: 1, pool: 2, open: 3 } as const;
@@ -169,6 +251,17 @@ export interface BountyPack {
   bounties: PackEntry[];
   /** Schema 2 only: open seasons. */
   seasons?: PackSeason[];
+  /** Schema 3 only: the terms of bounties that have any (the Expand section). */
+  bountyTerms?: PackTerms[];
+}
+
+export interface PackTerms {
+  bountyId: number;
+  kills: number;
+  /** Kills still wanted (each kill: kills not yet approved; all-or-nothing: the whole count). */
+  killsLeft: number;
+  payout: number;
+  terms: BountyTerm[];
 }
 
 export type Decoded =
@@ -227,6 +320,20 @@ const PACK_SEASON: readonly Field[] = [
   ["remainingGold", "u32"],
   ["posterName", "vstr", 255],
   ["expiresAt", "u32"],
+];
+
+const TERM_FIELDS: readonly Field[] = [
+  ["kind", "u8"],
+  ["value", "u16"],
+  ["gold", "u32"],
+];
+
+const PACK_TERMS: readonly Field[] = [
+  ["bountyId", "u32"],
+  ["kills", "u8"],
+  ["killsLeft", "u8"],
+  ["payout", "u8"],
+  ["terms", "list", TERM_FIELDS],
 ];
 
 const SIGHTING: readonly Field[] = [
@@ -314,11 +421,14 @@ const LAYOUT: Readonly<Record<CodeType, readonly Field[]>> = {
  * Field layouts after the leading `u8 schema` byte (Compendium 02 Section 3), one per schema:
  * SCHEMAS.K[0] is K schema 1, SCHEMAS.K[1] is K schema 2. A later schema only appends fields.
  */
+const K2: readonly Field[] = [...LAYOUT.K, ["seasonId", "u32"], ["victimName", "vstr", 255], ["guildName", "vstr", 255], ["guildSeen", "u8"]];
+const P2: readonly Field[] = [...LAYOUT.P, ["seasons", "list", PACK_SEASON]];
+
 export const SCHEMAS: Readonly<Record<CodeType, readonly (readonly Field[])[]>> = {
-  B: [LAYOUT.B],
-  K: [LAYOUT.K, [...LAYOUT.K, ["seasonId", "u32"], ["victimName", "vstr", 255], ["guildName", "vstr", 255], ["guildSeen", "u8"]]],
+  B: [LAYOUT.B, [...LAYOUT.B, ["kills", "u8"], ["payout", "u8"], ["days", "u8"], ["terms", "list", TERM_FIELDS]]],
+  K: [LAYOUT.K, K2, [...K2, ["killerClassID", "u8"], ["killerLevel", "u8"], ["victimLevel", "u8"], ["facts", "u8"]]],
   L: [LAYOUT.L],
-  P: [LAYOUT.P, [...LAYOUT.P, ["seasons", "list", PACK_SEASON]]],
+  P: [LAYOUT.P, P2, [...P2, ["bountyTerms", "list", PACK_TERMS]]],
   S: [LAYOUT.S, [...LAYOUT.S, ["minKills", "u16"]]],
   W: [LAYOUT.W],
 };
@@ -338,10 +448,13 @@ function crossCheck(type: CodeType, f: Record<string, unknown>, strict: boolean)
       if (f.mode !== 0 && f.mode !== 1) return ["PAYLOAD", "invalid mode"];
       if (f.mode === 0 && f.existingBountyId !== 0) return ["PAYLOAD", "existingBountyId must be 0 for a new bounty"];
       if (f.mode === 1 && f.existingBountyId === 0) return ["PAYLOAD", "existingBountyId is required to add to a bounty"];
+      const bad = (f.schema as number) >= 2 ? termsProblem(f as unknown as BountyPost) : null;
+      if (bad) return ["PAYLOAD", bad];
     }
   } else if (type === "K") {
     if (strict && (f.flags as number) > 3) return ["PAYLOAD", "unknown flag bits"];
     if (strict && f.guildSeen !== undefined && f.guildSeen !== 0 && f.guildSeen !== 1) return ["PAYLOAD", "invalid guildSeen"];
+    if (strict && f.facts !== undefined && (f.facts as number) > 3) return ["PAYLOAD", "unknown fact bits"];
   } else if (type === "P") {
     if ((f.rewardMin as number) > (f.rewardMax as number)) return ["PAYLOAD", "rewardMin is above rewardMax"];
   } else if (type === "W") {

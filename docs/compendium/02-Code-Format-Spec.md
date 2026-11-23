@@ -65,7 +65,7 @@ Enums:
 
 Every payload starts with **`u8 schema`**. Schema `0` is invalid. For a **newer** schema than the reader knows, it reads the fields it knows and ignores trailing bytes (forward compatibility). For a schema it knows, trailing bytes are an error, so every code has exactly one valid form (needed for duplicate detection).
 
-**Schemas are per code type.** `B`, `L` and `W` have schema 1. `K`, `P` and `S` have schemas 1 and 2: schema 2 is schema 1 with fields appended (Open Season, Sections 3.2 and 3.3). A writer uses schema 1 unless it needs the appended fields, so codes for ordinary bounties are unchanged and older addons keep reading packs.
+**Schemas are per code type.** `L` and `W` have schema 1. `B` and `S` have schemas 1 and 2; `K` and `P` have schemas 1, 2 and 3. A later schema is the one before with fields appended (Open Season: K2, P2, S2; bounty terms: B2, K3, P3). A writer uses the lowest schema that holds what it needs, so codes for ordinary bounties are unchanged and older addons keep reading packs.
 
 ### 3.1 `B`: bounty post (addon → Discord)
 | # | Field | Type |
@@ -88,6 +88,28 @@ Every payload starts with **`u8 schema`**. Schema `0` is invalid. For a **newer*
 | 16 | note | vstr (≤ 80 bytes) |
 | 17 | mode | u8: `0` new bounty, `1` add to existing |
 | 18 | existingBountyId | u32 (0 when mode=0) |
+
+**Schema 2 (bounty terms, design spec 5.4c)** appends:
+| # | Field | Type |
+|---|---|---|
+| 19 | kills | u8: 1 to 10, how many kills the reward buys |
+| 20 | payout | u8: `0` each kill pays its share, `1` one hunter must land every kill (needs kills ≥ 2) |
+| 21 | days | u8: `0` the server's default length, or `7`, `14`, `28` |
+| 22 | terms | `u16` count (≤ 8), then that many: kind u8, value u16, gold u32 |
+
+Term kinds (each at most once). Bonuses (gold ≥ 1, extra gold on top):
+| Kind | Bonus | value |
+|---|---|---|
+| 1 | killed in a zone | mapID ≥ 1 |
+| 2 | the hunter is of a class | classID 1–30 |
+| 3 | the hunter is not in a group | 0 |
+| 4 | the hunter is a lower level than the target | 0 |
+| 5 | killed within N hours of the bounty | 1–168 |
+| 6 | the hunter `/lol`s at the corpse within 10 seconds | 0 |
+
+Restrictions (gold = 0; a kill that breaks one doesn't count): `65` only in a zone (mapID), `66` only a class (classID), `67` solo only (0).
+
+Schema 2 is only for a new bounty (`mode = 0`); Add to Bounty is always schema 1. Writers use schema 2 only when something is set (more than one kill, any term, or a length).
 
 **Writer validation (addon):** targetFaction ≠ posterFaction, both ∈ {1,2}; `reward_min ≤ rewardGold ≤ reward_max`.
 **Reader validation (Worker):** same, plus tenant reward limits, plus target not already `paid`.
@@ -119,7 +141,17 @@ No victim name: the Worker already has it on the bounty (matched by `victimGUID`
 | 14 | guildName | vstr: the victim's guild as the addon saw it, `""` if never seen. The Worker finds the open season by it, so a kill made before the season had a number (declared moments ago) or with an old number still lands on the right season |
 | 15 | guildSeen | u8: `1` the addon saw the victim in that guild; `0` guild unknown (officer review) |
 
-`bountyId` and `seasonId` may both be set: the victim has a personal bounty and is in a guild under Open Season, and one code claims both. Both `0` with `guildSeen = 0` is a kill of an enemy whose guild the addon never saw while a season was open.
+`bountyId` and `seasonId` may both be set: the victim has a personal bounty and is in a guild under Open Season, and one code claims both.
+
+**Schema 3 (a kill on a bounty with terms)** appends, after the schema 2 fields:
+| # | Field | Type |
+|---|---|---|
+| 16 | killerClassID | u8 (`0` unknown) |
+| 17 | killerLevel | u8 (`0` unknown) |
+| 18 | victimLevel | u8 (`0` unknown: the victim wasn't the target, mouseover or focus) |
+| 19 | facts | u8: bit0 not in a group, bit1 `/lol` at the corpse within 10 seconds; other bits must be 0 |
+
+The addon writes schema 3 only for a bounty whose pack entry has terms. With no Open Season the schema 2 fields are `seasonId = 0`, `victimName = ""`, `guildName = ""`, `guildSeen = 0`; the Worker treats a schema 3 code with no season number, no guild and a bounty number as a plain bounty claim. Both `0` with `guildSeen = 0` is a kill of an enemy whose guild the addon never saw while a season was open.
 
 ### 3.3 `P`: bounty pack (Discord → addon)
 The payload bytes below are **zlib-compressed** before Base32: 2-byte zlib header (`78 DA`), raw DEFLATE, then the big-endian **Adler-32** of the uncompressed bytes. Readers verify the header (CM=8, FCHECK, no preset dictionary) and the Adler-32. Worker: `fflate` (pinned version); addon: LibDeflate `DecompressDeflate`. Only the Worker writes packs.
@@ -149,6 +181,8 @@ Pack entry:
 | expiresAt | u32 |
 
 **Schema 2** appends, after the entries, a `u16` count and that many Open Season entries. The Worker writes schema 2 only when at least one season is open.
+
+**Schema 3** appends, after the seasons (an empty list when none), a `u16` count and that many bounty terms entries: bountyId u32, kills u8, killsLeft u8 (each-kill bounties: kills not yet approved; all or nothing: the whole count), payout u8, terms (as in B schema 2). Only bounties with terms are listed. The Worker writes schema 3 only when at least one open bounty has terms.
 | Field | Type |
 |---|---|
 | seasonId | u32 |
@@ -295,7 +329,7 @@ Structure:
 
 Packs are decode-only in Lua; their frozen codes are byte-exact only for the pinned `fflate` version. The actual file also has `adler32`, `forwardCompat`, `packs` (multi-part cases) and `encodeErrors` sections.
 
-`forwardCompat` holds codes from a schema newer than any shipped one. When `K` schema 2 became real (Open Season), its entry moved from a made-up "K schema 2" to "K schema 3"; no shipped code changed meaning, because no addon ever wrote K schema 2 before.
+`forwardCompat` holds codes from a schema newer than any shipped one. When `K` schema 2 became real (Open Season), its entry moved from a made-up "K schema 2" to "K schema 3"; when K and P schema 3 became real (bounty terms), the entries moved to schema 4, and a B schema 3 entry was added. No shipped code changed meaning: no addon ever wrote those schemas before.
 
 The Base32 vectors above other than the empty and single-byte cases should be double-checked by the reference implementation before freezing.
 
