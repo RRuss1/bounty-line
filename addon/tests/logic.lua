@@ -977,5 +977,84 @@ do
   ns.BuildSeasonCode = realBuild
 end
 
+-- ---------------------------------------------------------------- bounty terms (spec 5.4c)
+
+do
+  reset()
+  serverTime = PACK_TIME
+  BountyLineDB = { settings = {}, boardTag = "K7QF" }
+  BountyLineCharDB = { kills = {} }
+  timers = {}
+  local realGroup = IsInGroup
+  IsInGroup = function() return false end
+  local T = Codec.TERM
+  local terms = { { kind = T.soloBonus, value = 0, gold = 50 }, { kind = T.insultBonus, value = 0, gold = 25 } }
+  local extras = { kills = 3, payout = 0, days = 7, terms = terms }
+  local snap = assert(ns.SnapshotUnit("target"))
+  local b = Codec.Decode(assert(ns.BuildBountyCode(snap, 900, "", nil, extras)))
+  eq("a bounty with terms is schema 2", b and b.fields.schema, 2)
+  eq("  with its kills", b and b.fields.kills, 3)
+  eq("  its length", b and b.fields.days, 7)
+  eq("  and its terms", b and #b.fields.terms, 2)
+  eq("Add to Bounty never carries terms", Codec.Decode(ns.BuildBountyCode(snap, 100, "", 5, extras)).fields.schema, 1)
+  eq("no extras: schema 1 as before", Codec.Decode(ns.BuildBountyCode(snap, 100, "")).fields.schema, 1)
+
+  -- The pack carries the terms (schema 3) and they land on the bounty.
+  local p = {
+    schema = 3, boardTag = "K7QF", packVersion = PACK_TIME - 5, minAddonVersion = 4, discordDisplayName = "Grief",
+    rewardMin = 1, rewardMax = 10000, seasons = {},
+    bounties = { { bountyId = 31, targetGUID = VICTIM, targetName = "Grimlok Ashveil", targetClassID = 1, targetFaction = 2,
+      rewardGold = 900, posterName = "Amy Vale", expiresAt = PACK_TIME + 86400 } },
+    bountyTerms = { { bountyId = 31, kills = 3, killsLeft = 2, payout = 0, terms = terms } },
+  }
+  check("a pack with terms is stored", ns.StorePack(p))
+  local wanted = ns.GetBounty(VICTIM)
+  check("the bounty has terms", ns.HasTerms(wanted))
+  local L = ns.L
+  eq("its tooltip lines", table.concat(ns.TermsLines(wanted), " | "), table.concat({
+    L.TERMS_EACH_KILL:format(3, 2), L.TERM_SOLO_BONUS:format(ns.FormatGold(50)), L.TERM_INSULT_BONUS:format(ns.FormatGold(25)),
+  }, " | "))
+  check("a plain bounty has none", not ns.HasTerms({ id = 1, reward = 5 }))
+
+  -- The kill: facts in the code (K schema 3), and a wait for the /lol.
+  local K = ns._kills
+  K.start(wanted, VICTIM, false, false)
+  check("an insult bonus waits for the /lol", K.pending() ~= nil and K.pending().wantsInsult == true)
+  ns.OnLaugh("Player-4395-0FFFFFFF")
+  check("a /lol at someone else doesn't count", not K.pending().insult)
+  ns.OnLaugh(VICTIM)
+  check("a /lol at the corpse does", K.pending().insult == true)
+  runTimers()
+  K.finish(true)
+  local saved = BountyLineCharDB.kills[1]
+  local kc = saved and Codec.Decode(saved.code)
+  eq("the kill code carries facts (schema 3)", kc and kc.fields.schema, 3)
+  eq("  solo and the insult", kc and kc.fields.facts, Codec.FACT.solo + Codec.FACT.insult)
+  eq("  my class", kc and kc.fields.killerClassID, 1)
+  eq("  my level", kc and kc.fields.killerLevel, 60)
+  eq("  the victim's level (my target)", kc and kc.fields.victimLevel, 42)
+  eq("  and no season", kc and kc.fields.seasonId, 0)
+  check("a bounty wanting more kills stays huntable", not ns.IsClaimed(31))
+
+  -- No /lol: the shot is taken when the time is up, without the insult.
+  BountyLineCharDB.kills = {}
+  IsInGroup = function() return true end
+  K.start(wanted, VICTIM, false, false)
+  runTimers()
+  K.finish(true)
+  kc = Codec.Decode(BountyLineCharDB.kills[1].code)
+  eq("no /lol, in a group: no facts bits", kc and kc.fields.facts, 0)
+
+  -- One kill with no terms: exactly as before.
+  BountyLineCharDB.kills = {}
+  K.start({ id = 40, name = "Plain Target", reward = 5 }, VICTIM, false, false)
+  runTimers()
+  K.finish(true)
+  kc = Codec.Decode(BountyLineCharDB.kills[1].code)
+  eq("a plain bounty's kill code is schema 1", kc and kc.fields.schema, 1)
+  check("and it's marked claimed", ns.IsClaimed(40))
+  IsInGroup = realGroup
+end
+
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

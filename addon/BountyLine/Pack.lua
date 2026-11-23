@@ -76,6 +76,9 @@ function ns.StorePack(p)
   if cur and cur.boardTag == p.boardTag and ns.PackVersion() > p.packVersion then return false, "OLDER" end
   local old = cur and cur.bounties or {}
   local added, bounties, ids, count = {}, {}, {}, 0
+  -- Bounty terms (pack schema 3, spec 5.4c), by bounty number. Older packs have none.
+  local terms = {}
+  for _, t in ipairs(p.bountyTerms or {}) do terms[t.bountyId] = t end
   for _, b in ipairs(p.bounties) do
     if b.expiresAt > now then
       if cur and not old[b.targetGUID] then added[#added + 1] = b end
@@ -83,6 +86,11 @@ function ns.StorePack(p)
         id = b.bountyId, name = b.targetName, classID = b.targetClassID, faction = b.targetFaction,
         reward = b.rewardGold, poster = b.posterName, expires = b.expiresAt,
       }
+      local t = terms[b.bountyId]
+      if t then
+        local e = bounties[b.targetGUID]
+        e.kills, e.killsLeft, e.payout, e.terms = t.kills, t.killsLeft, t.payout, t.terms
+      end
       ids[b.bountyId] = true
       count = count + 1
     end

@@ -60,6 +60,7 @@ end
 local function bountyTooltip(tip, b)
   tip:SetText(b.name, classColor(b.classID))
   tip:AddLine(L.TIP_REWARD:format(ns.FormatGold(b.reward), b.poster or "?"), 1, 0.82, 0)
+  for _, line in ipairs(ns.TermsLines(b)) do tip:AddLine(line, 1, 0.82, 0) end
   if b.pending then
     tip:AddLine(L.TIP_PENDING, 0.9, 0.9, 0.9, true)
   else
@@ -68,7 +69,7 @@ local function bountyTooltip(tip, b)
     if seen and seen.by and seen.by ~= "" then text = text .. L.TIP_SEEN_BY:format(seen.by) end
     tip:AddLine(text, 0.9, 0.9, 0.9)
     tip:AddLine(L.TIP_EXPIRES:format(date("%b %d", b.expires)), 0.9, 0.9, 0.9)
-    tip:AddLine(b.claimed and L.CLAIMED or L.TIP_ADD, 0.6, 0.6, 0.6)
+    tip:AddLine(b.claimed and L.CLAIMED or ns.HasTerms(b) and "" or L.TIP_ADD, 0.6, 0.6, 0.6)
   end
 end
 
@@ -93,7 +94,9 @@ local function bountyRows(mineOnly)
       focus = not b.pending and b.id == frame.focusId,
       tooltip = function(tip) bountyTooltip(tip, b) end,
       onClick = function(self, mouse)
-        if mouse ~= "RightButton" or b.pending or b.claimed or not (MenuUtil and MenuUtil.CreateContextMenu) then return end
+        -- A bounty with its own terms takes no added gold, so it has no menu.
+        if mouse ~= "RightButton" or b.pending or b.claimed or ns.HasTerms(b) then return end
+        if not (MenuUtil and MenuUtil.CreateContextMenu) then return end
         MenuUtil.CreateContextMenu(self, function(_, root)
           root:CreateTitle(b.name)
           root:CreateButton(L.MENU_ADD, function() addGold(b) end)

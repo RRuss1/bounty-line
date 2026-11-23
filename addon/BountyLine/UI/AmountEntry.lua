@@ -25,12 +25,51 @@ local function parseKills(text)
   return nil
 end
 
+-- The Expand section (spec 5.4c): its terms, nil when nothing beyond a plain bounty is set,
+-- or nil and an error.
+local LENGTHS = { 0, 7, 14, 28 }
+local function extras(reward, max)
+  if not frame.expanded or frame.guildMode or frame.existingId then return nil end
+  local kills = tonumber((frame.killsBox:GetText() or ""):match("^%s*(%d+)%s*$"))
+  if not kills or kills < 1 or kills > ns.Codec.MAX_KILLS then return nil, L.EXPAND_KILLS_BAD end
+  local terms, bonus = {}, 0
+  for _, row in ipairs(frame.termRows) do
+    if row.box:IsShown() and row.box:GetChecked() then
+      local value = 0
+      if row.value == "zone" then
+        value = frame.zoneID
+      elseif row.value == "class" then
+        value = row.classID
+      elseif row.value == "hours" then
+        value = tonumber((row.param:GetText() or ""):match("^%s*(%d+)%s*$"))
+        if not value or value < 1 or value > 168 then return nil, L.EXPAND_HOURS_BAD end
+      end
+      local gold = 0
+      if row.goldBox then
+        gold = ns.ParseReward(row.goldBox:GetText(), 1, max)
+        if not gold then return nil, L.EXPAND_BONUS_BAD end
+        bonus = bonus + gold
+      end
+      terms[#terms + 1] = { kind = row.kind, value = value, gold = gold }
+    end
+  end
+  if reward + bonus > max then return nil, L.EXPAND_TOO_MUCH:format(ns.FormatGold(max)) end
+  local payout = kills > 1 and frame.payout or 0
+  if kills > 1 and payout == 0 and reward < kills then return nil, L.EXPAND_SPLIT_BAD end
+  if kills == 1 and #terms == 0 and frame.length == 0 then return nil end -- nothing set: a plain bounty
+  return { kills = kills, payout = payout, days = frame.length, terms = terms }
+end
+
 -- What would be posted, or nil and the error to show ("" while nothing is typed yet).
 local function current()
   local min, max = ns.RewardLimits()
   local amount, why = ns.ParseReward(frame.amount:GetText(), min, max)
   if not amount then return nil, blank(frame.amount) and "" or ns.RewardError(why, min, max) end
-  if not frame.guildMode then return { reward = amount } end
+  if not frame.guildMode then
+    local ex, exError = extras(amount, max)
+    if exError then return nil, exError end
+    return { reward = amount, extras = ex }
+  end
   if frame.season then return { kind = 0, per = 0, total = amount, days = 0 } end -- adding gold
   if frame.kind == KIND.open then return { kind = KIND.open, per = amount, total = 0, days = frame.days } end
   if frame.kind == KIND.pool then
@@ -77,7 +116,7 @@ local function submit()
   if guildMode then
     ns.PostSeason(snap, v.kind, v.per, v.total, v.days, season and season.id or nil, v.minKills)
   else
-    ns.PostBounty(snap, v.reward, note, existingId)
+    ns.PostBounty(snap, v.reward, note, existingId, v.extras)
   end
 end
 
@@ -150,6 +189,53 @@ local function layout()
     y = y - ROW
   end
 
+  -- The Expand section (a new bounty on a player only).
+  local canExpand = not guild and not f.existingId
+  local show = canExpand and f.expanded
+  f.expandButton:SetShown(canExpand)
+  if canExpand then
+    f.expandButton:SetText(f.expanded and L.COLLAPSE or L.EXPAND)
+    place(f.expandButton, LABEL_X, y - 2)
+    y = y - 30
+  end
+  for _, w in ipairs(f.expandWidgets) do w:SetShown(show) end
+  if show then
+    place(f.killsLabel, LABEL_X, y - 4)
+    f.killsBox:ClearAllPoints()
+    f.killsBox:SetPoint("LEFT", f.killsLabel, "LEFT", INPUT_X - LABEL_X, 0)
+    y = y - ROW
+    local multi = (tonumber(f.killsBox:GetText()) or 1) > 1
+    for i, box in ipairs(f.payoutChecks) do
+      box:SetChecked(f.payout == i - 1)
+      box:SetEnabled(multi)
+      place(box, LABEL_X + (i - 1) * 250, y)
+    end
+    y = y - CHECK_ROW - 4
+    place(f.lengthLabel, LABEL_X, y - 4)
+    for i, box in ipairs(f.lengthChecks) do
+      box:SetChecked(f.length == LENGTHS[i])
+      place(box, LABEL_X + 90 + (i - 1) * 110, y)
+    end
+    y = y - CHECK_ROW - 8
+    for _, row in ipairs(f.termRows) do
+      if row.heading then
+        place(row.heading, LABEL_X, y)
+        y = y - 20
+      end
+      local ok = row.value ~= "zone" or f.zoneID > 0 -- no zone known here: no zone terms
+      row.box:SetShown(ok)
+      if row.param then row.param:SetShown(ok) end
+      if row.goldBox then row.goldBox:SetShown(ok) end
+      if ok then
+        place(row.box, LABEL_X, y)
+        if row.param then place(row.param, 270, y) end
+        if row.goldBox then place(row.goldBox, 410, y) end
+        y = y - CHECK_ROW
+      end
+    end
+    y = y - 6
+  end
+
   place(f.limits, LABEL_X, y - 6)
   f.limits:SetShown(true)
   y = y - 22
@@ -203,8 +289,12 @@ local function check(parent, text, onPick)
   box:SetSize(24, 24)
   local label = ns.Text(box, "body", 13)
   label:SetPoint("LEFT", box, "RIGHT", 4, 0)
-  label:SetText(text)
-  box:SetHitRectInsets(0, -(label:GetStringWidth() + 8), 0, 0) -- the label is clickable too
+  box.label = label
+  function box:SetLabel(t)
+    label:SetText(t)
+    self:SetHitRectInsets(0, -(label:GetStringWidth() + 8), 0, 0) -- the label is clickable too
+  end
+  box:SetLabel(text)
   box:SetScript("OnClick", onPick)
   return box
 end
@@ -259,6 +349,84 @@ local function build()
   f.note:SetScript("OnTabPressed", function() f.amount:SetFocus() end)
   f.second:SetScript("OnTabPressed", function() f.amount:SetFocus() end)
 
+  -- The Expand section (spec 5.4c): kills, payout, length, bonuses and restrictions.
+  f.expandButton = button(c, 140, function()
+    f.expanded = not f.expanded
+    layout()
+  end)
+  f.expandWidgets = {}
+  local function own(w)
+    f.expandWidgets[#f.expandWidgets + 1] = w
+    return w
+  end
+  f.killsLabel = own(ns.Text(c, "section", 14))
+  f.killsLabel:SetText(L.EXPAND_KILLS)
+  f.killsBox = own(input(f, c, 50, 2))
+  f.killsBox:SetScript("OnTextChanged", layout)
+  f.payoutChecks = {}
+  for i, text in ipairs({ L.EXPAND_EACH, L.EXPAND_ALL }) do
+    f.payoutChecks[i] = own(check(c, text, function()
+      f.payout = i - 1
+      layout()
+    end))
+  end
+  f.lengthLabel = own(ns.Text(c, "section", 14))
+  f.lengthLabel:SetText(L.EXPAND_LENGTH)
+  f.lengthChecks = {}
+  for i, days in ipairs(LENGTHS) do
+    f.lengthChecks[i] = own(check(c, days == 0 and L.EXPAND_DEFAULT_DAYS or L.EXPAND_DAYS:format(days), function()
+      f.length = days
+      layout()
+    end))
+  end
+  -- The classes this client knows, for the class terms' cycling button.
+  f.classes = {}
+  for id = 1, 13 do
+    local info = C_CreatureInfo and C_CreatureInfo.GetClassInfo and C_CreatureInfo.GetClassInfo(id)
+    if info and info.className then f.classes[#f.classes + 1] = id end
+  end
+  local T = ns.Codec.TERM
+  local ROWS = {
+    { kind = T.zoneBonus, text = "EXPAND_ZONE_BONUS", gold = true, value = "zone", heading = L.EXPAND_BONUSES },
+    { kind = T.classBonus, text = "EXPAND_CLASS_BONUS", gold = true, value = "class" },
+    { kind = T.soloBonus, text = "EXPAND_SOLO_BONUS", gold = true },
+    { kind = T.underdogBonus, text = "EXPAND_UNDERDOG_BONUS", gold = true },
+    { kind = T.rushBonus, text = "EXPAND_RUSH_BONUS", gold = true, value = "hours" },
+    { kind = T.insultBonus, text = "EXPAND_INSULT_BONUS", gold = true },
+    { kind = T.zoneOnly, text = "EXPAND_ZONE_ONLY", value = "zone", heading = L.EXPAND_LIMITS },
+    { kind = T.classOnly, text = "EXPAND_CLASS_ONLY", value = "class" },
+    { kind = T.soloOnly, text = "EXPAND_SOLO_ONLY" },
+  }
+  f.termRows = {}
+  for _, spec in ipairs(ROWS) do
+    local row = { kind = spec.kind, value = spec.value, text = spec.text }
+    if spec.heading then
+      row.heading = own(ns.Text(c, "section", 13))
+      row.heading:SetText(spec.heading)
+    end
+    row.box = own(check(c, L[spec.text], refresh))
+    if spec.value == "class" then
+      row.param = own(button(c, 120, function(self)
+        local list = f.classes
+        local at = 1
+        for i, id in ipairs(list) do
+          if id == row.classID then at = i end
+        end
+        row.classID = list[at % #list + 1] or row.classID
+        self:SetText(ns.ClassName(row.classID))
+        refresh()
+      end))
+    elseif spec.value == "hours" then
+      row.param = own(input(f, c, 50, 3))
+      row.param:SetScript("OnTextChanged", refresh)
+    end
+    if spec.gold then
+      row.goldBox = own(input(f, c, 90, 12))
+      row.goldBox:SetScript("OnTextChanged", refresh)
+    end
+    f.termRows[#f.termRows + 1] = row
+  end
+
   f.limits = ns.Text(c, "muted", 13)
   f.error = c:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
   f.error:SetTextColor(ns.COLORS.error[1], ns.COLORS.error[2], ns.COLORS.error[3])
@@ -296,6 +464,7 @@ end
 function ns.OpenAmountEntry(snap, amount, note, existingId)
   -- Every way in (menu, /bl mark, minimap, the board's Add to Bounty) stops here inside instances.
   if not ns.InOpenWorld() then return ns.Print(L.INSTANCE) end
+  if existingId and ns.HasTerms(ns.GetBountyById(existingId)) then return ns.Print(L.NO_STACK_TERMS) end
   frame = frame or build()
   frame.snap = snap
   frame.existingId = existingId
@@ -317,6 +486,23 @@ function ns.OpenAmountEntry(snap, amount, note, existingId)
   frame.amount:SetText(amount or "")
   frame.note:SetText(note or "")
   frame.second:SetText("")
+  -- The Expand section starts closed and empty. Zone terms use the zone you're in now; the
+  -- class terms start on your own class.
+  frame.expanded = false
+  frame.killsBox:SetText("1")
+  frame.payout, frame.length = 0, 0
+  frame.zoneID = ns.PlayerMapID() or 0
+  local _, _, myClass = UnitClass("player")
+  for _, row in ipairs(frame.termRows) do
+    row.box:SetChecked(false)
+    if row.goldBox then row.goldBox:SetText("") end
+    if row.value == "hours" then row.param:SetText("24") end
+    if row.value == "class" then
+      row.classID = myClass or frame.classes[1] or 1
+      row.param:SetText(ns.ClassName(row.classID))
+    end
+    if row.value == "zone" then row.box:SetLabel(L[row.text]:format(ns.MapName(frame.zoneID))) end
+  end
 
   -- The guild choice: only for a new bounty, and only for a player whose guild we can read.
   frame.modeRow = existingId == nil

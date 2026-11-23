@@ -133,6 +133,8 @@ local function onTooltip(tooltip, data)
     local text = b.pending and L.TOOLTIP_PENDING:format(ns.FormatGold(b.reward), b.poster)
       or L.TOOLTIP_WANTED:format(ns.FormatGold(b.reward), b.id, b.poster)
     tooltip:AddLine(text, 1, 0.2, 0.15)
+    -- The bounty's terms (spec 5.4c): kills, bonuses and restrictions.
+    for _, line in ipairs(ns.TermsLines(b)) do tooltip:AddLine("  " .. line, 1, 0.82, 0) end
   end
   local season = not ns.SeasonClaimedToday(guid) and ns.SeasonOf(guid)
   if season then tooltip:AddLine(L.TOOLTIP_SEASON:format(season.guild, ns.SeasonTerms(season)), 1, 0.2, 0.15) end

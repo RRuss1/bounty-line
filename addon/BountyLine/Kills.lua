@@ -15,6 +15,7 @@ local L = ns.L
 local FACTION_ID = { Alliance = 1, Horde = 2 }
 local DUEL_GRACE = 10     -- seconds after a duel ends during which kills are ignored
 local HONOR_WAIT = 1.2    -- seconds to wait for the honor message before taking the shot
+local INSULT_WAIT = 10    -- seconds to /lol at the corpse for an insult bonus (spec 5.4c)
 local MAX_SAVED = 20
 
 local duel = { active = false, endedAt = -math.huge }
@@ -62,13 +63,19 @@ end
 -- flags: bit0 honor corroborated, bit1 pet kill (Compendium 02 Section 3.2).
 -- season (Open Season kills only): { id, name, guild, seen } -> schema 2. The Bounty Board finds
 -- the season by the guild, so a season declared moments ago (no number yet) still works.
-function ns.BuildKillCode(bountyId, victimGUID, killedAt, honor, pet, season)
+-- facts (bounties with terms, spec 5.4c): { classID, level, victimLevel, solo, insult } -> schema 3.
+function ns.BuildKillCode(bountyId, victimGUID, killedAt, honor, pet, season, facts)
+  local FACT = ns.Codec.FACT
   return ns.Codec.Encode("K", {
-    schema = season and 2 or 1,
-    seasonId = season and season.id or nil,
-    victimName = season and (season.name or "") or nil,
-    guildName = season and (season.guild or "") or nil,
-    guildSeen = season and (season.seen and 1 or 0) or nil,
+    schema = facts and 3 or season and 2 or 1,
+    killerClassID = facts and (facts.classID or 0) or nil,
+    killerLevel = facts and (facts.level or 0) or nil,
+    victimLevel = facts and (facts.victimLevel or 0) or nil,
+    facts = facts and ((facts.solo and FACT.solo or 0) + (facts.insult and FACT.insult or 0)) or nil,
+    seasonId = (season or facts) and (season and season.id or 0) or nil,
+    victimName = (season or facts) and (season and season.name or "") or nil,
+    guildName = (season or facts) and (season and season.guild or "") or nil,
+    guildSeen = (season or facts) and (season and season.seen and 1 or 0) or nil,
     boardTag = ns.BoardTag(),
     bountyId = bountyId,
     victimGUID = victimGUID,
@@ -159,7 +166,8 @@ local function finish(shot)
       ns.DropPending(k.victimGUID)
       ns.Comms.KillPending(k.victimGUID, ns.FullName("player"), k.bounty.name)
     elseif not seasonOnly then
-      ns.MarkClaimed(k.bounty.id, k.killedAt)
+      -- A bounty wanting several kills stays on the board for the next one.
+      if (k.bounty.kills or 1) <= 1 then ns.MarkClaimed(k.bounty.id, k.killedAt) end
       ns.Comms.Kill(k.bounty.id, ns.FullName("player"))
     end
     ns.RefreshMarks()
@@ -179,8 +187,29 @@ local function finish(shot)
   nextKill()
 end
 
+-- What a bounty with terms needs to know about the kill (K schema 3). Taken at the kill.
+function ns.KillFacts(victimGUID)
+  local level = 0
+  for _, unit in ipairs({ "target", "mouseover", "focus" }) do
+    local guid = UnitGUID(unit)
+    if not ns.IsSecret(guid) and guid == victimGUID then
+      local l = UnitLevel(unit)
+      if not ns.IsSecret(l) and type(l) == "number" and l > 0 then level = l end
+      break
+    end
+  end
+  local _, _, classID = UnitClass("player")
+  return {
+    classID = classID or 0,
+    level = UnitLevel("player") or 0,
+    victimLevel = level,
+    solo = not (IsInGroup and IsInGroup()),
+  }
+end
+
 local function capture(k)
-  local code, err, message = ns.BuildKillCode(k.bounty.id, k.victimGUID, k.killedAt, k.honor, k.pet, k.season)
+  if k.facts then k.facts.insult = k.insult == true end
+  local code, err, message = ns.BuildKillCode(k.bounty.id, k.victimGUID, k.killedAt, k.honor, k.pet, k.season, k.facts)
   if not code then
     ns.Print(L.CODE_FAILED:format(message or err))
     return nextKill()
@@ -201,7 +230,25 @@ end
 
 begin = function(k)
   pending = k
+  -- An insult bonus: give the hunter time to /lol at the corpse; the shot is taken as soon as
+  -- they do (so it shows "You laugh at ..."), or when the time is up.
+  if k.wantsInsult then
+    if RaidNotice_AddMessage and RaidWarningFrame then RaidNotice_AddMessage(RaidWarningFrame, L.INSULT_NOW, ChatTypeInfo.RAID_WARNING) end
+    ns.Print(L.INSULT_NOW)
+    C_Timer.After(INSULT_WAIT, function() if pending == k and not k.code then capture(k) end end)
+    return
+  end
   C_Timer.After(k.practice and 0 or HONOR_WAIT, function() if pending == k then capture(k) end end)
+end
+
+-- An emote by the player (DoEmote or the chat line): a /lol at the victim of a kill waiting for it.
+function ns.OnLaugh(targetGUID)
+  local k = pending
+  if not k or not k.wantsInsult or k.code or k.insult then return end
+  if ns.IsSecret(targetGUID) or targetGUID ~= k.victimGUID then return end
+  k.insult = true
+  ns.Print(L.INSULT_DONE)
+  C_Timer.After(0.5, function() if pending == k and not k.code then capture(k) end end)
 end
 
 -- season (optional): { id, name, seen, s = the season } from ns.SeasonForKill. With no personal
@@ -216,6 +263,11 @@ local function startKill(bounty, victimGUID, pet, practice, season)
     bounty = bounty, victimGUID = victimGUID, pet = pet, practice = practice, killedAt = GetServerTime(), honor = false,
     season = season,
   }
+  -- A bounty with terms: the Bounty Board checks them from facts in the code (K schema 3).
+  if not practice and not bounty.seasonOnly and ns.HasTerms(bounty) then
+    k.facts = ns.KillFacts(victimGUID)
+    k.wantsInsult = ns.HasTerm(bounty, ns.Codec.TERM.insultBonus) ~= nil
+  end
   if pending then
     waiting[#waiting + 1] = k
   else
@@ -235,8 +287,20 @@ ns._kills = { start = startKill, finish = finish, pending = function() return pe
 -- ---------------------------------------------------------------- events
 
 local events = CreateFrame("Frame")
+-- /lol (and /laugh) at the corpse for an insult bonus. DoEmote is how the game sends a typed
+-- emote; whether Forever calls it for /lol is spec 23 item 29 (/bl debugkills prints it).
+if hooksecurefunc and DoEmote then
+  hooksecurefunc("DoEmote", function(token, unit)
+    local t = type(token) == "string" and token:upper() or ""
+    if BountyLineDB and BountyLineDB.settings and BountyLineDB.settings.debugKills then
+      ns.Print(("emote: %s / %s"):format(tostring(token), tostring(unit)))
+    end
+    if t == "LAUGH" or t == "LOL" then ns.OnLaugh(UnitGUID(type(unit) == "string" and unit ~= "" and unit or "target")) end
+  end)
+end
+
 for _, e in ipairs({ "PARTY_KILL", "CHAT_MSG_COMBAT_HONOR_GAIN", "DUEL_REQUESTED", "DUEL_INBOUNDS", "DUEL_FINISHED",
-  "SCREENSHOT_SUCCEEDED", "SCREENSHOT_FAILED", "ADDON_ACTION_BLOCKED", "ADDON_ACTION_FORBIDDEN" }) do
+  "SCREENSHOT_SUCCEEDED", "SCREENSHOT_FAILED", "ADDON_ACTION_BLOCKED", "ADDON_ACTION_FORBIDDEN", "CHAT_MSG_TEXT_EMOTE" }) do
   events:RegisterEvent(e)
 end
 events:SetScript("OnEvent", function(_, event, a, b)
@@ -266,6 +330,13 @@ events:SetScript("OnEvent", function(_, event, a, b)
     if debug then ns.Print("honor: " .. tostring(a)) end
     local first = pending and pending.bounty.name and pending.bounty.name:match("^(%S+)")
     if first and type(a) == "string" and a:find(first, 1, true) then pending.honor = true end
+  elseif event == "CHAT_MSG_TEXT_EMOTE" then
+    -- The backup for the insult bonus: my own "You laugh at <victim>." line (English client).
+    local k = pending
+    if k and k.wantsInsult and type(a) == "string" and not ns.IsSecret(a) and a:find("^You laugh") then
+      local first = k.bounty.name and k.bounty.name:match("^(%S+)")
+      if first and a:find(first, 1, true) then ns.OnLaugh(k.victimGUID) end
+    end
   elseif event == "DUEL_REQUESTED" or event == "DUEL_INBOUNDS" then
     ns.SetDuel(true, GetTime())
   elseif event == "DUEL_FINISHED" then
