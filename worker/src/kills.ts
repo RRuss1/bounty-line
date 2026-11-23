@@ -8,7 +8,7 @@
  */
 import { checkStamp, type StampResult } from "./ai";
 import type { CharacterLink, KillClaim } from "./codec";
-import { FACTION } from "./codec";
+import { decode, FACTION } from "./codec";
 import type { Env } from "./env";
 import { log } from "./log";
 import { refreshPack } from "./pack";
@@ -49,9 +49,18 @@ export interface BountyRow {
   expires_at: number;
   status: string;
   thread_id: string | null;
+  /** The B code that opened the bounty (rows are read with SELECT *). */
+  source_code?: string | null;
 }
 
 const fail = (code: string, message: string): Result => ({ ok: false, code, message });
+
+/** When the bounty was made in game: the opening B code's time, else when it reached the board. */
+export function bountyMadeAt(b: BountyRow): number {
+  const r = b.source_code ? decode(b.source_code) : null;
+  if (r && r.ok && r.type === "B") return r.fields.createdAt;
+  return b.created_at ?? 0;
+}
 const factionId = (name: string | null) => (name === "Alliance" ? FACTION.Alliance : FACTION.Horde);
 
 // ---------------------------------------------------------------- L: link a character
@@ -118,6 +127,28 @@ export async function claimKill(
     .first();
   if ((b.poster_guid && k.killerGUID === b.poster_guid) || contributor) return fail("SELF", "You can't claim your own bounty.");
   if (await env.DB.prepare("SELECT 1 FROM kills WHERE code = ?1").bind(code).first()) return fail("DUPLICATE", "That code was already used.");
+  // Only kills after the bounty was made count. The bounty code's in-game time, not the Discord
+  // post: a pending bounty can be hunted before anyone pastes it. 5 minutes of clock slack.
+  const madeAt = bountyMadeAt(b);
+  if (k.killedAt < madeAt - 300) {
+    return fail("EARLY", `That kill was <t:${k.killedAt}:R>, before bounty #${b.id} was set (<t:${madeAt}:R>). Only kills after the bounty count.`);
+  }
+  // Spec 10: the same hunter can't collect on the same target again straight away.
+  const cooldown = tenant.config.claim_cooldown_minutes * 60;
+  if (cooldown > 0) {
+    const recent = await env.DB.prepare(
+      `SELECT killed_at FROM kills WHERE tenant_id = ?1 AND victim_guid = ?2 AND (killer_discord_id = ?3 OR killer_guid = ?4)
+         AND verdict IN ('pending', 'auto', 'approved') AND ABS(killed_at - ?5) < ?6 LIMIT 1`,
+    )
+      .bind(tenant.id, k.victimGUID, authorId, k.killerGUID, k.killedAt, cooldown)
+      .first<{ killed_at: number }>();
+    if (recent) {
+      return fail(
+        "COOLDOWN",
+        `You already collected on ${escapeMd(b.target_name ?? "that player")} <t:${recent.killed_at}:R>. The same hunter can claim them again ${tenant.config.claim_cooldown_minutes} minutes after their last kill.`,
+      );
+    }
+  }
 
   // 2. The screenshot (check 4): one PNG/JPG under 25 MB, never seen before.
   const image = attachments.find((a) => IMAGE_TYPES[(a.content_type ?? "").split(";")[0]!.trim()]);
@@ -184,7 +215,7 @@ export async function claimKill(
     checks.linked === true ? "✅ Character linked to this Discord user" : checks.linked === false ? "⚠️ Character is linked to a different Discord user" : "➖ Character not linked yet (`/bl link` in game)",
     aiLine(ai),
     trusted ? "⭐ Trusted hunter" : `➖ New hunter (trusted after ${tenant.config.trust_threshold} approved kills in a row)`,
-    ...(checks.pet ? ["🐾 Killing blow by their pet"] : []),
+    ...(checks.pet ? ["🐾 Killing blow by their pet, totem or summon"] : []),
   ];
   const embed = {
     title: `💰 BOUNTY CLAIMED by ${escapeMd(k.killerName)}`,
@@ -362,7 +393,7 @@ export async function reviewKill(
     if (kill.killer_discord_id) {
       await env.DB.prepare(
         `INSERT INTO hunters (tenant_id, discord_user_id, denied, streak, trust) VALUES (?1, ?2, 1, 0, 'new')
-         ON CONFLICT(tenant_id, discord_user_id) DO UPDATE SET denied = denied + 1, streak = 0, trust = 'new'`,
+         ON CONFLICT(tenant_id, discord_user_id) DO UPDATE SET denied = denied + 1, streak = 0, streak_posters = '[]', trust = 'new'`,
       )
         .bind(tenant.id, kill.killer_discord_id)
         .run();
@@ -383,23 +414,43 @@ export async function reviewKill(
 
 /** Approved (by an officer or automatically): credit the hunter, await payment, post the payment buttons. */
 async function onApproved(env: Env, rest: DiscordRest, tenant: Tenant, b: BountyRow, killId: number, hunterId: string | null, now: number) {
-  if (hunterId) await creditHunter(env, tenant, hunterId);
+  await env.DB.prepare("UPDATE kills SET approved_at = ?1 WHERE id = ?2 AND tenant_id = ?3").bind(now, killId, tenant.id).run();
+  if (hunterId) await creditHunter(env, tenant, hunterId, posterKeyOf(b));
   await setBountyStatus(env, rest, tenant, b, "awaiting_payment", now);
   await postPaymentPrompt(env, rest, b, killId, hunterId).catch((e) =>
     log(env, "warn", "bounty.payment_prompt_failed", { tenant_id: tenant.id, error: String(e) }),
   );
 }
 
-/** One more approved kill for a hunter. Trusted after trust_threshold approvals in a row (a denial resets the streak). */
-export async function creditHunter(env: Env, tenant: Tenant, hunterId: string): Promise<void> {
+/**
+ * One more approved kill for a hunter. Trusted after trust_threshold approvals in a row (a
+ * denial resets the streak), and each of those must be on a different poster's bounty, so
+ * nobody farms trust off one friend's alt. posterKey: the poster's Discord ID (else GUID).
+ */
+export async function creditHunter(env: Env, tenant: Tenant, hunterId: string, posterKey: string | null): Promise<void> {
+  const row = await env.DB.prepare("SELECT streak_posters FROM hunters WHERE tenant_id = ?1 AND discord_user_id = ?2")
+    .bind(tenant.id, hunterId)
+    .first<{ streak_posters: string | null }>();
+  let seen: string[] = [];
+  try {
+    seen = JSON.parse(row?.streak_posters ?? "[]") as string[];
+  } catch {
+    seen = [];
+  }
+  const counts = posterKey !== null && !seen.includes(posterKey) ? 1 : 0;
+  if (counts) seen.push(posterKey!);
   await env.DB.prepare(
-    `INSERT INTO hunters (tenant_id, discord_user_id, approved, streak, trust) VALUES (?1, ?2, 1, 1, CASE WHEN 1 >= ?3 THEN 'trusted' ELSE 'new' END)
-     ON CONFLICT(tenant_id, discord_user_id) DO UPDATE SET approved = approved + 1, streak = COALESCE(streak, 0) + 1,
-       trust = CASE WHEN COALESCE(streak, 0) + 1 >= ?3 THEN 'trusted' ELSE trust END`,
+    `INSERT INTO hunters (tenant_id, discord_user_id, approved, streak, streak_posters, trust)
+       VALUES (?1, ?2, 1, ?4, ?5, CASE WHEN ?4 >= ?3 THEN 'trusted' ELSE 'new' END)
+     ON CONFLICT(tenant_id, discord_user_id) DO UPDATE SET approved = approved + 1, streak = COALESCE(streak, 0) + ?4,
+       streak_posters = ?5, trust = CASE WHEN COALESCE(streak, 0) + ?4 >= ?3 THEN 'trusted' ELSE trust END`,
   )
-    .bind(tenant.id, hunterId, tenant.config.trust_threshold)
+    .bind(tenant.id, hunterId, tenant.config.trust_threshold, counts, JSON.stringify(seen))
     .run();
 }
+
+/** Whose bounty this is, for the trust streak: the poster's Discord ID, else their character. */
+export const posterKeyOf = (r: { poster_discord_id: string | null; poster_guid: string | null }) => r.poster_discord_id ?? r.poster_guid ?? null;
 
 function aiLine(ai: StampResult): string {
   switch (ai.status) {

@@ -11,7 +11,8 @@
 import { checkStamp } from "./ai";
 import { FACTION, SEASON_KIND, type KillClaim, type PackSeason, type SeasonPost } from "./codec";
 import type { Env } from "./env";
-import { creditHunter, IMAGE_TYPES, MAX_IMAGE_BYTES, sha256Hex, type Attachment, type Result, type ReviewResult } from "./kills";
+import { creditHunter, posterKeyOf, IMAGE_TYPES, MAX_IMAGE_BYTES, sha256Hex, type Attachment, type Result, type ReviewResult } from "./kills";
+import { posterChecks } from "./limits";
 import { log } from "./log";
 import { refreshPack } from "./pack";
 import { SKULL } from "./poster";
@@ -170,6 +171,8 @@ async function refreshSeason(env: Env, rest: DiscordRest, tenant: Tenant, id: nu
 export async function postSeason(env: Env, rest: DiscordRest, tenant: Tenant, f: SeasonPost, code: string, authorId: string, now: number): Promise<Outcome> {
   if (f.boardTag !== "0000" && f.boardTag !== tenant.board_tag) return fail("BOARD", "That code belongs to a different Bounty Board.");
   if (now - f.createdAt > CODE_MAX_AGE) return fail("EXPIRED", "That Open Season code is too old. Make a new one in game.");
+  const owing = await posterChecks(env, tenant, authorId, now, { newBounty: false });
+  if (owing) return fail(owing.code, owing.message);
   const { reward_min, reward_max } = tenant.config;
   const limits = fail("LIMITS", `Each amount must be between ${gold(reward_min)} and ${gold(reward_max)}.`);
   const within = (n: number) => n >= reward_min && n <= reward_max;
@@ -411,7 +414,7 @@ export async function claimSeasonKill(
     checks.linked === true ? "✅ Character linked to this Discord user" : checks.linked === false ? "⚠️ Character is linked to a different Discord user" : "➖ Character not linked yet (`/bl link` in game)",
     ai.status === "match" ? "✅ AI read the stamp: matches the code" : ai.status === "skipped" ? "➖ AI check not run" : "⚠️ AI couldn't match the stamp to the code",
     trusted ? "⭐ Trusted hunter" : `➖ New hunter (trusted after ${tenant.config.trust_threshold} approved kills in a row)`,
-    ...(checks.pet ? ["🐾 Killing blow by their pet"] : []),
+    ...(checks.pet ? ["🐾 Killing blow by their pet, totem or summon"] : []),
   ];
   const embed = {
     title: `${SKULL} OPEN SEASON KILL by ${escapeMd(k.killerName)}`.slice(0, 256),
@@ -474,7 +477,7 @@ export async function claimSeasonKill(
 
 /** An approved kill: credit the hunter's record and (kinds 1 and 3) the gold; an empty pot closes the season. */
 async function credit(env: Env, rest: DiscordRest, tenant: Tenant, s: SeasonRow, killId: number, hunterId: string | null, now: number): Promise<number> {
-  if (hunterId) await creditHunter(env, tenant, hunterId);
+  if (hunterId) await creditHunter(env, tenant, hunterId, posterKeyOf(s));
   // One transaction: the kill takes its price (a pot's last kill takes what's left) and the
   // season's spent total moves by exactly that, so two approvals at once can't overspend a pot.
   const [, , got] = await env.DB.batch([
@@ -552,7 +555,7 @@ export async function reviewSeasonKill(
     if (kill.killer_discord_id) {
       await env.DB.prepare(
         `INSERT INTO hunters (tenant_id, discord_user_id, denied, streak, trust) VALUES (?1, ?2, 1, 0, 'new')
-         ON CONFLICT(tenant_id, discord_user_id) DO UPDATE SET denied = denied + 1, streak = 0, trust = 'new'`,
+         ON CONFLICT(tenant_id, discord_user_id) DO UPDATE SET denied = denied + 1, streak = 0, streak_posters = '[]', trust = 'new'`,
       )
         .bind(tenant.id, kill.killer_discord_id)
         .run();
