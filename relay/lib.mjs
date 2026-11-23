@@ -19,8 +19,10 @@ export function parseSetupCode(text) {
 
 /** Bounty Line codes are uppercase letters, digits and dashes. Nothing else is ever written into the game's files. */
 export const isCode = (text) => typeof text === "string" && /^BL[0-9]+-[A-Z]{1,2}-[0-9A-Z]+(?:-[0-9A-Z]+)+$/.test(text);
-// B: a bounty on one player. S: an Open Season on a whole guild.
-export const isBountyCode = (text) => isCode(text) && /^BL[0-9]+-[BS]-/.test(text);
+// B: a bounty on one player. S: an Open Season on a whole guild. W: sightings of wanted players.
+// These are what the relay carries; kill proofs (K) are the hunter's own to post.
+export const isRelayCode = (text) => isCode(text) && /^BL[0-9]+-[BSW]-/.test(text);
+export const isSightings = (text) => isCode(text) && /^BL[0-9]+-W-/.test(text);
 
 /**
  * The Lua file the game loads at login or /reload (BountyLine_Relay/Data.lua).
@@ -34,6 +36,8 @@ export function dataLua(codes, aliveAt) {
   return [
     "-- Written by the Bounty Line relay program. Safe to delete; it is rewritten every minute.",
     `BountyLine_RelayAlive = ${aliveAt}`,
+    // What this relay can carry besides bounty codes (older relays leave the line out).
+    "BountyLine_RelaySightings = true",
     `BountyLine_RelayPack = ${list.length ? `"${list.join(" ")}"` : "nil"}`,
     "",
   ].join("\n");

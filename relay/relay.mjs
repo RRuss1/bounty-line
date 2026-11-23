@@ -3,14 +3,15 @@
 //   - Every minute it fetches the Bounty Pack and writes it where the game loads it
 //     (Interface\AddOns\BountyLine_Relay). Your next login or /reload picks it up.
 //   - It watches your Screenshots folder for the QR frames the addon makes when a guildie
-//     sets a bounty, and sends those bounty codes to the Bounty Board.
+//     sets a bounty, and sends those bounty codes to the Bounty Board. Sightings of wanted
+//     players come the same way, every few minutes, for "last seen" on the wanted posters.
 // It only reads screenshots and writes one data file. It never types or clicks in the game.
 // Setup and details: docs/relay.md
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, watch, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
-import { RELAY_TOC, dataLua, isBountyCode, parseSetupCode, readQr } from "./lib.mjs";
+import { RELAY_TOC, dataLua, isRelayCode, isSightings, parseSetupCode, readQr } from "./lib.mjs";
 
 const CONFIG = fileURLToPath(new URL("./config.json", import.meta.url));
 const DEFAULT_WOW = "C:\\Program Files (x86)\\World of Warcraft\\_forever_";
@@ -134,7 +135,7 @@ function watchScreenshots(config) {
     } catch {
       return; // moved or deleted meanwhile
     }
-    if (!isBountyCode(code)) return; // an ordinary screenshot, or a kill proof: not ours to touch
+    if (!isRelayCode(code)) return; // an ordinary screenshot, or a kill proof: not ours to touch
     const remove = () => {
       try {
         unlinkSync(file);
@@ -154,9 +155,14 @@ function watchScreenshots(config) {
       if (res.status === 429 || res.status >= 500) throw new Error(`Bounty Board answered ${res.status}`);
       sent.add(code);
       remove();
+      if (isSightings(code)) {
+        if (!body.ok) say(`Sightings were refused: ${body.message ?? body.code ?? res.status}`);
+        else if (body.updated) say(`Last seen updated on ${body.updated} wanted ${body.updated === 1 ? "poster" : "posters"}.`);
+        return;
+      }
       say(body.ok ? `Posted a guildie's bounty (#${body.bountyId}).` : `A relayed bounty was refused: ${body.message ?? body.code ?? res.status}`);
     } catch (e) {
-      if (attempt >= 5) return say(`Gave up on one bounty code after 5 tries (${e.message}). The screenshot is still in your folder.`);
+      if (attempt >= 5) return say(`Gave up on one ${isSightings(code) ? "sightings" : "bounty"} code after 5 tries (${e.message}). The screenshot is still in your folder.`);
       setTimeout(() => handle(name, attempt + 1), 30_000);
     }
   };

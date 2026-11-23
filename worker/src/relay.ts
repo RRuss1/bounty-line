@@ -2,7 +2,8 @@
  * The relay (spec 5.10): a small program on an officer's PC that carries data between the game
  * and the Bounty Board without anyone pasting.
  *   GET  /relay/pack  the current Bounty Pack, for the relay to hand to the addon
- *   POST /relay/code  a bounty or Open Season code a guildie's addon sent over guild sync
+ *   POST /relay/code  a bounty or Open Season code a guildie's addon sent over guild sync, or a
+ *                     W code: the latest sightings of wanted players (last seen on the posters)
  *
  * Auth: "Authorization: Bearer <guildId>.<secret>", made by /bl relay. The guild id is in the
  * token so the ALLOWED_GUILD_IDS check runs before any D1 work (Compendium 01 Section 3.4).
@@ -15,6 +16,7 @@ import { log } from "./log";
 import { buildPack } from "./pack";
 import { RateLimiter } from "./ratelimit";
 import { DiscordRest } from "./rest";
+import { recordSightings } from "./sightings";
 import { audit, getTenant, type Tenant } from "./tenants";
 import { escapeMd } from "./wow";
 
@@ -135,7 +137,13 @@ async function code(request: Request, env: Env, tenant: Tenant, relayUser: strin
   if (!relayCodeLimiter.allow(`${tenant.id}:${relayUser}`)) return error(429, "RATE", "Too many codes. Try again in a minute.");
 
   const r = decode(raw);
-  if (!r.ok || (r.type !== "B" && r.type !== "S")) return error(400, "TYPE", "The relay only carries bounty codes. Kill claims need the hunter's screenshot.");
+  if (r.ok && r.type === "W") {
+    if (r.fields.boardTag !== tenant.board_tag) return error(422, "BOARD", "Those sightings belong to a different Bounty Board.");
+    const updated = await recordSightings(env, new DiscordRest(env.DISCORD_TOKEN), tenant, r.fields, now);
+    log(env, "info", "relay.sightings", { tenant_id: tenant.id, count: r.fields.sightings.length, updated });
+    return json({ ok: true, sightings: r.fields.sightings.length, updated });
+  }
+  if (!r.ok || (r.type !== "B" && r.type !== "S")) return error(400, "TYPE", "The relay only carries bounty codes and sightings. Kill claims need the hunter's screenshot.");
   const what = r.type === "S" ? `Open Season on **${escapeMd(r.fields.guildName)}**` : `bounty on **${escapeMd(r.fields.targetName)}**`;
   const linked = await env.DB.prepare("SELECT name, discord_user_id FROM characters WHERE tenant_id = ?1 AND guid = ?2")
     .bind(tenant.id, r.fields.posterGUID)
