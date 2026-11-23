@@ -30,7 +30,7 @@ local function addSection(tag, rootDescription, contextData)
 
   rootDescription:CreateDivider()
   rootDescription:CreateTitle(L.ADDON)
-  local existing = snap and ns.GetBounty(snap.guid)
+  local existing = snap and (ns.GetBounty(snap.guid) or ns.LockUnit(unit))
   if existing and existing.pending then
     -- Just made, not numbered yet: nothing to add gold to, and no second bounty either.
     rootDescription:CreateButton(L.MENU_VIEW_PENDING:format(ns.FormatGold(existing.reward)), function() ns.OpenBoard() end)
@@ -39,8 +39,9 @@ local function addSection(tag, rootDescription, contextData)
     rootDescription:CreateButton(L.MENU_VIEW:format(existing.id, ns.FormatGold(existing.reward)), function()
       ns.OpenBoard(existing.id) -- opens the board with this bounty highlighted
     end)
-    -- A bounty with its own terms has one payer: no added gold.
-    if not ns.HasTerms(existing) then
+    -- A bounty with its own terms has one payer, and one set by name in Discord has its
+    -- Discord poster: no added gold for either.
+    if not ns.HasTerms(existing) and not existing.byName then
       rootDescription:CreateButton(L.MENU_ADD, function() ns.OpenAmountEntry(snap, nil, nil, existing.id) end)
     end
   end

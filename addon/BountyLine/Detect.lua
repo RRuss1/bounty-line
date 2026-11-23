@@ -20,7 +20,8 @@ local lastSight = {} -- bounty id -> GetTime() of the latest sighting
 -- dungeons: no skull, badge, tooltip line, alert or last-seen report there.
 local function wanted(unit)
   if not unit or not ns.InOpenWorld() or not UnitIsPlayer(unit) then return nil end
-  return ns.GetBounty(UnitGUID(unit))
+  -- Or a bounty set by name in Discord (spec 5.12): seeing them locks it to their GUID.
+  return ns.GetBounty(UnitGUID(unit)) or ns.LockUnit(unit)
 end
 
 -- Open Season (spec 5.11): notes the unit's guild, and returns the season its guild is under

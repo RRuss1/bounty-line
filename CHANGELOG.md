@@ -3,10 +3,13 @@
 ## v0.9.4 (unreleased)
 
 - **`/bl hunters`**: anyone can turn pings for big new bounties on or off for themselves. It gives or takes the hunter role set with `/bl config hunter_role`.
+- **`/bl wanted`: a bounty by name, from Discord** (spec 5.12). For someone who only has the enemy's name: `/bl wanted name: faction: gold:` posts the wanted poster with no addon. Guildies' addons mark the player the first time anyone sees them (nameplate, target or mouseover), or match them on the kill. Kills on it always go to officer review, and the first approved kill locks the bounty to that player. No gold can be added to it.
+- Code format: packs schema 4 (bounties by name, written only when there is one). Kill codes on a bounty by name are schema 3 with the victim's name. Older addons read the new packs but don't see bounties by name.
 
 ### Deployer notes
 
-- `/bl hunters` needs the bot to have **Manage Roles**, and the bot's role must be **above** the hunter role in Server Settings → Roles (keep it below your staff roles). New invites ask for Manage Roles; an existing bot needs it given once by hand. The deploy registers the command.
+- `/bl hunters` needs the bot to have **Manage Roles**, and the bot's role must be **above** the hunter role in Server Settings → Roles (keep it below your staff roles). New invites ask for Manage Roles; an existing bot needs it given once by hand. The deploy registers the commands (`/bl hunters`, `/bl wanted`).
+- `/bl wanted` needs Bounty Line **0.9.4** in game to be marked and claimed; tell guildies to update.
 
 ## v0.9.3: insult bonus works without a target, no duplicate forum tags
 

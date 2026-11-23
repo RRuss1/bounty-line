@@ -13,6 +13,8 @@
 5. **Prove it.** Drop that **screenshot** into `#bounty-line`. The bot reads the kill from the QR code on the stamp: nothing to paste. Your officers approve the claim (trusted hunters can be approved automatically).
 6. **Get paid.** The poster pays you in game. Both of you click **Paid / Received** and the poster gets its **PAID** stamp.
 
+**Only have a name?** Anyone in your Discord can type `/bl wanted name: faction: gold:` with no addon at all. Bounty Line marks that player the first time a guildie sees them in game, and kills on it go to your officers.
+
 ## Open Season: a bounty on a whole guild
 
 Put a price on **every member of an enemy guild**. Right-click one of them → **Set Bounty…** and pick **Their guild** instead of **This player**. You choose:
@@ -66,7 +68,7 @@ You don't need to remember any of these: **right-click the minimap button** for 
 
 ## On your Discord
 
-Your guild's Bounty Board bot posts a **wanted poster** for every bounty and Open Season, keeps a pinned **Bounty Pack** up to date, reads kill screenshots, checks each claim (and can read the stamp with AI), and runs the **Paid / Received** buttons. Members also get `/bl leaderboard` (top hunters, most wanted, biggest payers), `/bl me` (your kills and payments) and `/bl season`; admins set rewards, expiry and auto-approval with `/bl config`.
+Your guild's Bounty Board bot posts a **wanted poster** for every bounty and Open Season, keeps a pinned **Bounty Pack** up to date, reads kill screenshots, checks each claim (and can read the stamp with AI), and runs the **Paid / Received** buttons. Members also get `/bl wanted` (a bounty on a name, no addon needed), `/bl leaderboard` (top hunters, most wanted, biggest payers), `/bl me` (your kills and payments) and `/bl season`; admins set rewards, expiry and auto-approval with `/bl config`.
 
 **Optional relay for officers:** a small program an officer runs while playing delivers new Bounty Packs into the game and posts guildies' bounties to Discord, so nobody has to paste.
 
