@@ -14,6 +14,7 @@ import { checkBountyPost, decodeErrorMessage } from "./rules";
 import { claimSeasonKill, isSeasonKill, postSeason } from "./seasons";
 import { audit, bountyTagIds, type Tenant } from "./tenants";
 import { isExpanded } from "./terms";
+import { isNameOnly, nameKey } from "./wanted";
 import { escapeMd, gold } from "./wow";
 
 export type Outcome =
@@ -73,10 +74,11 @@ async function postBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bounty
   if (await env.DB.prepare("SELECT 1 FROM contributions WHERE source_code = ?1").bind(code).first()) return DUPLICATE;
   if (b.mode === 1) return stackBounty(env, rest, tenant, b, code, authorId, now);
 
+  // The player's GUID, or a bounty set on their name from Discord (spec 5.12).
   const existing = await env.DB.prepare(
-    "SELECT id FROM bounties WHERE tenant_id = ?1 AND target_guid = ?2 AND status IN ('open', 'review', 'awaiting_payment')",
+    "SELECT id FROM bounties WHERE tenant_id = ?1 AND target_guid IN (?2, ?3) AND status IN ('open', 'review', 'awaiting_payment')",
   )
-    .bind(tenant.id, b.targetGUID)
+    .bind(tenant.id, b.targetGUID, nameKey(b.targetName))
     .first<{ id: number }>();
   if (existing) {
     return {
@@ -186,6 +188,7 @@ async function stackBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bount
   if (!tenant.config.allow_stacking) return { ok: false, code: "STACK", message: "This Bounty Board doesn't allow adding gold to bounties." };
   const row = await env.DB.prepare("SELECT * FROM bounties WHERE id = ?1 AND tenant_id = ?2").bind(b.existingBountyId, tenant.id).first<BountyRow>();
   if (!row) return { ok: false, code: "CLOSED", message: `Bounty #${b.existingBountyId} isn't on this Bounty Board.` };
+  if (isNameOnly(row)) return { ok: false, code: "STACK", message: `Bounty #${row.id} was set by name in Discord, so gold can't be added to it.` };
   if (row.target_guid !== b.targetGUID) return { ok: false, code: "MISMATCH", message: `That code isn't for bounty #${row.id}'s target.` };
   if (row.status !== "open" || row.expires_at <= now) return { ok: false, code: "CLOSED", message: `Bounty #${row.id} is no longer open.` };
   // One payer: its kills are paid one by one, with bonuses, by whoever set it up.

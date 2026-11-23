@@ -20,8 +20,8 @@ export interface Interaction {
   token: string;
   guild_id?: string;
   channel_id?: string;
-  member?: { user?: { id: string; username?: string }; permissions?: string; roles?: string[] };
-  user?: { id: string };
+  member?: { user?: { id: string; username?: string; global_name?: string | null }; nick?: string | null; permissions?: string; roles?: string[] };
+  user?: { id: string; username?: string; global_name?: string | null };
   data?: {
     name: string;
     options?: CommandOption[];

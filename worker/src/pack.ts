@@ -3,13 +3,14 @@
  * addon imports with /bl import. The bot keeps it pinned in #bounty-line and edits it whenever
  * a bounty opens or closes.
  */
-import { encodePack, FACTION, type PackEntry, type PackTerms } from "./codec";
+import { encodePack, FACTION, type PackEntry, type PackTerms, type PackWanted } from "./codec";
 import type { Env } from "./env";
 import { log } from "./log";
 import type { DiscordRest } from "./rest";
 import { packSeasons } from "./seasons";
 import { patchConfig, type Tenant } from "./tenants";
 import { allOrNothing, isExpanded, killsWanted, termsOf } from "./terms";
+import { isNameOnly } from "./wanted";
 
 /** Oldest addon that reads this pack (major*1000 + minor): 0.4 added /bl import. */
 export const MIN_ADDON_VERSION = 4;
@@ -45,12 +46,22 @@ export async function buildPack(env: Env, tenant: Tenant, now: number, packVersi
   )
     .bind(tenant.id, now)
     .all<OpenRow>();
-  const bounties: PackEntry[] = results.map((r) => ({
+  const factionOf = (r: OpenRow) => (r.faction === "Alliance" ? FACTION.Alliance : FACTION.Horde);
+  // Bounties set by name (spec 5.12) have no GUID: they ride in schema 4, by name.
+  const wanted: PackWanted[] = results.filter((r) => isNameOnly(r.target_guid)).map((r) => ({
+    bountyId: r.id,
+    targetName: r.target_name ?? "",
+    targetFaction: factionOf(r),
+    rewardGold: r.reward_gold,
+    posterName: r.poster_name ?? "",
+    expiresAt: r.expires_at,
+  }));
+  const bounties: PackEntry[] = results.filter((r) => !isNameOnly(r.target_guid)).map((r) => ({
     bountyId: r.id,
     targetGUID: r.target_guid,
     targetName: r.target_name ?? "",
     targetClassID: Number(r.class) || 0,
-    targetFaction: r.faction === "Alliance" ? FACTION.Alliance : FACTION.Horde,
+    targetFaction: factionOf(r),
     rewardGold: r.reward_gold,
     posterName: r.poster_name ?? "",
     expiresAt: r.expires_at,
@@ -67,7 +78,7 @@ export async function buildPack(env: Env, tenant: Tenant, now: number, packVersi
   const seasons = await packSeasons(env, tenant, now);
   const codes = encodePack(
     {
-      schema: bountyTerms.length ? 3 : seasons.length ? 2 : 1,
+      schema: wanted.length ? 4 : bountyTerms.length ? 3 : seasons.length ? 2 : 1,
       boardTag: tenant.board_tag,
       packVersion,
       minAddonVersion: MIN_ADDON_VERSION,
@@ -75,12 +86,13 @@ export async function buildPack(env: Env, tenant: Tenant, now: number, packVersi
       rewardMin: tenant.config.reward_min,
       rewardMax: tenant.config.reward_max,
       bounties,
-      ...(seasons.length || bountyTerms.length ? { seasons } : {}),
-      ...(bountyTerms.length ? { bountyTerms } : {}),
+      ...(seasons.length || bountyTerms.length || wanted.length ? { seasons } : {}),
+      ...(bountyTerms.length || wanted.length ? { bountyTerms } : {}),
+      ...(wanted.length ? { wanted } : {}),
     },
     PACK_PART_LENGTH,
   );
-  return { codes, count: bounties.length, seasons: seasons.length };
+  return { codes, count: bounties.length + wanted.length, seasons: seasons.length };
 }
 
 export function packMessage(code: string, part: number, parts: number, count: number, now: number, seasons = 0): string {

@@ -19,6 +19,16 @@ const STATUS_LABEL: Record<PosterStatus, string> = {
   cancelled: "CANCELLED",
 };
 
+/**
+ * "Night Elf Monk · Level 57 · Alliance". A bounty set by name in Discord (spec 5.12) knows only
+ * the faction; one locked by a kill may know the level but not the race or class.
+ */
+export function targetLine(b: BountyPost): string {
+  if (b.targetGUID.startsWith("name:")) return `${factionName(b.targetFaction)} · set by name in Discord, not seen in game yet`;
+  const who = b.targetRaceID || b.targetClassID ? `${raceName(b.targetRaceID)} ${className(b.targetClassID)} · ` : "";
+  return `${who}Level ${level(b.targetLevel)} · ${factionName(b.targetFaction)}`;
+}
+
 /** Where a wanted player was last seen in game (sightings the relay carried, spec 5.10). */
 export interface LastSeen {
   at: number;
@@ -62,7 +72,7 @@ export function wantedPoster(
     title: `${SKULL} WANTED: ${name.toUpperCase()}`,
     color: Number.isFinite(color) ? color : 0xb8860b,
     description: [
-      `${raceName(b.targetRaceID)} ${className(b.targetClassID)} · Level ${level(b.targetLevel)} · ${factionName(b.targetFaction)}`,
+      targetLine(b),
       `**Reward: ${reward}** (honor system, paid by ${escapeMd(b.posterName || "the poster")})`,
       `Marked${zoneName(b.mapID) ? ` in: ${zoneName(b.mapID)} ·` : ":"} <t:${b.createdAt}:f>`,
       `Bounty #${opts.id} · Expires <t:${opts.expiresAt}:D>`,
@@ -78,7 +88,7 @@ export function wantedPoster(
   const threadName = `${SKULL} ${b.targetName || "Unknown"} · ${gold(b.rewardGold)}`.slice(0, 100);
   // Forum cards preview only the message text (never embeds), so the key facts go here too.
   const content = [
-    `**Reward: ${reward}** · ${raceName(b.targetRaceID)} ${className(b.targetClassID)} ${level(b.targetLevel)} · ${factionName(b.targetFaction)}`,
+    `**Reward: ${reward}** · ${b.targetRaceID || b.targetClassID ? `${raceName(b.targetRaceID)} ${className(b.targetClassID)} ${level(b.targetLevel)} · ${factionName(b.targetFaction)}` : targetLine(b)}`,
     `Bounty #${opts.id} · expires <t:${opts.expiresAt}:D> · posted by <@${opts.postedBy}>`,
     ...(termsOf(row).length ? [`🎯 ${termsOf(row).map(describeTerm).map(escapeMd).join(" · ")}`.slice(0, 600)] : []),
     ...(seen ? [`👁 Last seen: ${seen}`] : []),
@@ -101,7 +111,7 @@ export async function wantedPosterImage(
     return await renderPosterPng(
       {
         name: b.targetName || "Unknown",
-        subtitle: `${raceName(b.targetRaceID)} ${className(b.targetClassID)} · Level ${level(b.targetLevel)} · ${factionName(b.targetFaction)}`,
+        subtitle: b.targetGUID.startsWith("name:") ? `${factionName(b.targetFaction)} · set by name` : targetLine(b),
         rewardGold: b.rewardGold,
         postedBy: b.posterName || "the poster",
         zone: zoneName(b.mapID),

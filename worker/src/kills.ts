@@ -18,6 +18,7 @@ import type { PosterStatus } from "./poster-image";
 import type { DiscordRest } from "./rest";
 import { audit, bountyTagIds, type ForumTagKey, type Tenant } from "./tenants";
 import { allOrNothing, bonusesMet, checkRestrictions, describeTerm, factsFromChecks, factsOf, isExpanded, isMultiKill, killShare, killsWanted, termsOf, type KillFacts } from "./terms";
+import { isNameOnly, lockToVictim, sameName } from "./wanted";
 import { escapeMd, gold, openWorldCheck } from "./wow";
 
 export interface Attachment {
@@ -134,7 +135,16 @@ export async function claimKill(
   // A bounty wanting several kills takes claims while others wait for the officers.
   if (b.status === "review" && !isMultiKill(b)) return fail("CLOSED", `Bounty #${b.id} already has a kill claim waiting for the officers.`);
   if ((b.status !== "open" && b.status !== "review") || b.expires_at <= now) return fail("CLOSED", `Bounty #${b.id} is no longer open.`);
-  if (k.victimGUID !== b.target_guid) return fail("MISMATCH", `That kill wasn't on ${escapeMd(b.target_name ?? "the target")} (bounty #${b.id}).`);
+  // A bounty set by name (spec 5.12) has no GUID yet: the victim's name in the code must match.
+  const byName = isNameOnly(b);
+  if (byName ? !sameName(k.victimName ?? "", b.target_name ?? "") : k.victimGUID !== b.target_guid) {
+    return fail(
+      "MISMATCH",
+      byName && !k.victimName
+        ? `Bounty #${b.id} was set by name, and your addon is too old to say who you killed. Update Bounty Line and try again.`
+        : `That kill wasn't on ${escapeMd(b.target_name ?? "the target")} (bounty #${b.id}).`,
+    );
+  }
   if (k.killerFaction === factionId(b.faction)) return fail("FACTION", "Bounties must be on the opposite faction.");
   const contributor = await env.DB.prepare("SELECT 1 FROM contributions WHERE tenant_id = ?1 AND bounty_id = ?2 AND poster_guid = ?3")
     .bind(tenant.id, b.id, k.killerGUID)
@@ -222,7 +232,8 @@ export async function claimKill(
   const trusted = hunter?.trust === "trusted";
   const clean = checks.openWorld && checks.window && checks.linked !== false && ai.status === "match" && restrictions.unknown.length === 0;
   const mode = tenant.config.auto_approve;
-  const auto = clean && (mode === "all_clean" || (mode === "trusted_only" && trusted));
+  // A bounty set by name always goes to the officers: they check the name on the screenshot.
+  const auto = !byName && clean && (mode === "all_clean" || (mode === "trusted_only" && trusted));
   const allChecks = { ...checks, ai: ai.status, aiRead: "read" in ai ? ai.read : undefined, trusted };
 
   // 5. Record the claim, then show it in the bounty's thread.
@@ -236,7 +247,9 @@ export async function claimKill(
   const killId = row!.id;
 
   const lines = [
-    `✅ Victim matches the bounty (GUID)`,
+    byName
+      ? "⚠️ Bounty set by name in Discord: the victim's name matches. Check it on the screenshot; approving locks the bounty to this player."
+      : `✅ Victim matches the bounty (GUID)`,
     `✅ Killer isn't the poster`,
     openWorldCheck(k.mapID).line,
     checks.window ? `✅ Posted ${ageMin} min after the kill` : `⚠️ Posted ${ageMin} min after the kill (limit ${windowHours}h)`,
@@ -513,6 +526,7 @@ export async function reviewKill(
  */
 async function onApproved(env: Env, rest: DiscordRest, tenant: Tenant, b: BountyRow, killId: number, hunterId: string | null, now: number): Promise<string> {
   await env.DB.prepare("UPDATE kills SET approved_at = ?1 WHERE id = ?2 AND tenant_id = ?3").bind(now, killId, tenant.id).run();
+  if (isNameOnly(b)) b = await lockToVictim(env, tenant, b, killId); // spec 5.12: now it's that player
   if (hunterId) await creditHunter(env, tenant, hunterId, posterKeyOf(b));
   if (isExpanded(b)) return approveWithTerms(env, rest, tenant, b, killId, hunterId, now);
   await setBountyStatus(env, rest, tenant, b, "awaiting_payment", now);
