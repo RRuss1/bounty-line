@@ -645,7 +645,8 @@ do
   runTimers()
   check("the rest go in the next report", ns.RelayFlushSeen(clock + 1100, serverTime))
   local second = Codec.Decode(shown[#shown])
-  check("with the older ones", second and second.fields.sightings[1].seenAt < firstReport.fields.sightings[#firstReport.fields.sightings].seenAt)
+  local firstList = firstReport.fields.sightings
+  check("with the older ones", second and second.fields.sightings[1].seenAt < firstList[#firstList].seenAt)
   runTimers()
   local later = clock + 1100
   repeat later = later + 301 until not ns.RelayFlushSeen(later, serverTime) -- send whatever is left
