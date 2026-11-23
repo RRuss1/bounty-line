@@ -137,6 +137,14 @@ snapFails("yourself", function() units.target = units.player end, "SELF")
 snapFails("secret GUID", function() units.target.guid = SECRET end, "SECRET")
 snapFails("secret faction", function() units.target.faction = SECRET end, "SECRET")
 snapFails("secret name", function() units.target.name = SECRET end, "SECRET")
+-- No bounty options inside any instance: battlegrounds mix in players from other realms.
+for _, kind in ipairs({ "pvp", "arena", "party", "raid", "scenario" }) do
+  snapFails("inside a " .. kind .. " instance", function() IsInInstance = function() return true, kind end end, "INSTANCE")
+end
+IsInInstance = function() return false, "none" end
+reset()
+check("snapshot works in the open world", ns.SnapshotUnit("target") ~= nil)
+IsInInstance = nil
 
 reset()
 local snap = ns.SnapshotUnit("target")
@@ -893,6 +901,20 @@ eq("and its code names the guild, so the Bounty Board can find the season", ((Co
 check("the pack lists it: the pending copy goes", ns.StorePack(seasonPack({ hv() }, PACK_TIME - 2)))
 eq("now it has its number", ns.GetSeason(HV).id, 7)
 check("pending copy dropped", next(BountyLineDB.pendingSeasons) == nil)
+
+-- A window opened outside and submitted after zoning into an instance still makes no code.
+do
+  local built = false
+  local real = ns.BuildSeasonCode
+  ns.BuildSeasonCode = function(...) built = true return real(...) end
+  IsInInstance = function() return true, "pvp" end
+  local before = #prints
+  ns.PostSeason({ guild = HV, faction = 2 }, 1, 25, 500, 14)
+  check("no Open Season code from inside a battleground", not built)
+  eq("  ...and the player is told why", prints[before + 1], ns.L.INSTANCE)
+  IsInInstance = nil
+  ns.BuildSeasonCode = real
+end
 
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

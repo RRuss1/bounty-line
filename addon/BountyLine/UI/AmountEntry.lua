@@ -294,6 +294,8 @@ end
 
 -- existingId: "Add to Bounty…" on that open bounty (no guild choice then).
 function ns.OpenAmountEntry(snap, amount, note, existingId)
+  -- Every way in (menu, /bl mark, minimap, the board's Add to Bounty) stops here inside instances.
+  if not ns.InOpenWorld() then return ns.Print(L.INSTANCE) end
   frame = frame or build()
   frame.snap = snap
   frame.existingId = existingId

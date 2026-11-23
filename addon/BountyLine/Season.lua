@@ -261,6 +261,7 @@ end
 
 -- Shows the S code for an Open Season on the snapshot's guild (or for gold added to one).
 function ns.PostSeason(snap, kind, perKill, total, days, existingId, minKills)
+  if not ns.InOpenWorld() then return ns.Print(L.INSTANCE) end -- bounties are open world only
   local code, err, message = ns.BuildSeasonCode(snap, kind, perKill, total, days, existingId, minKills)
   if not code then return ns.Print(L.CODE_FAILED:format(message or err)) end
   ns.Sound(existingId and "stack" or "create")

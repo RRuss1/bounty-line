@@ -14,17 +14,11 @@ local TAGS = {
   "MENU_UNIT_WORLD_STATE_SCORE", "MENU_UNIT_PVP_SCOREBOARD",
 }
 
--- Dungeons, raids and scenarios: nobody there can have a bounty, and the game hides unit data
--- from addons inside them, so the menu is left exactly as the game built it (spec Section 23
--- item 26: touching it there broke the menu's submenus on enemy NPCs).
-local function inPvEInstance()
-  if not IsInInstance then return false end
-  local inside, kind = IsInInstance()
-  return inside and kind ~= "pvp" and kind ~= "arena"
-end
-
+-- Instances of every kind (battlegrounds and arenas too): bounties are open world only, so
+-- the menu is left exactly as the game built it. Touching it in dungeons also broke the
+-- menu's submenus on enemy NPCs (spec Section 23 item 26).
 local function addSection(tag, rootDescription, contextData)
-  if inPvEInstance() then return end
+  if not ns.InOpenWorld() then return end
   local unit = contextData and contextData.unit
   if BountyLineDB.settings.debugMenu then
     ns.Print(L.DEBUGMENU_TAG:format(tag, tostring(unit)))
