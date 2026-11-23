@@ -52,24 +52,21 @@ export function parseGold(text: string): number {
 }
 
 /**
- * /bl wanted with nothing typed opens this form: first name, last name, faction, gold. Whatever
- * was typed in the command is filled in. Labels (type 18) hold one field each; the faction is a
- * dropdown (type 3), the rest text inputs (type 4).
+ * /bl wanted opens this form: first name, last name, faction (Alliance picked to start), gold.
+ * Labels (type 18) hold one field each; the faction is a dropdown (type 3), the rest text inputs (type 4).
  */
-export function wantedForm(prefill: { name?: string; faction?: string; gold?: string }) {
-  const [first = "", ...rest] = (prefill.name ?? "").trim().split(/\s+/);
-  const last = rest.join(" ");
+export function wantedForm() {
   const text = (id: string, opts: Record<string, unknown>) => ({ type: 4, custom_id: id, style: 1, ...opts });
   return {
     custom_id: WANTED_FORM,
     title: "Bounty by name",
     components: [
-      { type: 18, label: "First name", component: text("first", { min_length: 2, max_length: 24, required: true, placeholder: "Grimlok", ...(first ? { value: first } : {}) }) },
+      { type: 18, label: "First name", component: text("first", { min_length: 2, max_length: 24, required: true, placeholder: "Grimlok" }) },
       {
         type: 18,
         label: "Last name",
         description: "Exactly as the game shows it. Leave it empty if they have none.",
-        component: text("last", { max_length: 24, required: false, placeholder: "Ashveil", ...(last ? { value: last } : {}) }),
+        component: text("last", { max_length: 24, required: false, placeholder: "Ashveil" }),
       },
       {
         type: 18,
@@ -78,14 +75,17 @@ export function wantedForm(prefill: { name?: string; faction?: string; gold?: st
           type: 3,
           custom_id: "faction",
           required: true,
-          options: ["Alliance", "Horde"].map((f) => ({ label: f, value: f, ...(prefill.faction === f ? { default: true } : {}) })),
+          options: [
+            { label: "Alliance", value: "Alliance", default: true },
+            { label: "Horde", value: "Horde" },
+          ],
         },
       },
       {
         type: 18,
         label: "Gold",
         description: "The reward. You pay it to the hunter in game.",
-        component: text("gold", { max_length: 12, required: true, placeholder: "50", ...(prefill.gold ? { value: prefill.gold } : {}) }),
+        component: text("gold", { max_length: 12, required: true, placeholder: "50" }),
       },
     ],
   };

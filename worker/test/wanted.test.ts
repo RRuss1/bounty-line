@@ -23,14 +23,23 @@ let env: Env;
 let tag: string;
 let seq = 0;
 
-const wanted = (name: string, gold: number, faction = "Alliance", user = POSTER_USER) => ({
-  ...command(GUILD_A, "wanted", [
-    { name: "name", type: 3, value: name },
-    { name: "faction", type: 3, value: faction },
-    { name: "gold", type: 4, value: String(gold) },
-  ], "0"),
-  member: { user: { id: user, username: "buddy", global_name: "Buddy" }, permissions: "0", roles: [] },
-});
+/** The /bl wanted form, filled in and submitted. */
+const wanted = (name: string, gold: number | string, faction = "Alliance", user = POSTER_USER) => {
+  const [first = "", ...rest] = name.trim().split(/\s+/);
+  return {
+    type: 5, id: "1", token: "tok", guild_id: GUILD_A, application_id: "400000000000000000",
+    member: { user: { id: user, username: "buddy", global_name: "Buddy" }, permissions: "0", roles: [] },
+    data: {
+      custom_id: "wanted",
+      components: [
+        { type: 18, component: { type: 4, custom_id: "first", value: first } },
+        { type: 18, component: { type: 4, custom_id: "last", value: rest.join(" ") } },
+        { type: 18, component: { type: 3, custom_id: "faction", values: [faction] } },
+        { type: 18, component: { type: 4, custom_id: "gold", value: String(gold) } },
+      ],
+    },
+  };
+};
 const deps = (): ChatDeps => ({ env, rest: new DiscordRest("t"), now: () => NOW, later: () => undefined });
 const say = (content: string, attachments: unknown[] = [], author = HUNTER_USER) =>
   onDispatch(deps(), "MESSAGE_CREATE", {
@@ -103,7 +112,7 @@ describe("names", () => {
 
 describe("/bl wanted", () => {
   it("posts a wanted poster by name and puts it in the pack (schema 4), not in the GUID list", async () => {
-    await call(env, wanted("grimlok  Ashveil", 75));
+    await call(env, wanted("grimlok Ashveil", 75));
     expect(discord.followups().at(-1)).toContain("Bounty #1 on **grimlok Ashveil** for **75g** is up");
     const b = row();
     expect(b).toMatchObject({ target_guid: "name:grimlok ashveil", target_name: "grimlok Ashveil", faction: "Alliance", reward_gold: 75, status: "open", poster_name: "Buddy", poster_discord_id: POSTER_USER });
@@ -151,11 +160,11 @@ describe("/bl wanted", () => {
 });
 
 describe("the /bl wanted form", () => {
-  const bare = (options: { name: string; type: number; value: string }[] = []) => ({
-    ...command(GUILD_A, "wanted", options, "0"),
+  const bare = () => ({
+    ...command(GUILD_A, "wanted", [], "0"),
     member: { user: { id: POSTER_USER, username: "buddy" }, nick: "Bud", permissions: "0", roles: [] },
   });
-  type Form = { custom_id: string; components: { label: string; component: { custom_id: string; value?: string; options?: { value: string; default?: boolean }[] } }[] };
+  type Form = { custom_id: string; components: { label: string; component: { custom_id: string; options?: { value: string; default?: boolean }[] } }[] };
   const submit = (values: { first: string; last: string; faction: string; gold: string }) =>
     call(env, {
       type: 5, id: "1", token: "tok", guild_id: GUILD_A, application_id: "400000000000000000",
@@ -171,22 +180,15 @@ describe("the /bl wanted form", () => {
       },
     });
 
-  it("/bl wanted on its own opens the form: first name, last name, faction, gold", async () => {
+  it("/bl wanted opens the form straight away: first name, last name, faction (Alliance picked), gold", async () => {
     const r = await call(env, bare());
     expect(r.body.type).toBe(9);
     const form = r.body.data as unknown as Form;
     expect(form.custom_id).toBe("wanted");
     expect(form.components.map((c) => c.label)).toEqual(["First name", "Last name", "Faction", "Gold"]);
     expect(form.components[2]!.component.options!.map((o) => o.value)).toEqual(["Alliance", "Horde"]);
+    expect(form.components[2]!.component.options!.find((o) => o.default)?.value).toBe("Alliance");
     expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM bounties").get()).toEqual({ n: 0 });
-  });
-
-  it("fills in whatever was typed in the command", async () => {
-    const r = await call(env, bare([{ name: "name", type: 3, value: "Grimlok Ashveil" }, { name: "faction", type: 3, value: "Horde" }]));
-    const form = r.body.data as unknown as Form;
-    expect(form.components[0]!.component.value).toBe("Grimlok");
-    expect(form.components[1]!.component.value).toBe("Ashveil");
-    expect(form.components[2]!.component.options!.find((o) => o.default)?.value).toBe("Horde");
   });
 
   it("submitting the form posts the bounty", async () => {
