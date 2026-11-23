@@ -29,6 +29,7 @@ Bounty Line learns which guild an enemy is in by seeing them (nameplate, target 
 
 - **Opposite faction only.** Never guildmates, never your own faction.
 - **No duels.** Duel "kills" never count.
+- **Open world only.** Kills in battlegrounds, arenas and dungeons never count, and wanted players aren't marked there.
 - **Killing blow only.** Assists don't claim the bounty.
 - Rewards are real gold, paid player to player (honor system). **1g to 10,000g** by default; each guild can change the limits.
 - Several people can **stack gold** on the same bounty (right-click → **Add to Bounty…**); each pays their own share.

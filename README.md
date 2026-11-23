@@ -18,6 +18,7 @@ Put a price on an enemy's head in game, hunt them down, auto-screenshot the kill
 
 ### Rules
 - **Opposite faction only.** No duels, ever.
+- **Open world only.** Kills in battlegrounds, arenas and dungeons never count.
 - **Killing blow only** (your pet's counts).
 - Rewards are real gold, paid player to player, **1g–10,000g** by default (each guild can change this).
 - Any guild member can post a bounty.
