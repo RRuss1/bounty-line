@@ -119,7 +119,7 @@ Clean kill claims from **trusted** hunters (5 approved kills in a row) are appro
 
 ### Less pasting
 - **Kill claims:** hunters drop the kill screenshot into the Bounty Line channel. The bot reads the kill code from the QR code on the proof stamp; no code to paste.
-- **Relay (optional):** an officer can run a small program while playing that delivers the Bounty Pack into the game and posts guildies' bounties to Discord. See [docs/relay.md](docs/relay.md).
+- **Relay (optional):** an officer can run a small program while playing that delivers the Bounty Pack into the game, posts guildies' bounties to Discord and puts "last seen" on the wanted posters. See [docs/relay.md](docs/relay.md).
 
 ### Budget mode
 Set `READ_CHAT=false`, `AI_CHECK=false` and `POSTER_IMAGE=false`. Players submit with `/bl submit` instead of pasting in chat, officers approve every claim, and wanted posters are text-only (drawing the parchment picture needs more CPU time than the Free plan allows). No Durable Object, no AI, so it fits a free account.

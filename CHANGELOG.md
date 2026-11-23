@@ -2,6 +2,9 @@
 
 ## v0.9.2: open world only, Hardcore tag, fair-play rules
 
+- **Last seen on the wanted posters.** With a relay online, the wanted poster on Discord shows where the target was last spotted: *👁 Last seen: Wetlands, 12 minutes ago (by Slac Jaw)*. The relay officer's addon collects guildies' sightings and sends the newest at most every 5 minutes (never in combat) as one QR screenshot. The in-game board's tooltip names who saw them too.
+- Fix: a bounty's **note** no longer disappears from its poster when the status changes.
+- Code format: new `W` code (sightings, written only for the relay). No other code changed.
 - **Totems, guardians and summons count.** A killing blow by your totem, guardian or other summon now gives a kill code, like your pet's, when you're not in a group. (In a group the game can't tell whose totem it was; see spec §23 item 28.)
 - **Only kills after the bounty count.** A kill from before the bounty was made in game is refused.
 - **One-hour cooldown per target** (as the spec always said): the same hunter can't claim the same player again within 60 minutes of their last kill on them. `/bl config claim_cooldown_minutes`.
@@ -17,8 +20,9 @@
 ### Deployer notes
 
 - Run `/bl setup` again once (same options): it creates the **Hardcore** forum tag and tags the live bounties of 50g or more. The bot needs Manage Channels on the forum for this, as before.
-- Migration `0008_trust_posters.sql` adds two columns; the deploy applies it. `/bl extend` is new and `/bl config` has five new options; the deploy registers them.
+- Migrations `0008_trust_posters.sql` and `0009_last_seen.sql` add columns; the deploy applies them. `/bl extend` is new and `/bl config` has five new options; the deploy registers them.
 - Hunters ping: the role must allow being mentioned (Server Settings → Roles → the role → **Allow anyone to @mention this role**), or give the bot **Mention @everyone, @here and All Roles**.
+- Relay officers: update the relay (`git pull`, then `npm.cmd ci` in `relay`) for last seen. An older relay keeps working for bounties and packs; the addon just doesn't send it sightings.
 - The bot changes deploy when merged; players need the addon update for the in-game part.
 
 ## v0.9.1: Open Season window, prize pool minimum

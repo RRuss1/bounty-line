@@ -4,6 +4,7 @@ The game doesn't let addons use the internet, so normally every bounty code is p
 
 - **Bounty Packs arrive by themselves.** The relay fetches the newest pack every minute. Your next login or `/reload` loads it, and guild sync passes it to everyone online. Nobody types `/bl import`.
 - **Guildies' bounties post themselves.** When a guildie sets a bounty, your addon briefly shows a QR code and takes a screenshot. The relay reads it and sends the bounty to the Bounty Board. The guildie pastes nothing.
+- **Wanted posters say where the target was last seen.** When you or a guildie spots a wanted player, your addon collects it, and at most every 5 minutes (never in combat) it sends the newest sightings the same way. The poster on Discord shows *👁 Last seen: Wetlands, 12 minutes ago (by Slac Jaw)*.
 
 Everything still works without it. With no relay online, people paste codes and import the pack as before.
 
@@ -11,7 +12,7 @@ Everything still works without it. With no relay online, people paste codes and 
 
 - It **reads** new files in your Screenshots folder and **writes** one small data file in `Interface\AddOns\BountyLine_Relay`.
 - It **never** types, clicks or pastes into the game, and it never reads your game memory. It works the same way as the TradeSkillMaster and Raider.IO companion apps.
-- It deletes only the QR screenshots it made for bounties. Your own screenshots and kill proofs are left alone.
+- It deletes only the QR screenshots it made for bounties and sightings. Your own screenshots and kill proofs are left alone.
 - Kill claims are not relayed: the proof screenshot is on the hunter's PC, and they drop it into `#bounty-line` themselves.
 
 ## Before you start
@@ -59,7 +60,8 @@ Everything still works without it. With no relay online, people paste codes and 
 | "I can't find Interface\AddOns in there" | You typed the wrong game folder. It must contain `Interface` and `Screenshots`. |
 | Game doesn't say "Relay: on" | Start the relay *before* logging in or `/reload`. The very first time, restart WoW completely. |
 | "A relayed bounty was refused: …" | The reason is shown. The usual one is an unlinked character (see *For guildies*). |
-| A "Screen Captured" message every time a guildie sets a bounty | That's the relay's QR screenshot. It's how the code leaves the game; it can't be silenced. |
+| A "Screen Captured" message every time a guildie sets a bounty, and every few minutes while wanted players are being spotted | That's the relay's QR screenshot. It's how the code leaves the game; it can't be silenced. Sightings go at most every 5 minutes, and only when someone has spotted a wanted player. |
+| Posters don't show *Last seen* | Update the relay (`git pull`, then `npm.cmd ci` in `relay`) and start it before logging in: the addon only sends sightings to a relay that handles them. |
 
 ## Turning it off
 
