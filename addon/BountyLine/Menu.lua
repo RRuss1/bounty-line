@@ -39,7 +39,10 @@ local function addSection(tag, rootDescription, contextData)
     rootDescription:CreateButton(L.MENU_VIEW:format(existing.id, ns.FormatGold(existing.reward)), function()
       ns.OpenBoard(existing.id) -- opens the board with this bounty highlighted
     end)
-    rootDescription:CreateButton(L.MENU_ADD, function() ns.OpenAmountEntry(snap, nil, nil, existing.id) end)
+    -- A bounty with its own terms has one payer: no added gold.
+    if not ns.HasTerms(existing) then
+      rootDescription:CreateButton(L.MENU_ADD, function() ns.OpenAmountEntry(snap, nil, nil, existing.id) end)
+    end
   end
   local button = rootDescription:CreateButton(L.MENU_SET_BOUNTY, function()
     if snap then ns.OpenAmountEntry(snap) end

@@ -77,6 +77,63 @@ function ns.PlayerMapID()
   return id
 end
 
+-- ---------------------------------------------------------------- bounty terms (spec 5.4c)
+
+function ns.ClassName(classID)
+  local info = C_CreatureInfo and C_CreatureInfo.GetClassInfo and C_CreatureInfo.GetClassInfo(classID or 0)
+  return info and info.className or ("#" .. tostring(classID))
+end
+
+function ns.MapName(mapID)
+  local info = mapID and mapID > 0 and C_Map.GetMapInfo and C_Map.GetMapInfo(mapID)
+  return info and info.name or ("#" .. tostring(mapID))
+end
+
+-- One term in plain words ("+200g if killed in Wetlands", "Rogues only").
+function ns.TermText(t)
+  local T = ns.Codec.TERM
+  local g = t.gold and t.gold > 0 and ns.FormatGold(t.gold) or ""
+  if t.kind == T.zoneBonus then return L.TERM_ZONE_BONUS:format(g, ns.MapName(t.value)) end
+  if t.kind == T.classBonus then return L.TERM_CLASS_BONUS:format(g, ns.ClassName(t.value)) end
+  if t.kind == T.soloBonus then return L.TERM_SOLO_BONUS:format(g) end
+  if t.kind == T.underdogBonus then return L.TERM_UNDERDOG_BONUS:format(g) end
+  if t.kind == T.rushBonus then return L.TERM_RUSH_BONUS:format(g, t.value) end
+  if t.kind == T.insultBonus then return L.TERM_INSULT_BONUS:format(g) end
+  if t.kind == T.zoneOnly then return L.TERM_ZONE_ONLY:format(ns.MapName(t.value)) end
+  if t.kind == T.classOnly then return L.TERM_CLASS_ONLY:format(ns.ClassName(t.value)) end
+  if t.kind == T.soloOnly then return L.TERM_SOLO_ONLY end
+  return "?"
+end
+
+-- A bounty with terms: more than one kill, or any bonus or restriction.
+function ns.HasTerms(b)
+  return b ~= nil and (((b.kills or 1) > 1) or (b.terms ~= nil and #b.terms > 0))
+end
+
+function ns.HasTerm(b, kind)
+  for _, t in ipairs(b and b.terms or {}) do
+    if t.kind == kind then return t end
+  end
+  return nil
+end
+
+-- "3 kills, each pays its share" / "5 kills by one hunter", or nil for one kill.
+function ns.KillsText(b)
+  local n = b and b.kills or 1
+  if n <= 1 then return nil end
+  if b.payout == 1 then return L.TERMS_ALL_OR_NOTHING:format(n) end
+  return L.TERMS_EACH_KILL:format(n, b.killsLeft or n)
+end
+
+-- Lines for tooltips and the board: the kills, then every term.
+function ns.TermsLines(b)
+  local lines = {}
+  local kills = ns.KillsText(b)
+  if kills then lines[#lines + 1] = kills end
+  for _, t in ipairs(b and b.terms or {}) do lines[#lines + 1] = ns.TermText(t) end
+  return lines
+end
+
 function ns.ZoneName()
   local id = ns.PlayerMapID()
   local info = id ~= 0 and C_Map.GetMapInfo and C_Map.GetMapInfo(id)
@@ -143,10 +200,17 @@ end
 local function nonce() return math.random(0, 65535) end
 
 -- existingId: "Add to Bounty…" (stacks gold on that open bounty; Compendium 02 mode 1).
-function ns.BuildBountyCode(snap, reward, note, existingId)
+-- extras (the Expand section, spec 5.4c): { kills, payout, days, terms } -> schema 2. Never
+-- for Add to Bounty (a bounty with terms takes no added gold).
+function ns.BuildBountyCode(snap, reward, note, existingId, extras)
   local myFaction = FACTION_ID[UnitFactionGroup("player")]
+  if existingId then extras = nil end
   return ns.Codec.Encode("B", {
-    schema = 1,
+    schema = extras and 2 or 1,
+    kills = extras and extras.kills or nil,
+    payout = extras and extras.payout or nil,
+    days = extras and extras.days or nil,
+    terms = extras and extras.terms or nil,
     boardTag = ns.BoardTag(),
     targetGUID = snap.guid,
     targetName = snap.name,

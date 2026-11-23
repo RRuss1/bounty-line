@@ -32,6 +32,6 @@ read_globals = {
   "C_Timer", "Screenshot", "GetTime", "date", "GetPhysicalScreenSize",
   -- guild sync & board
   "MenuUtil", "Settings", "TargetFrame",
-  "BountyLine_RelayAlive", "BountyLine_RelayPack", "BountyLine_RelaySightings",
+  "BountyLine_RelayAlive", "BountyLine_RelayPack", "BountyLine_RelaySightings", "hooksecurefunc", "DoEmote",
   "C_ChatInfo", "IsInGuild", "GetNumGuildMembers", "GetGuildRosterInfo", "C_AddOns", "IsShiftKeyDown", "C_CreatureInfo", "RAID_CLASS_COLORS",
 }
