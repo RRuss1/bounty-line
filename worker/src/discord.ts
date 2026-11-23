@@ -1,8 +1,30 @@
 /** Discord interaction primitives: signature checks, allowlist, response helpers. */
 import type { Env } from "./env";
 
-export const InteractionType = { PING: 1, APPLICATION_COMMAND: 2, MESSAGE_COMPONENT: 3 } as const;
-export const ResponseType = { PONG: 1, CHANNEL_MESSAGE: 4, DEFERRED_UPDATE_MESSAGE: 6 } as const;
+export const InteractionType = { PING: 1, APPLICATION_COMMAND: 2, MESSAGE_COMPONENT: 3, MODAL_SUBMIT: 5 } as const;
+export const ResponseType = { PONG: 1, CHANNEL_MESSAGE: 4, DEFERRED_UPDATE_MESSAGE: 6, MODAL: 9 } as const;
+
+/** A field of a submitted form: in a Label (type 18), or in an action row (type 1) on older layouts. */
+export interface ModalComponent {
+  type: number;
+  custom_id?: string;
+  value?: string;
+  values?: string[];
+  component?: ModalComponent;
+  components?: ModalComponent[];
+}
+
+/** A submitted form's answers by field: a text input's text, or a dropdown's first pick. */
+export function modalValues(components: ModalComponent[] | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  const walk = (c: ModalComponent) => {
+    if (c.custom_id && (c.value !== undefined || c.values !== undefined)) out[c.custom_id] = c.value ?? c.values?.[0] ?? "";
+    if (c.component) walk(c.component);
+    for (const child of c.components ?? []) walk(child);
+  };
+  for (const c of components ?? []) walk(c);
+  return out;
+}
 export const EPHEMERAL = 64;
 
 export const Permission = { ADMINISTRATOR: 1n << 3n, MANAGE_GUILD: 1n << 5n } as const;
@@ -27,13 +49,15 @@ export interface Interaction {
     options?: CommandOption[];
     /** buttons */
     custom_id?: string;
+    /** forms (MODAL_SUBMIT) */
+    components?: ModalComponent[];
     resolved?: { attachments?: Record<string, { url: string; filename?: string; content_type?: string; size?: number }> };
   };
 }
 
 export interface InteractionResponse {
   type: number;
-  data?: { content?: string; flags?: number; allowed_mentions?: { parse: string[] } };
+  data?: { content?: string; flags?: number; allowed_mentions?: { parse: string[] }; custom_id?: string; title?: string; components?: unknown[] };
 }
 
 /** Ephemeral reply that never pings anyone. */

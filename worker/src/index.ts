@@ -13,7 +13,7 @@ import { relay } from "./relay";
 import { getTenant } from "./tenants";
 import type { Env } from "./env";
 import { ensureGateway, gatewayState } from "./gateway";
-import { runCommand } from "./interactions";
+import { runCommand, runModal } from "./interactions";
 import { log } from "./log";
 import { DiscordRest } from "./rest";
 import { expirySweep, weeklyRecap } from "./stats";
@@ -95,15 +95,16 @@ async function interactions(request: Request, env: Env, ctx: ExecutionContext): 
 
   if (interaction.type === InteractionType.PING) return json({ type: ResponseType.PONG });
 
-  if (interaction.type === InteractionType.APPLICATION_COMMAND && interaction.data?.name === "bl") {
+  const isForm = interaction.type === InteractionType.MODAL_SUBMIT;
+  if ((interaction.type === InteractionType.APPLICATION_COMMAND && interaction.data?.name === "bl") || isForm) {
     const rest = new DiscordRest(env.DISCORD_TOKEN);
-    const command = interaction.data.options?.[0]?.name;
+    const command = isForm ? `form:${interaction.data?.custom_id}` : interaction.data?.options?.[0]?.name;
     const failed = (e: unknown) => {
       log(env, "error", "command.failed", { tenant_id: interaction.guild_id, command, error: String(e) });
       return "Something went wrong on the Bounty Board. Try again in a minute.";
     };
     try {
-      const result = await runCommand(interaction, env, rest, undefined, new URL(request.url).origin);
+      const result = isForm ? runModal(interaction, env, rest) : await runCommand(interaction, env, rest, undefined, new URL(request.url).origin);
       if ("reply" in result) return json(result.reply);
       // Slow work: answer "thinking..." now (Discord allows 3s), then fill in the reply.
       const appId = interaction.application_id ?? env.DISCORD_APP_ID;

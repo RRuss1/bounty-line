@@ -116,7 +116,7 @@ Click **Sync fork** on GitHub. Your deploy workflow applies database migrations 
 | Command | Who | Does |
 |---|---|---|
 | `/bl submit` | Anyone | Paste a code (and attach the screenshot for kills) if chat pasting doesn't work |
-| `/bl wanted` | Anyone | Put a bounty on an enemy you only know by name, no addon needed (`name:`, `faction:`, `gold:`). Guildies' addons mark them the first time someone sees them; kills on it always go to the officers, and the first approved kill locks it to that player |
+| `/bl wanted` | Anyone | Put a bounty on an enemy you only know by name, no addon needed. It opens a form: first name, last name, faction, gold. Guildies' addons mark them the first time someone sees them; kills on it always go to the officers, and the first approved kill locks it to that player |
 | `/bl pack` | Anyone | Post and pin a fresh Bounty Pack at the bottom of `#bounty-line` (the old one is removed) |
 | `/bl leaderboard` | Anyone | Top hunters, most wanted, biggest payers |
 | `/bl me` | Anyone | Your kills, trust level, open bounties and payments |

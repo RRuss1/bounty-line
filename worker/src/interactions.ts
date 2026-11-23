@@ -1,7 +1,7 @@
 /** /bl slash command handlers. Only reached after the allowlist and signature checks. */
 import { extractCodes, processCode } from "./bounties";
 import { PREFIX, SCHEMA } from "./codec";
-import { hasAdmin, reply, type CommandOption, type Interaction, type InteractionResponse } from "./discord";
+import { hasAdmin, modalValues, reply, ResponseType, type CommandOption, type Interaction, type InteractionResponse } from "./discord";
 import type { Env } from "./env";
 import { gatewayState } from "./gateway";
 import { retagBounties } from "./kills";
@@ -14,7 +14,7 @@ import { issueRelayToken, relayUsers, revokeRelayToken } from "./relay";
 import type { DiscordRest, ForumTag } from "./rest";
 import { audit, boardCounts, FORUM_TAGS, getTenant, patchConfig, upsertTenant, type ForumTagKey, type Tenant } from "./tenants";
 import { VERSION } from "./version";
-import { postWanted } from "./wanted";
+import { postWanted, WANTED_FORM, wantedForm, wantedFromForm } from "./wanted";
 import { gold } from "./wow";
 
 export { VERSION };
@@ -53,6 +53,21 @@ function optionMap(opts: CommandOption[] | undefined): Record<string, string> {
   const out: Record<string, string> = {};
   for (const o of opts ?? []) if (o.value !== undefined) out[o.name] = String(o.value);
   return out;
+}
+
+const discordNameOf = (i: Interaction) => i.member?.nick || i.member?.user?.global_name || i.member?.user?.username || i.user?.global_name || i.user?.username || "";
+
+async function wanted(interaction: Interaction, env: Env, rest: DiscordRest, guildId: string, input: { name: string; faction: string; gold: number }, now: number) {
+  const tenant = await getTenant(env.DB, guildId);
+  if (!tenant) return "This server isn't set up yet.";
+  return postWanted(env, rest, tenant, input, actorOf(interaction), discordNameOf(interaction), now);
+}
+
+/** A submitted form (only /bl wanted's for now). */
+export function runModal(interaction: Interaction, env: Env, rest: DiscordRest, now = Math.floor(Date.now() / 1000)): CommandResult {
+  if (interaction.data?.custom_id !== WANTED_FORM) return { reply: reply("That form isn't supported.") };
+  const input = wantedFromForm(modalValues(interaction.data.components));
+  return { defer: () => wanted(interaction, env, rest, interaction.guild_id!, input, now) };
 }
 
 export async function runCommand(
@@ -152,15 +167,9 @@ export async function runCommand(
     case "relay":
       return { defer: () => relayCommand(interaction, env, guildId, o.action ?? "status", now, origin) };
     case "wanted":
-      return {
-        defer: async () => {
-          const tenant = await getTenant(env.DB, guildId);
-          if (!tenant) return "This server isn't set up yet.";
-          const m = interaction.member;
-          const discordName = m?.nick || m?.user?.global_name || m?.user?.username || "";
-          return postWanted(env, rest, tenant, { name: o.name ?? "", faction: o.faction ?? "", gold: Number(o.gold) }, actorOf(interaction), discordName, now);
-        },
-      };
+      // Everything typed: post it. Otherwise the form, with whatever was typed filled in.
+      if (!o.name || !o.faction || !o.gold) return { reply: { type: ResponseType.MODAL, data: wantedForm(o) } };
+      return { defer: () => wanted(interaction, env, rest, guildId, { name: o.name!, faction: o.faction!, gold: Number(o.gold) }, now) };
     case "submit":
       return { defer: () => submit(interaction, env, rest, guildId, o.code ?? "", now, o.image) };
     default:
