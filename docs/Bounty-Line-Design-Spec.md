@@ -303,7 +303,7 @@ When a unit's GUID matches an open bounty:
 1. `PARTY_KILL` fires → `attackerGUID == UnitGUID("player")` (or your pet's GUID) and `targetGUID` matches an open bounty → **killing blow confirmed**.
    - **Duel guard:** the addon tracks duel state (`DUEL_REQUESTED` / `DUEL_INBOUNDS` / `DUEL_FINISHED`) and ignores everything while a duel is active or for 10s after it ends. Duels end at 1 HP and shouldn't produce a `PARTY_KILL` anyway, so this is belt-and-suspenders.
    - **Faction guard:** the bounty's stored faction must be opposite yours. A same-faction "kill" (arena, odd edge cases) never produces a code.
-   - **Open-world guard:** inside any instance (battleground, arena, dungeon, raid, scenario; `IsInInstance()` is true) no kill code is made, for bounties or Open Seasons, and wanted players get no skull, badge, tooltip line, alert or last-seen report. Setting a bounty on someone you met in a battleground is still fine: the hunt happens outside.
+   - **Open-world guard:** inside any instance (battleground, arena, dungeon, raid, scenario; `IsInInstance()` is true) no kill code is made, for bounties or Open Seasons, and wanted players get no skull, badge, tooltip line, alert or last-seen report. No bounty options inside instances either: the right-click section, `/bl mark`, the minimap entry, the board's Add to Bounty and Open Season declarations all refuse there (battlegrounds mix in players from other realms you can never meet in the open world).
 2. Corroborate with `CHAT_MSG_COMBAT_HONOR_GAIN` naming the victim within ~2 seconds (logged as `honor=1/0`; not required, since some kills award no honor).
 3. **Proof stamp** (Section 9) is drawn full-width at screen center.
 4. Next frame: `Screenshot()`. Listen for `SCREENSHOT_SUCCEEDED` / `SCREENSHOT_FAILED`.
@@ -1131,7 +1131,7 @@ The same packager can upload to **Wago** (`-a <wago-id>`) and **WoWInterface** (
 5. **Right-click menu tags** for enemy players on Forever's target/focus/party frames, and whether the unit data is readable mid-combat (Section 5.4b).
 6. **Atlas/texture names** on the Forever client (browse in game before finalizing art).
 7. **Character linking UX:** first-claim prompt that links a Discord user to a WoW character (`/bl link` code from the addon is the cleanest Tier 1 option).
-8. **Battleground/arena kills:** ✅ **Decided 2026-11-23: open world only.** No kill in any instance counts (Sections 2, 5.7, 10). Still to confirm on Forever: `IsInInstance()` returns `true, "pvp"` in a battleground and `false` everywhere outdoors, capitals included.
+8. **Battleground/arena kills:** ✅ **Decided 2026-11-23: open world only.** No kill in any instance counts (Sections 2, 5.7, 10). Still to confirm on Forever with `/bl debug` (it prints `IsInInstance`): `true pvp` in a battleground and `false none` everywhere outdoors, capitals included.
 9. **Duplicate posters:** stacking UX when two members mark the same GUID.
 10. **Player GUID shape on Forever:** confirm `UnitGUID` returns `Player-<serverID>-<8 hex>` with an unpadded decimal server ID ≤ 65535 (print a few with `/bl debug`). Codes use the 7-byte compact form for that shape; anything else still works through the raw fallback, just ~25 characters longer per GUID (Compendium 02 Section 2).
     - ✅ **Verified 2026-11-21** (client 1.60.1 build 71037): `Player-6935-00156D68`, `Player-6935-007356CE`. Compact form applies.
