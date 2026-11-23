@@ -640,12 +640,12 @@ do
   runTimers()
   for i = 1, 12 do from("Someone-With-A-Long-Surname", "SEEN", ("%d\t1437\t%d"):format(100 + i, serverTime - i)) end
   check("many sightings: the first report", ns.RelayFlushSeen(clock + 700, serverTime))
-  local first = Codec.Decode(shown[#shown])
-  check("stays a QR code that reads", #shown[#shown] <= 170 and first and #first.fields.sightings >= 2, shown[#shown])
+  local firstReport = Codec.Decode(shown[#shown])
+  check("stays a QR code that reads", #shown[#shown] <= 170 and firstReport and #firstReport.fields.sightings >= 2, shown[#shown])
   runTimers()
   check("the rest go in the next report", ns.RelayFlushSeen(clock + 1100, serverTime))
   local second = Codec.Decode(shown[#shown])
-  check("with the older ones", second and second.fields.sightings[1].seenAt < first.fields.sightings[#first.fields.sightings].seenAt)
+  check("with the older ones", second and second.fields.sightings[1].seenAt < firstReport.fields.sightings[#firstReport.fields.sightings].seenAt)
   runTimers()
   local later = clock + 1100
   repeat later = later + 301 until not ns.RelayFlushSeen(later, serverTime) -- send whatever is left
