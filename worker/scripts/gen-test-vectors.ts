@@ -29,6 +29,7 @@ import {
   type KillClaim,
   type SeasonPost,
   type SightingReport,
+  TERM,
 } from "../src/codec";
 
 const OUT = fileURLToPath(new URL("../../shared/test-vectors.json", import.meta.url));
@@ -245,6 +246,42 @@ const wFull: SightingReport = {
   })),
 };
 
+// ---------------------------------------------------------------- bounty terms (B2, K3, P3)
+
+const bExpand: BountyPost = {
+  ...bBasic,
+  schema: 2,
+  nonce: 4343,
+  rewardGold: 900,
+  kills: 3,
+  payout: 0,
+  days: 28,
+  terms: [
+    { kind: TERM.zoneBonus, value: 1434, gold: 200 },
+    { kind: TERM.classBonus, value: 4, gold: 150 },
+    { kind: TERM.soloBonus, value: 0, gold: 50 },
+    { kind: TERM.underdogBonus, value: 0, gold: 75 },
+    { kind: TERM.rushBonus, value: 24, gold: 100 },
+    { kind: TERM.insultBonus, value: 0, gold: 25 },
+    { kind: TERM.classOnly, value: 4, gold: 0 },
+    { kind: TERM.soloOnly, value: 0, gold: 0 },
+  ],
+};
+const bAllOrNothing: BountyPost = { ...bBasic, schema: 2, nonce: 4344, kills: 5, payout: 1, days: 0, terms: [{ kind: TERM.zoneOnly, value: 1437, gold: 0 }] };
+const bOneKillNoTerms: BountyPost = { ...bBasic, schema: 2, nonce: 4345, kills: 1, payout: 0, days: 7, terms: [] };
+const kTerms: KillClaim = { ...kBasic, schema: 3, seasonId: 0, victimName: "", guildName: "", guildSeen: 0, killerClassID: 4, killerLevel: 38, victimLevel: 42, facts: 3 };
+const kTermsUnknown: KillClaim = { ...kTerms, nonce: 9, killerClassID: 11, killerLevel: 60, victimLevel: 0, facts: 0 };
+const packTerms: BountyPack = {
+  ...packSeasons,
+  schema: 3,
+  packVersion: 1795302000,
+  bountyTerms: [
+    { bountyId: 12, kills: 3, killsLeft: 2, payout: 0, terms: bExpand.terms! },
+    { bountyId: 13, kills: 5, killsLeft: 5, payout: 1, terms: [] },
+  ],
+};
+const packTermsNoSeasons: BountyPack = { ...packThree, schema: 3, packVersion: 1795302100, seasons: [], bountyTerms: [{ bountyId: 1, kills: 1, killsLeft: 1, payout: 0, terms: [{ kind: TERM.soloBonus, value: 0, gold: 10 }] }] };
+
 const codes = [
   { name: "B basic", type: "B", fields: bBasic },
   { name: "B add to existing, unicode, note, no board tag", type: "B", fields: bStack },
@@ -270,6 +307,13 @@ const codes = [
   { name: "P2 seasons only", type: "P", fields: packSeasonsOnly },
   { name: "W one sighting", type: "W", fields: wOne },
   { name: "W eight sightings, unicode and unknown spotter, no board tag", type: "W", fields: wFull },
+  { name: "B2 three kills, every term", type: "B", fields: bExpand },
+  { name: "B2 all or nothing, zone only, default length", type: "B", fields: bAllOrNothing },
+  { name: "B2 one kill, no terms, 7 days", type: "B", fields: bOneKillNoTerms },
+  { name: "K3 kill with facts", type: "K", fields: kTerms },
+  { name: "K3 kill with nothing known", type: "K", fields: kTermsUnknown },
+  { name: "P3 bounty terms and seasons", type: "P", fields: packTerms },
+  { name: "P3 bounty terms, no seasons", type: "P", fields: packTermsNoSeasons },
 ].map((v) => {
   const code = v.type === "P" ? encodePack(v.fields as BountyPack) : [encode(v.type as CodeType, v.fields)];
   assert(code.length === 1, `${v.name} should be a single code`);
@@ -281,17 +325,24 @@ const code = (name: string) => codes.find((c) => c.name === name)!.code;
 
 // ---------------------------------------------------------------- forward compatibility (newer schema)
 
-// K schema 2 is now a real schema (Open Season), so "a newer schema" is 3 for K and P, 2 for S.
-const futureK = _unsafe.wrapBytes("K", [..._unsafe.payload("K", { ...kSeason, schema: 3, flags: 7, guildSeen: 9 }), 0xde, 0xad, 0xbe, 0xef]);
+// K and P schema 3 are now real (bounty terms), so "a newer schema" is 4 for K and P, 3 for S and B, 2 for W.
+const futureK = _unsafe.wrapBytes("K", [..._unsafe.payload("K", { ...kTerms, schema: 4, flags: 7, guildSeen: 9, facts: 255 }), 0xde, 0xad, 0xbe, 0xef]);
+const futureB = _unsafe.wrapBytes("B", [..._unsafe.payload("B", { ...bExpand, schema: 3, payout: 9, days: 3, kills: 0 }), 0x01, 0x02]);
 const futureS = _unsafe.wrapBytes("S", [..._unsafe.payload("S", { ...sPot, schema: 3, kind: 9, days: 3, minKills: 7 }), 0x01]);
-const futureP = _unsafe.wrapBytes("P", _unsafe.packBytes([..._unsafe.payload("P", { ...packSeasons, schema: 3 }), 0x00, 0x2a]));
+const futureP = _unsafe.wrapBytes("P", _unsafe.packBytes([..._unsafe.payload("P", { ...packTerms, schema: 4 }), 0x00, 0x2a]));
 const futureW = _unsafe.wrapBytes("W", [..._unsafe.payload("W", { ...wOne, schema: 2, sightings: [] }), 0x07]);
 const forwardCompat = [
   {
-    name: "K schema 3 with appended fields and new values: known fields read, rest ignored",
+    name: "K schema 4 with appended fields and new values: known fields read, rest ignored",
     code: futureK,
     type: "K",
-    fields: { ...kSeason, schema: 3, flags: 7, guildSeen: 9 },
+    fields: { ...kTerms, schema: 4, flags: 7, guildSeen: 9, facts: 255 },
+  },
+  {
+    name: "B schema 3 with appended fields and new values: known fields read, rest ignored",
+    code: futureB,
+    type: "B",
+    fields: { ...bExpand, schema: 3, payout: 9, days: 3, kills: 0 },
   },
   {
     name: "S schema 3 with an appended field and new kind: known fields read, rest ignored",
@@ -300,10 +351,10 @@ const forwardCompat = [
     fields: { ...sPot, schema: 3, kind: 9, days: 3, minKills: 7 },
   },
   {
-    name: "P schema 3 with appended data: known fields read, rest ignored",
+    name: "P schema 4 with appended data: known fields read, rest ignored",
     code: futureP,
     type: "P",
-    fields: { ...packSeasons, schema: 3 },
+    fields: { ...packTerms, schema: 4 },
   },
   {
     name: "W schema 2 with an appended byte and no sightings: known fields read, rest ignored",
@@ -351,6 +402,8 @@ const wrapB = (f: object) => _unsafe.wrapBytes("B", _unsafe.payload("B", { ...bB
 const wrapK = (f: object) => _unsafe.wrapBytes("K", _unsafe.payload("K", { ...kBasic, ...f }));
 const wrapK2 = (f: object) => _unsafe.wrapBytes("K", _unsafe.payload("K", { ...kSeason, ...f }));
 const wrapS = (f: object) => _unsafe.wrapBytes("S", _unsafe.payload("S", { ...sPot, ...f }));
+const wrapB2 = (f: object) => _unsafe.wrapBytes("B", _unsafe.payload("B", { ...bExpand, ...f }));
+const term = (kind: number, value: number, gold: number) => ({ kind, value, gold });
 const wrapW = (f: object) => _unsafe.wrapBytes("W", _unsafe.payload("W", { ...wOne, ...f }));
 const wrapPackBody = (bytes: number[]) => _unsafe.wrapBytes("P", bytes);
 const packBody = (f: object) => _unsafe.payload("P", { ...packThree, ...f });
@@ -469,6 +522,27 @@ const invalid: { name: string; code: string; error: string }[] = [
   { name: "K2 cut off after the schema 1 fields", code: _unsafe.wrapBytes("K", [2, ..._unsafe.payload("K", kBasic).slice(1)]), error: "PAYLOAD" },
   { name: "K1 with schema 2 fields appended", code: _unsafe.wrapBytes("K", [1, ..._unsafe.payload("K", kSeason).slice(1)]), error: "PAYLOAD" },
   { name: "pack season with faction 3", code: wrapPackBody(_unsafe.packBytes(_unsafe.payload("P", { ...packSeasons, seasons: [{ ...packSeasons.seasons![0]!, guildFaction: 3 }] }))), error: "FACTION" },
+  { name: "B2 adding gold with terms", code: wrapB2({ mode: 1, existingBountyId: 5 }), error: "PAYLOAD" },
+  { name: "B2 zero kills", code: wrapB2({ kills: 0 }), error: "PAYLOAD" },
+  { name: "B2 eleven kills", code: wrapB2({ kills: 11 }), error: "PAYLOAD" },
+  { name: "B2 payout 2", code: wrapB2({ payout: 2 }), error: "PAYLOAD" },
+  { name: "B2 all or nothing with one kill", code: wrapB2({ kills: 1, payout: 1 }), error: "PAYLOAD" },
+  { name: "B2 30 days", code: wrapB2({ days: 30 }), error: "PAYLOAD" },
+  { name: "B2 nine terms", code: wrapB2({ terms: [...bExpand.terms!, term(TERM.zoneOnly, 1434, 0)] }), error: "PAYLOAD" },
+  { name: "B2 the same kind twice", code: wrapB2({ terms: [term(TERM.soloBonus, 0, 5), term(TERM.soloBonus, 0, 6)] }), error: "PAYLOAD" },
+  { name: "B2 bonus without gold", code: wrapB2({ terms: [term(TERM.soloBonus, 0, 0)] }), error: "PAYLOAD" },
+  { name: "B2 restriction with gold", code: wrapB2({ terms: [term(TERM.soloOnly, 0, 5)] }), error: "PAYLOAD" },
+  { name: "B2 unknown term kind", code: wrapB2({ terms: [term(7, 0, 5)] }), error: "PAYLOAD" },
+  { name: "B2 rush of 0 hours", code: wrapB2({ terms: [term(TERM.rushBonus, 0, 5)] }), error: "PAYLOAD" },
+  { name: "B2 rush over a week", code: wrapB2({ terms: [term(TERM.rushBonus, 169, 5)] }), error: "PAYLOAD" },
+  { name: "B2 class 31", code: wrapB2({ terms: [term(TERM.classOnly, 31, 0)] }), error: "PAYLOAD" },
+  { name: "B2 zone 0", code: wrapB2({ terms: [term(TERM.zoneBonus, 0, 5)] }), error: "PAYLOAD" },
+  { name: "B2 solo bonus with a value", code: wrapB2({ terms: [term(TERM.soloBonus, 1, 5)] }), error: "PAYLOAD" },
+  { name: "B2 trailing byte", code: _unsafe.wrapBytes("B", [..._unsafe.payload("B", bExpand), 0]), error: "PAYLOAD" },
+  { name: "B2 cut off after the schema 1 fields", code: _unsafe.wrapBytes("B", [2, ..._unsafe.payload("B", bBasic).slice(1)]), error: "PAYLOAD" },
+  { name: "K3 unknown fact bit", code: _unsafe.wrapBytes("K", _unsafe.payload("K", { ...kTerms, facts: 4 })), error: "PAYLOAD" },
+  { name: "K3 trailing byte", code: _unsafe.wrapBytes("K", [..._unsafe.payload("K", kTerms), 0]), error: "PAYLOAD" },
+  { name: "K3 cut off after the schema 2 fields", code: _unsafe.wrapBytes("K", [3, ..._unsafe.payload("K", kSeason).slice(1)]), error: "PAYLOAD" },
   { name: "W no sightings", code: wrapW({ sightings: [] }), error: "PAYLOAD" },
   { name: "W nine sightings", code: wrapW({ sightings: [...wFull.sightings, wOne.sightings[0]] }), error: "PAYLOAD" },
   { name: "W sighting with bounty 0", code: wrapW({ sightings: [{ ...wOne.sightings[0], bountyId: 0 }] }), error: "PAYLOAD" },
@@ -525,7 +599,12 @@ const encodeErrors: { name: string; type: string; fields: unknown }[] = [
   { name: "P through encode()", type: "P", fields: packEmpty },
   { name: "fields not an object", type: "B", fields: "nope" },
   { name: "missing field", type: "B", fields: { ...bBasic, rewardGold: undefined } },
-  { name: "schema 2", type: "B", fields: { ...bBasic, schema: 2 } },
+  { name: "schema 3", type: "B", fields: { ...bBasic, schema: 3 } },
+  { name: "B schema 2 without its extras", type: "B", fields: { ...bBasic, schema: 2 } },
+  { name: "B2 adding gold with terms", type: "B", fields: { ...bExpand, mode: 1, existingBountyId: 5 } },
+  { name: "B2 bonus without gold", type: "B", fields: { ...bExpand, terms: [term(TERM.zoneBonus, 1434, 0)] } },
+  { name: "B2 eleven kills", type: "B", fields: { ...bExpand, kills: 11 } },
+  { name: "B2 terms not a list", type: "B", fields: { ...bExpand, terms: "nope" } },
   { name: "negative reward", type: "B", fields: { ...bBasic, rewardGold: -1 } },
   { name: "fractional reward", type: "B", fields: { ...bBasic, rewardGold: 1.5 } },
   { name: "reward over 32 bits", type: "B", fields: { ...bBasic, rewardGold: 4294967296 } },
@@ -544,7 +623,9 @@ const encodeErrors: { name: string; type: string; fields: unknown }[] = [
   { name: "empty GUID", type: "K", fields: { ...kBasic, victimGUID: "" } },
   { name: "GUID over 255 bytes (never truncated)", type: "K", fields: { ...kBasic, victimGUID: "Creature-" + "9".repeat(250) } },
   { name: "L faction 0", type: "L", fields: { ...lBasic, faction: 0 } },
-  { name: "K schema 3", type: "K", fields: { ...kSeason, schema: 3 } },
+  { name: "K schema 4", type: "K", fields: { ...kTerms, schema: 4 } },
+  { name: "K schema 3 without facts", type: "K", fields: { ...kTerms, facts: undefined } },
+  { name: "K3 unknown fact bit", type: "K", fields: { ...kTerms, facts: 4 } },
   { name: "K schema 2 without a victim name", type: "K", fields: { ...kSeason, victimName: undefined } },
   { name: "K schema 2 without a guild name", type: "K", fields: { ...kSeason, guildName: undefined } },
   { name: "K schema 2 guildSeen 2", type: "K", fields: { ...kSeason, guildSeen: 2 } },
