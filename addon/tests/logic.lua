@@ -314,6 +314,17 @@ eq("fine 10s later", (ns.CheckKill(ME, VICTIM, 111) or {}).id, 7)
 withBounty(1)
 eq("same-faction bounty never pays out", select(2, ns.CheckKill(ME, VICTIM, 100)), "SAME_FACTION")
 
+-- Totems, guardians and summons (creature GUIDs): yours when you're not in a group.
+withBounty()
+local TOTEM = "Creature-0-4395-0-12-5925-0000ABCDEF"
+IsInGroup = function() return false end
+eq("a solo totem's killing blow counts (as a pet kill)", select(2, ns.CheckKill(TOTEM, VICTIM, 100)), "PET")
+eq("  ...and so does a summoned guardian (Pet- GUID)", select(2, ns.CheckKill("Pet-0-4395-0-12-416-0100ABCDEF", VICTIM, 100)), "PET")
+IsInGroup = function() return true end
+eq("in a group it could be a groupmate's totem: no code", select(2, ns.CheckKill(TOTEM, VICTIM, 100)), "NOT_MINE")
+IsInGroup = nil
+eq("another player's killing blow never counts", select(2, ns.CheckKill("Player-4395-99999999", VICTIM, 100)), "NOT_MINE")
+
 -- Open world only (spec Section 10): every kind of instance is out, the open world is in.
 withBounty()
 for _, kind in ipairs({ "pvp", "arena", "party", "raid", "scenario" }) do
