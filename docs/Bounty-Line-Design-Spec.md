@@ -278,6 +278,30 @@ end
 
 **Not supported:** right-clicking a name in **chat**. Chat menus carry a name but no unit, so the addon can't read the GUID or faction. Players must target the enemy instead.
 
+### 5.4c The Expand section (bounty terms)
+
+Decided with Rich on 2026-11-23. Under the note, the Set Bounty window has an **Expand ▾** button (a new bounty on a player only; not for Add to Bounty or Open Season). Collapsed, nothing changes. Expanded:
+
+- **Kills wanted** (1–10, default 1) and how it pays:
+  - **Each kill pays its share:** the reward is split evenly (the last kill takes the rounding), and every approved kill is paid on its own, by any hunter. At least 1g per kill.
+  - **One hunter must land them all:** nothing is paid until one hunter has every kill; then they get the whole reward. Other hunters' kills don't add to their count.
+  - The 1-hour cooldown per hunter still spaces repeat kills.
+- **Length:** Default (the server's), 7, 14 or 28 days.
+- **Bonuses**, extra gold on top, tick and type the gold:
+  - Killed in the zone you're standing in when you set it.
+  - The hunter is a class (a button cycles through the classes; starts on yours).
+  - The hunter isn't in a group.
+  - The hunter is a lower level than the target.
+  - Killed within N hours of the bounty (1–168, default 24).
+  - **Insult:** the hunter `/lol`s at the corpse within 10 seconds. The kill's screenshot waits for it (a raid warning says "/lol at the corpse now"), so it shows *"You laugh at …"*, and is taken as soon as they do, or after 10 seconds. The addon sees it from `DoEmote` (`LAUGH`) or the player's own *"You laugh at"* chat line (Section 23 item 29).
+  - Each bonus is paid **at most once per bounty**: on the first approved kill that earns it (all or nothing: on any of the winner's kills, paid with the reward).
+- **Restrictions** (only counts if): in the zone you're in, the hunter is a class, the hunter isn't in a group. A kill that breaks one is refused.
+- **Limits:** the reward plus every bonus stays under the reward maximum. Nothing is typed but gold and hours: zones come from where you stand, classes from the cycling button.
+
+**How it travels.** The B code (schema 2) carries the terms; the pack (schema 3) carries them to every guildie, so tooltips and the board list them; a kill on such a bounty makes a K code (schema 3) with the hunter's class and level, the victim's level, solo and the insult, and the Bounty Board checks the terms from those. A kill code from an older addon has no facts: restrictions it can't show send the claim to the officers (never auto-approved), and bonuses that need facts aren't earned.
+
+**On the Bounty Board.** The poster reads *"Reward: 900g for 3 kills (300g each)"* and lists the terms (and "Kills: 1 of 3 done"). A bounty wanting several kills stays **Open** while claims are reviewed, and takes claims until it has them all. Each approved kill gets its own payment post (share plus the bonuses it earned, the bonuses named), paid by the poster with Paid / Received; the bounty is **Paid** when its last payment is settled. An auto-approved kill can be denied until its payment starts; its share and bonuses go back to the next kill. **Add to Bounty is refused** on a bounty with terms (one payer). Owing (Section 10) counts unpaid kills on these bounties too.
+
 ### 5.5 The Bounty Pack (`/bl import`)
 
 - The bot keeps a pinned message in `#bounty-line` with the current **Bounty Pack** code (`BL1-P-…`): all open bounties (id, GUID, name, class, reward, poster, expiry) + board tag + pack version + Discord server name for banners.
@@ -684,8 +708,9 @@ A tiny opt-in companion app could auto-upload. It's parked; Tier 1 never depends
 | Where | **Open world only.** No kill counts in a battleground, arena, dungeon, raid or scenario. The addon makes no code there; the Bounty Board flags any kill whose map isn't a known open-world zone and never auto-approves it | No |
 | Bounties on guildmates | Blocked (implied by opposite-faction rule) | No |
 | Claim own bounty | Blocked | No |
-| One bounty per target | Multiple posters can **stack** gold on the same GUID (shows total) | Stacking on/off |
-| Closing | First approved kill closes the bounty | "Repeatable ×N" option |
+| One bounty per target | Multiple posters can **stack** gold on the same GUID (shows total); not on a bounty with terms | Stacking on/off |
+| Closing | First approved kill closes the bounty | Expand: up to 10 kills, each paid its share or all by one hunter (Section 5.4c) |
+| Bonuses and restrictions | Zone, class, solo, underdog, rush and insult (`/lol`) bonuses, each paid once; zone, class and solo restrictions (Section 5.4c) | Per bounty, by the poster |
 | Expiry | 14 days | 1–60 days |
 | Reward min/max | **1g / 10,000g** (1g allowed so test bounties cost almost nothing) | Yes |
 | Proof window | 24h from kill to Discord post | Yes |
@@ -1156,6 +1181,7 @@ The same packager can upload to **Wago** (`-a <wago-id>`) and **WoWInterface** (
 16. **Nameplate skull:** the addon parents a texture to `C_NamePlate.GetNamePlateForUnit(unit)`. Check it appears over enemy players and that forbidden plates are skipped without errors.
 17. **Kill debugging:** `/bl debugkills` prints every `PARTY_KILL` (attacker, victim) and honor message, to settle items 1 and 3 on a real kill.
 18. **Spoiler copy line:** the code box holds `WANTED: **Name** · 500g ||BL1-B-…||` (Section 5.7b). In a WoW EditBox, `||` is how a literal `|` is stored. ✅ **Verified 2026-11-21:** Ctrl+C copies one `|` per `||` pair, so `||` pasted as single pipes. The addon now writes `||||` around the code, which pastes as `||…||`.
+29. **`/lol` for the insult bonus (Section 5.4c):** the addon hooks `DoEmote` and counts token `LAUGH` (or `LOL`) aimed at the victim (the emote's unit, else the target), with the player's own "You laugh at <name>" chat line (`CHAT_MSG_TEXT_EMOTE`, English client) as a backup. Check with `/bl debugkills` on (it prints every emote the hook sees) that typing `/lol` with a corpse targeted reaches `DoEmote` on Forever, and what token and unit it carries.
 28. **Summon kills in a group:** solo, a killing blow by a creature GUID (totem, guardian, summon) counts as yours, because `PARTY_KILL` only reports you, your party and what you own. In a group it could be a groupmate's, so it doesn't count. Check with `/bl debugkills` whether Forever reports the **owner** as the attacker for totem/guardian kills; if so, they already count in groups too.
 22. **Menus and settings UI:** check on Forever that `MenuUtil.CreateContextMenu` opens from the minimap button and from board rows (with the Debug submenu and its checkboxes), that `UICheckButtonTemplate` checkboxes show in the Settings window, that the entry appears under Esc > Options > AddOns, and where the WANTED badge sits relative to the target frame.
 23. **Sounds:** the addon plays the client's own sounds: sound file `554523` (Mage-Lord Urom, `A_UROMKILL03`) when a bounty is created, and the `SOUNDKIT` names `LOOT_WINDOW_COIN_SOUND`, `ALARM_CLOCK_WARNING_3`, `UI_PVP_HONOR_PRESTIGE_RANK_UP`, `IG_PVP_UPDATE` and `IG_QUEST_LIST_COMPLETE` (names taken from the modern client's list). Whether Forever has each of them is unknown: a missing file falls back to its kit, a missing kit to the raid warning. `/bl debug sounds` plays each one and prints what was found.

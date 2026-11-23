@@ -9,7 +9,7 @@ Put a price on an enemy's head in game, hunt them down, auto-screenshot the kill
 
 ## How it works
 
-1. **Mark a target.** Right-click an opposite-faction player's portrait → **Set Bounty…** → type the gold amount.
+1. **Mark a target.** Right-click an opposite-faction player's portrait → **Set Bounty…** → type the gold amount. Want more? Click **Expand** (see below).
 2. **Post it.** Bounty Line shows a code. Click **[⧉]**, press **Ctrl+C**, and paste it in your Discord's `#bounty-line` channel. A wanted poster appears on the **Bounty Board**.
 3. **Hunt.** Guildies running Bounty Line get a banner (*"New bounty… go check the Discord Bounty Board!"*). Targets glow on nameplates and show **WANTED** in tooltips.
 4. **Kill.** Land the killing blow. Bounty Line stamps the kill on screen, takes a screenshot, and gives you a kill code.
@@ -22,6 +22,17 @@ Put a price on an enemy's head in game, hunt them down, auto-screenshot the kill
 - **Killing blow only** (your pet's counts).
 - Rewards are real gold, paid player to player, **1g–10,000g** by default (each guild can change this).
 - Any guild member can post a bounty.
+
+### Expand: more kills, bonuses and limits
+
+The Set Bounty window has an **Expand** button. Leave it closed for a normal bounty. Open it to:
+
+- **Want up to 10 kills.** Either each kill pays its share (900g for 3 kills = 300g a kill, to whoever lands it), or **one hunter must land them all** and takes the whole reward.
+- **Pick the length:** 7, 14 or 28 days.
+- **Add bonuses**, extra gold on top, each paid once: killed in the zone you're in, by a hunter of a class you pick, by a hunter who isn't in a group, by a lower-level hunter, within so many hours, or an **insult bonus** for a `/lol` at the corpse within 10 seconds (the kill screenshot waits for it).
+- **Set limits:** only in this zone, only a class, solo only. Kills that break them don't count.
+
+Hunters see the terms in the tooltip and on the board, and the wanted poster lists them. Each kill is paid on its own. Nobody can add gold to a bounty with terms.
 
 ### Open Season: a bounty on a whole guild
 
