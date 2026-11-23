@@ -14,6 +14,7 @@ import { issueRelayToken, relayUsers, revokeRelayToken } from "./relay";
 import type { DiscordRest, ForumTag } from "./rest";
 import { audit, boardCounts, FORUM_TAGS, getTenant, patchConfig, upsertTenant, type ForumTagKey, type Tenant } from "./tenants";
 import { VERSION } from "./version";
+import { postWanted } from "./wanted";
 import { gold } from "./wow";
 
 export { VERSION };
@@ -150,6 +151,16 @@ export async function runCommand(
       };
     case "relay":
       return { defer: () => relayCommand(interaction, env, guildId, o.action ?? "status", now, origin) };
+    case "wanted":
+      return {
+        defer: async () => {
+          const tenant = await getTenant(env.DB, guildId);
+          if (!tenant) return "This server isn't set up yet.";
+          const m = interaction.member;
+          const discordName = m?.nick || m?.user?.global_name || m?.user?.username || "";
+          return postWanted(env, rest, tenant, { name: o.name ?? "", faction: o.faction ?? "", gold: Number(o.gold) }, actorOf(interaction), discordName, now);
+        },
+      };
     case "submit":
       return { defer: () => submit(interaction, env, rest, guildId, o.code ?? "", now, o.image) };
     default:

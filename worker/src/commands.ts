@@ -148,6 +148,25 @@ export const COMMANDS = [
       },
       {
         type: OptionType.SUB_COMMAND,
+        name: "wanted",
+        description: "Put a bounty on an enemy you only know by name (no addon needed)",
+        options: [
+          { type: OptionType.STRING, name: "name", description: "Their full name as the game shows it, like Grimlok Ashveil", required: true, max_length: 40 },
+          {
+            type: OptionType.STRING,
+            name: "faction",
+            description: "Their faction",
+            required: true,
+            choices: [
+              { name: "Alliance", value: "Alliance" },
+              { name: "Horde", value: "Horde" },
+            ],
+          },
+          { type: OptionType.INTEGER, name: "gold", description: "The reward in gold (you pay it in game)", required: true, min_value: 1 },
+        ],
+      },
+      {
+        type: OptionType.SUB_COMMAND,
         name: "submit",
         description: "Submit a Bounty Line code here if pasting in the Bounty Line channel doesn't work",
         options: [
