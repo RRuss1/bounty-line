@@ -249,6 +249,7 @@ ns.L = {
   KILL_TITLE = "BOUNTY COLLECTED!",
   KILL_DEFERRED = "|cff33ff33Bounty collected!|r Click the Bounty Line square after the fight for your kill code.",
   KILL_FLASH = "BOUNTY KILLED",
+  KILL_NOT_OPEN_WORLD = "That kill doesn't count: bounties are open world only (not in battlegrounds, arenas or dungeons). Catch them outside.",
   KILL_WAIT = "Finish the fight first: the kill code needs your keyboard for Ctrl+C.",
   KILL_TOAST_TITLE = "Bounty killed!",
   KILL_TOAST_TIP = "Click after the fight to get your kill code and screenshot note. Drag to move.",
