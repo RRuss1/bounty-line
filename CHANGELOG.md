@@ -1,7 +1,9 @@
 # Changelog
 
-## Unreleased
+## v0.9.3: insult bonus works without a target, no duplicate forum tags
 
+- Insult bonus: a `/lol` within 10 seconds of the kill counts with no target (a dead player drops off your target), or at the corpse; a `/lol` at someone else still doesn't. Found in game.
+- Lower-level bonus: the victim's level is the one the addon last saw (nameplate, target or mouseover), since they've left your target by the time the kill registers.
 - Bounty Board: `/bl setup` no longer makes a second forum tag when an admin renamed one, retyped its dash or gave it an emoji. It keeps the tags it saved, and otherwise matches names ignoring case, dashes, spaces and emoji.
 
 ## v0.9.2: Expand (bounty terms), last seen, open world only, Hardcore tag, fair-play rules

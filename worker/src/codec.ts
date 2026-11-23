@@ -75,7 +75,7 @@ export const TERM = {
   soloBonus: 3,
   underdogBonus: 4, // the hunter was a lower level than the target
   rushBonus: 5, // value: hours after the bounty was made
-  insultBonus: 6, // /lol at the corpse within 10 seconds
+  insultBonus: 6, // /lol within 10 seconds of the kill
   zoneOnly: 65, // value: mapID
   classOnly: 66, // value: classID
   soloOnly: 67,
@@ -153,7 +153,7 @@ export interface KillClaim {
   killerClassID?: number;
   killerLevel?: number;
   victimLevel?: number;
-  /** Schema 3: FACT bits. bit0 not in a group, bit1 /lol at the corpse within 10 seconds. */
+  /** Schema 3: FACT bits. bit0 not in a group, bit1 /lol within 10 seconds of the kill. */
   facts?: number;
 }
 

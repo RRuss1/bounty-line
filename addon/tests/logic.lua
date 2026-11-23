@@ -1022,8 +1022,8 @@ do
   check("an insult bonus waits for the /lol", K.pending() ~= nil and K.pending().wantsInsult == true)
   ns.OnLaugh("Player-4395-0FFFFFFF")
   check("a /lol at someone else doesn't count", not K.pending().insult)
-  ns.OnLaugh(VICTIM)
-  check("a /lol at the corpse does", K.pending().insult == true)
+  ns.OnLaugh(nil)
+  check("a /lol at nobody does (the dead drop off your target)", K.pending().insult == true)
   runTimers()
   K.finish(true)
   local saved = BountyLineCharDB.kills[1]
@@ -1033,6 +1033,19 @@ do
   eq("  my class", kc and kc.fields.killerClassID, 1)
   eq("  my level", kc and kc.fields.killerLevel, 60)
   eq("  the victim's level (my target)", kc and kc.fields.victimLevel, 42)
+
+  -- The victim already dropped off the target: the level remembered from seeing them.
+  BountyLineCharDB.kills = {}
+  ns.RememberUnit("target")
+  local realTarget = units.target
+  units.target = nil
+  K.start(wanted, VICTIM, false, false)
+  ns.OnLaugh(VICTIM)
+  runTimers()
+  K.finish(true)
+  units.target = realTarget
+  kc = Codec.Decode(BountyLineCharDB.kills[1].code)
+  eq("  the victim's level once they've dropped off the target", kc and kc.fields.victimLevel, 42)
   eq("  and no season", kc and kc.fields.seasonId, 0)
   check("a bounty wanting more kills stays huntable", not ns.IsClaimed(31))
 

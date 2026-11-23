@@ -23,7 +23,9 @@ end
 
 -- ---------------------------------------------------------------- memory of enemy players
 
--- Notes an enemy player's name and guild. Anything the game hides (secret values) is skipped.
+-- Notes an enemy player's name, guild and level. Anything the game hides (secret values) is skipped.
+-- The level is for bounty terms (spec 5.4c): a dead player drops off your target, so the kill
+-- itself can't read it.
 function ns.RememberUnit(unit)
   if not unit then return nil end
   local exists = UnitExists(unit)
@@ -41,12 +43,14 @@ function ns.RememberUnit(unit)
   -- The game sometimes has no guild for a player whose data hasn't loaded yet: keep a guild
   -- seen in the last hour rather than forget it (someone who really left keeps it an hour).
   if (guild == nil or guild == "") and old and old.g ~= "" and now - old.t < 3600 then guild = old.g end
-  local entry = { n = ns.FullName(unit) or "", g = guild or "", f = FACTION_ID[theirs], t = now }
+  local level = UnitLevel and UnitLevel(unit)
+  if ns.IsSecret(level) or type(level) ~= "number" or level <= 0 then level = old and old.l or 0 end
+  local entry = { n = ns.FullName(unit) or "", g = guild or "", f = FACTION_ID[theirs], t = now, l = level }
   db.guilds[guid] = entry
   return entry
 end
 
--- What we remember about an enemy player: { n = name, g = guild ("" = none), f = faction, t }.
+-- What we remember about an enemy player: { n = name, g = guild ("" = none), f = faction, t, l = level (0 = unknown) }.
 function ns.GuildOf(guid)
   if type(guid) ~= "string" or ns.IsSecret(guid) then return nil end
   local e = BountyLineDB and BountyLineDB.guilds and BountyLineDB.guilds[guid]

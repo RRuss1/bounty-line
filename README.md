@@ -29,7 +29,7 @@ The Set Bounty window has an **Expand** button. Leave it closed for a normal bou
 
 - **Want up to 10 kills.** Either each kill pays its share (900g for 3 kills = 300g a kill, to whoever lands it), or **one hunter must land them all** and takes the whole reward.
 - **Pick the length:** 7, 14 or 28 days.
-- **Add bonuses**, extra gold on top, each paid once: killed in the zone you're in, by a hunter of a class you pick, by a hunter who isn't in a group, by a lower-level hunter, within so many hours, or an **insult bonus** for a `/lol` at the corpse within 10 seconds (the kill screenshot waits for it).
+- **Add bonuses**, extra gold on top, each paid once: killed in the zone you're in, by a hunter of a class you pick, by a hunter who isn't in a group, by a lower-level hunter, within so many hours, or an **insult bonus** for a `/lol` within 10 seconds of the kill (the kill screenshot waits for it).
 - **Set limits:** only in this zone, only a class, solo only. Kills that break them don't count.
 
 Hunters see the terms in the tooltip and on the board, and the wanted poster lists them. Each kill is paid on its own. Nobody can add gold to a bounty with terms.
