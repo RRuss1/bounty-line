@@ -199,21 +199,28 @@ describe("verdicts", () => {
 });
 
 describe("trust", () => {
-  it("five approvals in a row make a hunter trusted; a denial resets it", async () => {
-    for (let i = 0; i < 5; i++) {
-      codeLimiter.clear(); // more than 5 pastes a minute otherwise
-      db.sqlite.prepare("UPDATE bounties SET status = 'open'").run();
-      await say(kill(), [shot()], HUNTER_USER);
-      await call(env, button(`kill:approve:${lastKill().id}`, OFFICER, [ids.role]));
-    }
-    expect(db.sqlite.prepare("SELECT approved, streak, trust FROM hunters WHERE discord_user_id = ?").get(HUNTER_USER)).toEqual({
-      approved: 5, streak: 5, trust: "trusted",
-    });
-    codeLimiter.clear();
-    db.sqlite.prepare("UPDATE bounties SET status = 'open'").run();
-    await say(kill(), [shot()], HUNTER_USER);
-    await call(env, button(`kill:deny:${lastKill().id}`, OFFICER, [ids.role]));
-    expect(db.sqlite.prepare("SELECT streak, trust FROM hunters WHERE discord_user_id = ?").get(HUNTER_USER)).toEqual({ streak: 0, trust: "new" });
+  /** A new bounty from poster #p on target #t, claimed by HUNTER_USER and judged by an officer. */
+  const claimFrom = async (p: number, t: number, verdict: "approve" | "deny" = "approve") => {
+    codeLimiter.clear(); // more than 5 pastes a minute otherwise
+    const target = `Player-4395-0000AA${String(t).padStart(2, "0")}`;
+    const posterUser = `7000000000000009${String(p).padStart(2, "0")}`;
+    await say(encode("B", bounty({ targetGUID: target, targetName: `Target ${t}`, posterGUID: `Player-4395-0000BB${String(p).padStart(2, "0")}`, nonce: 500 + t })), [], posterUser);
+    const id = (db.sqlite.prepare("SELECT MAX(id) AS id FROM bounties").get() as { id: number }).id;
+    await say(kill({ bountyId: id, victimGUID: target }), [shot()], HUNTER_USER);
+    await call(env, button(`kill:${verdict}:${lastKill().id}`, OFFICER, [ids.role]));
+  };
+  const hunterRow = () => db.sqlite.prepare("SELECT approved, streak, trust FROM hunters WHERE discord_user_id = ?").get(HUNTER_USER);
+
+  it("five approvals on five different posters' bounties make a hunter trusted; a denial resets it", async () => {
+    for (let i = 0; i < 5; i++) await claimFrom(i, i);
+    expect(hunterRow()).toEqual({ approved: 5, streak: 5, trust: "trusted" });
+    await claimFrom(9, 9, "deny");
+    expect(hunterRow()).toMatchObject({ streak: 0, trust: "new" });
+  });
+
+  it("kills on one poster's bounties count once toward trust (no farming off a friend's alt)", async () => {
+    for (let t = 0; t < 5; t++) await claimFrom(1, t);
+    expect(hunterRow()).toEqual({ approved: 5, streak: 1, trust: "new" });
   });
 });
 

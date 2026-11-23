@@ -36,7 +36,7 @@ let threadId: string;
 const bounty = (): BountyPost => ({
   schema: 1, boardTag: tag, targetGUID: TARGET, targetName: "Grimlok Ashveil", targetClassID: 1, targetRaceID: 2, targetLevel: 42,
   targetFaction: 2, posterFaction: 1, rewardGold: 500, posterGUID: POSTER, posterName: "Slac Jaw", mapID: 1437,
-  createdAt: NOW - 3600, nonce: 1, note: "", mode: 0, existingBountyId: 0,
+  createdAt: NOW - 2 * 86400, nonce: 1, note: "", mode: 0, existingBountyId: 0, // made 2 days ago: kills in the tests come after it
 });
 const kill = (f: Partial<KillClaim> = {}) =>
   encode("K", {
@@ -44,6 +44,12 @@ const kill = (f: Partial<KillClaim> = {}) =>
     killerFaction: 1, killedAt: NOW - 360, mapID: 1437, flags: 1, nonce: 7, ...f,
   });
 const image = { url: SHOT, filename: "WoWScrnShot_112126_211407.png", content_type: "image/png", size: PNG.length };
+/** Another, different screenshot (a duplicate image is refused). */
+const shotN = (n: number) => {
+  const url = `${SHOT}?n${n}`;
+  discord.images.set(url, new Uint8Array([...PNG, n]));
+  return { ...image, url, size: PNG.length + 1 };
+};
 
 const deps = (): ChatDeps => ({ env, rest: new DiscordRest("t"), now: () => NOW, later: () => undefined });
 const say = (content: string, attachments: unknown[] = [], author = `7000000000000000${String(++seq).padStart(2, "0")}`) =>
@@ -145,9 +151,37 @@ describe("kill claims", () => {
     db.sqlite.prepare("UPDATE bounties SET status = 'open'").run(); // pretend it was denied
     await say(code, [image], HUNTER_USER);
     expect(replies().at(-1)).toContain("That code was already used.");
-    await say(kill({ nonce: 99 }), [image], HUNTER_USER);
+    // Another hunter reusing the screenshot (the first hunter would hit the 1-hour cooldown first).
+    await say(kill({ nonce: 99, killerGUID: "Player-4395-0BBBBBBB" }), [image], "700000000000000888");
     expect(replies().at(-1)).toContain("That screenshot was already used");
     expect(kills()).toHaveLength(1);
+  });
+
+  it("refuses a kill from before the bounty was made in game", async () => {
+    await say(kill({ killedAt: NOW - 3 * 86400 }), [image], HUNTER_USER);
+    expect(replies().at(-1)).toContain(`before bounty #${bountyId} was set`);
+    expect(kills()).toHaveLength(0);
+  });
+
+  it("the same hunter can't claim the same target again within the cooldown (spec 10)", async () => {
+    await say(kill(), [image], HUNTER_USER);
+    db.sqlite.prepare("UPDATE kills SET verdict = 'approved'").run();
+    db.sqlite.prepare("UPDATE bounties SET status = 'open'").run(); // as if re-posted
+    const again = (minutesLater: number, n: number) =>
+      say(kill({ killedAt: NOW - 360 + minutesLater * 60, nonce: n }), [shotN(n)], HUNTER_USER);
+    await again(30, 2);
+    expect(replies().at(-1)).toContain("can claim them again 60 minutes after their last kill");
+    await again(61, 3);
+    expect(kills()).toHaveLength(2); // an hour later it counts
+  });
+
+  it("the cooldown can be turned off", async () => {
+    db.sqlite.prepare("UPDATE tenants SET config_json = json_patch(config_json, ?)").run(JSON.stringify({ claim_cooldown_minutes: 0 }));
+    await say(kill(), [image], HUNTER_USER);
+    db.sqlite.prepare("UPDATE kills SET verdict = 'approved'").run();
+    db.sqlite.prepare("UPDATE bounties SET status = 'open'").run();
+    await say(kill({ nonce: 2, killedAt: NOW - 300 }), [shotN(2)], HUNTER_USER);
+    expect(kills()).toHaveLength(2);
   });
 
   it("refuses a second claim while one is under review", async () => {

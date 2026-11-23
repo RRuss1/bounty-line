@@ -15,6 +15,15 @@ export const DEFAULT_CONFIG = {
   weekly_recap: true,
   /** Bounties at this reward or more also get the Hardcore forum tag. 0 turns it off. */
   hardcore_min_gold: 50,
+  /** A hunter can't claim the same target again within this many minutes of their last kill on them (spec 10). 0 = off. */
+  claim_cooldown_minutes: 60,
+  /** No new bounties while you owe on one approved this many days ago or more. 0 = off. */
+  unpaid_block_days: 3,
+  /** Most bounties one person can have open (and under review) at once. 0 = no limit. */
+  max_open_per_poster: 10,
+  /** Role pinged on the wanted poster of a new bounty of hunter_ping_min_gold or more. "" = nobody. */
+  hunter_role: "",
+  hunter_ping_min_gold: 50,
   branding_color: "#B8860B",
   /** Forum tag IDs on #bounty-board, by status key. Filled in by /bl setup. */
   forum_tags: {} as Partial<Record<ForumTagKey, string>>,
