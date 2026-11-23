@@ -73,7 +73,8 @@ export class DiscordRest {
     this.request("PUT", `/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}/@me`);
 
   /** The image (if any) is a plain attachment, not inside the embed, so it becomes the card's cover. */
-  createForumPost = (forumId: string, post: { name: string; tagIds: string[]; content: string; embed: unknown; image?: Uint8Array }) =>
+  /** pingRole: the one role allowed to be notified by the post's text (the Hunters role); nobody else is. */
+  createForumPost = (forumId: string, post: { name: string; tagIds: string[]; content: string; embed: unknown; image?: Uint8Array; pingRole?: string }) =>
     this.request<{ id: string }>(
       "POST",
       `/channels/${forumId}/threads`,
@@ -84,7 +85,7 @@ export class DiscordRest {
         message: {
           content: post.content,
           embeds: [post.embed],
-          allowed_mentions: NO_PINGS,
+          allowed_mentions: post.pingRole ? { parse: [], roles: [post.pingRole] } : NO_PINGS,
           ...(post.image ? { attachments: [{ id: 0, filename: "wanted-poster.png", description: "Wanted poster" }] } : {}),
         },
       },

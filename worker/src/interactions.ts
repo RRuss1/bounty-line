@@ -8,7 +8,7 @@ import { retagBounties } from "./kills";
 import { log } from "./log";
 import { refreshPack } from "./pack";
 import { endSeason, forceCloseSeason, listSeasons } from "./seasons";
-import { cancel, configure, forgetMe, leaderboard, me } from "./stats";
+import { cancel, configure, extend, forgetMe, leaderboard, me } from "./stats";
 import { codeLimiter, packLimiter } from "./ratelimit";
 import { issueRelayToken, relayUsers, revokeRelayToken } from "./relay";
 import type { DiscordRest, ForumTag } from "./rest";
@@ -86,6 +86,15 @@ export async function runCommand(
           if (!tenant) return "This server isn't set up yet.";
           const user = { id: actorOf(interaction), roles: interaction.member?.roles ?? [], isAdmin: hasAdmin(interaction) };
           return cancel(env, rest, tenant, Number(o.id), user, now);
+        },
+      };
+    case "extend":
+      return {
+        defer: async () => {
+          const tenant = await getTenant(env.DB, guildId);
+          if (!tenant) return "This server isn't set up yet.";
+          const user = { id: actorOf(interaction), roles: interaction.member?.roles ?? [], isAdmin: hasAdmin(interaction) };
+          return extend(env, rest, tenant, Number(o.id), Number(o.days), user, now);
         },
       };
     case "pack":
