@@ -63,6 +63,7 @@ end
 -- Shows the B code for a snapshot and reward (spec 5.4).
 -- existingId: add the gold to that open bounty instead of starting a new one.
 function ns.PostBounty(snap, reward, note, existingId)
+  if not ns.InOpenWorld() then return ns.Print(L.INSTANCE) end -- e.g. the window was opened outside
   local code, err, message = ns.BuildBountyCode(snap, reward, note, existingId)
   if not code then return ns.Print(L.CODE_FAILED:format(message or err)) end
   ns.Sound(existingId and "stack" or "create")

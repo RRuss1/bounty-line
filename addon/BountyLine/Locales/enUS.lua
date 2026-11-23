@@ -275,6 +275,7 @@ ns.L = {
   SAME_FACTION = "Bounties must be on the opposite faction.",
   NEUTRAL = "That player hasn't picked a faction yet.",
   SECRET = "Set bounties out of combat.",
+  INSTANCE = "Bounties are open world only: none in battlegrounds, arenas or dungeons.",
 
   -- reward
   REWARD_RANGE = "Reward must be between %s and %s.",

@@ -87,6 +87,9 @@ end
 -- target is fixed when the box opens). Returns a snapshot, or nil and an L key.
 function ns.SnapshotUnit(unit)
   if not unit then return nil, "NO_TARGET" end
+  -- No bounties from inside instances: battlegrounds mix in players from other realms you can
+  -- never meet in the open world, and bounties are open world only (spec Section 10).
+  if not ns.InOpenWorld() then return nil, "INSTANCE" end
   -- Any of these can come back hidden (a secret value); testing a hidden value is an error,
   -- so check each one before using it.
   local exists = UnitExists(unit)

@@ -31,6 +31,8 @@ local function describeUnit(unit)
   line("UnitClass", UnitClass(unit))
   line("UnitRace", UnitRace(unit))
   line("UnitLevel", UnitLevel(unit))
+  -- Spec Section 23 item 8: expect "false none" outdoors (capitals too), "true pvp" in a battleground.
+  line("IsInInstance", IsInInstance())
   local snap, why = ns.SnapshotUnit(unit)
   line("bounty allowed", snap and "yes" or ("no: " .. tostring(why)))
 end
