@@ -67,6 +67,12 @@ export const COMMANDS = [
             ],
           },
           { type: OptionType.INTEGER, name: "trust_threshold", description: "Approved kills in a row to become trusted", min_value: 1, max_value: 50 },
+          {
+            type: OptionType.INTEGER,
+            name: "hardcore_min_gold",
+            description: "Bounties of this much gold or more get the Hardcore tag (0 = off)",
+            min_value: 0,
+          },
           { type: OptionType.BOOLEAN, name: "allow_stacking", description: "Let several players add gold to one bounty" },
           { type: OptionType.BOOLEAN, name: "weekly_recap", description: "Post the Sunday recap" },
           { type: OptionType.CHANNEL, name: "hall_of_fame", description: "Channel for the weekly recap", channel_types: [ChannelType.GUILD_TEXT] },

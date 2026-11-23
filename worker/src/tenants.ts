@@ -13,6 +13,8 @@ export const DEFAULT_CONFIG = {
   pet_kills_count: true,
   allow_stacking: true,
   weekly_recap: true,
+  /** Bounties at this reward or more also get the Hardcore forum tag. 0 turns it off. */
+  hardcore_min_gold: 50,
   branding_color: "#B8860B",
   /** Forum tag IDs on #bounty-board, by status key. Filled in by /bl setup. */
   forum_tags: {} as Partial<Record<ForumTagKey, string>>,
@@ -22,7 +24,7 @@ export const DEFAULT_CONFIG = {
   pack_message_ids: [] as string[],
 };
 
-/** Forum tags (spec Section 8.1), keyed by bounty status. */
+/** Forum tags (spec Section 8.1): one per bounty status, plus Hardcore for big bounties. */
 export const FORUM_TAGS = {
   open: "Open",
   review: "Claimed – Review",
@@ -30,8 +32,21 @@ export const FORUM_TAGS = {
   paid: "Paid",
   expired: "Expired",
   cancelled: "Cancelled",
+  hardcore: "Hardcore",
 } as const;
 export type ForumTagKey = keyof typeof FORUM_TAGS;
+
+/**
+ * A bounty thread's tags: its status, plus Hardcore when the reward (stacked total) is at
+ * least hardcore_min_gold. Every place that tags a bounty goes through here, so a status
+ * change never drops the Hardcore tag. Tags the forum doesn't have yet are skipped.
+ */
+export function bountyTagIds(tenant: { config: TenantConfig }, status: ForumTagKey, reward: number): string[] {
+  const tags = tenant.config.forum_tags;
+  const min = tenant.config.hardcore_min_gold;
+  const ids = [tags[status], min > 0 && reward >= min ? tags.hardcore : undefined];
+  return ids.filter((id): id is string => Boolean(id));
+}
 export type TenantConfig = typeof DEFAULT_CONFIG;
 
 export interface TenantRow {

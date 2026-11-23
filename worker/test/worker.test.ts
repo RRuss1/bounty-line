@@ -121,7 +121,7 @@ describe("/bl setup", () => {
   it("is idempotent: same tag, no duplicate forum tags or how-to posts", async () => {
     const db = TestD1.migrated();
     const env = await makeEnv(db.asD1());
-    discord.forumTags = [{ id: "777", name: "Hardcore" }]; // an admin's own tag survives
+    discord.forumTags = [{ id: "777", name: "Rivals" }]; // an admin's own tag survives
     await call(env, command(GUILD_A, "setup", setupOptions()));
     const tag = (db.sqlite.prepare("SELECT board_tag FROM tenants").get() as { board_tag: string }).board_tag;
     await call(env, command(GUILD_A, "setup", setupOptions("New Name", "Night Watch")));
@@ -130,7 +130,7 @@ describe("/bl setup", () => {
     expect(row.board_tag).toBe(tag);
     expect(row.wow_guild_name).toBe("New Name");
     expect(JSON.parse(row.config_json!).discord_display_name).toBe("Night Watch");
-    expect(discord.forumTags.map((t) => t.name)).toEqual(["Hardcore", ...Object.values(FORUM_TAGS)]);
+    expect(discord.forumTags.map((t) => t.name)).toEqual(["Rivals", ...Object.values(FORUM_TAGS)]);
     expect(discord.find("PATCH", /^\/channels\/\d+$/)).toHaveLength(1); // tags created once
     expect(discord.find("POST", new RegExp(`/channels/${ids.line}/messages$`))).toHaveLength(2); // how-to and pack posted once...
     expect(discord.find("PATCH", new RegExp(`/channels/${ids.line}/messages/\\d+$`))).toHaveLength(2); // ...then edited

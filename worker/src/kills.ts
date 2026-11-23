@@ -16,7 +16,7 @@ import { postPaymentPrompt } from "./payments";
 import { SKULL, wantedPoster, wantedPosterImage } from "./poster";
 import type { PosterStatus } from "./poster-image";
 import type { DiscordRest } from "./rest";
-import { audit, type ForumTagKey, type Tenant } from "./tenants";
+import { audit, bountyTagIds, type ForumTagKey, type Tenant } from "./tenants";
 import { escapeMd, gold, openWorldCheck } from "./wow";
 
 export interface Attachment {
@@ -251,6 +251,25 @@ const STATUS_TAG: Record<string, ForumTagKey> = {
   cancelled: "cancelled",
 };
 
+/**
+ * Re-applies tags to every live bounty thread (after /bl setup creates a new tag, or the
+ * Hardcore threshold changes). Closed threads are archived and left alone. Returns how many.
+ */
+export async function retagBounties(env: Env, rest: DiscordRest, tenant: Tenant): Promise<number> {
+  const { results } = await env.DB.prepare(
+    "SELECT thread_id, status, reward_gold FROM bounties WHERE tenant_id = ?1 AND thread_id IS NOT NULL AND status IN ('open', 'review', 'awaiting_payment')",
+  )
+    .bind(tenant.id)
+    .all<{ thread_id: string; status: string; reward_gold: number }>();
+  let n = 0;
+  for (const r of results) {
+    const tags = bountyTagIds(tenant, STATUS_TAG[r.status]!, r.reward_gold);
+    if (!tags.length) continue;
+    await rest.setThreadTags(r.thread_id, tags).then(() => n++, (e) => log(env, "warn", "bounty.retag_failed", { tenant_id: tenant.id, error: String(e) }));
+  }
+  return n;
+}
+
 /** Moves a bounty to a new status: database, forum tag, poster picture, then the Bounty Pack. */
 export async function setBountyStatus(env: Env, rest: DiscordRest, tenant: Tenant, b: BountyRow, status: PosterStatus, now: number): Promise<void> {
   const closed = status === "paid" || status === "expired" || status === "cancelled";
@@ -259,8 +278,9 @@ export async function setBountyStatus(env: Env, rest: DiscordRest, tenant: Tenan
     .run();
   const updated = { ...b, status };
   if (b.thread_id) {
-    const tag = tenant.config.forum_tags[STATUS_TAG[status]!];
-    if (tag) await rest.setThreadTags(b.thread_id, [tag]).catch((e) => log(env, "warn", "bounty.tag_failed", { tenant_id: tenant.id, error: String(e) }));
+    // Status tag plus Hardcore for big bounties (a stack can push a bounty over the line).
+    const tags = bountyTagIds(tenant, STATUS_TAG[status]!, b.reward_gold);
+    if (tags.length) await rest.setThreadTags(b.thread_id, tags).catch((e) => log(env, "warn", "bounty.tag_failed", { tenant_id: tenant.id, error: String(e) }));
     try {
       const post = rowToPost(updated);
       const { n } = (await env.DB.prepare("SELECT COUNT(*) AS n FROM contributions WHERE tenant_id = ?1 AND bounty_id = ?2").bind(tenant.id, b.id).first<{ n: number }>()) ?? { n: 1 };

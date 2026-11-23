@@ -106,7 +106,7 @@ describe("kill claims", () => {
 
     // Bounty: under review, tag switched, poster updated, gone from the pack.
     expect(bountyStatus()).toBe("review");
-    expect(discord.find("PATCH", new RegExp(`^/channels/${threadId}$`))[0]!.body).toEqual({ applied_tags: [tagId("review")] });
+    expect(discord.find("PATCH", new RegExp(`^/channels/${threadId}$`))[0]!.body).toEqual({ applied_tags: [tagId("review"), tagId("hardcore")] });
     const poster = discord.find("PATCH", new RegExp(`/channels/${threadId}/messages/${threadId}$`))[0]!;
     expect(JSON.stringify(poster.body)).toContain("CLAIMED: officer review");
     expect(replies().filter((r) => r.includes("Kill claim"))).toEqual([]); // the reaction is the answer
@@ -192,7 +192,7 @@ describe("officer review", () => {
     const edit = discord.find("PATCH", /\/webhooks\/.+\/button-token\/messages\/@original$/)[0]!;
     expect(edit.body).toMatchObject({ components: [] });
     expect(String(edit.body!.content)).toContain("Approved");
-    expect(discord.find("PATCH", new RegExp(`^/channels/${threadId}$`))[0]!.body).toEqual({ applied_tags: [tagId("awaiting_payment")] });
+    expect(discord.find("PATCH", new RegExp(`^/channels/${threadId}$`))[0]!.body).toEqual({ applied_tags: [tagId("awaiting_payment"), tagId("hardcore")] });
   });
 
   it("deny: the bounty opens again, back in the pack, and trust resets", async () => {
@@ -201,7 +201,7 @@ describe("officer review", () => {
     expect(kills()[0]!.verdict).toBe("denied");
     expect(bountyStatus()).toBe("open");
     expect(db.sqlite.prepare("SELECT denied, trust FROM hunters WHERE discord_user_id = ?").get(HUNTER_USER)).toEqual({ denied: 1, trust: "new" });
-    expect(discord.find("PATCH", new RegExp(`^/channels/${threadId}$`))[0]!.body).toEqual({ applied_tags: [tagId("open")] });
+    expect(discord.find("PATCH", new RegExp(`^/channels/${threadId}$`))[0]!.body).toEqual({ applied_tags: [tagId("open"), tagId("hardcore")] });
     const pack = discord.find("PATCH", new RegExp(`/channels/${ids.line}/messages/\\d+$`)).at(-1)!;
     expect(String(pack.body!.content)).toContain("1 open bounty");
   });
@@ -265,7 +265,7 @@ describe("payment", () => {
     expect(kills()[0]!.paid_at).toBeTruthy();
     expect(kills()[0]!.received_at).toBeTruthy();
     expect(db.sqlite.prepare("SELECT gold_earned FROM hunters WHERE discord_user_id = ?").get(HUNTER_USER)).toEqual({ gold_earned: 500 });
-    expect(discord.find("PATCH", new RegExp(`^/channels/${threadId}$`)).map((c) => c.body)).toContainEqual({ applied_tags: [tagId("paid")] });
+    expect(discord.find("PATCH", new RegExp(`^/channels/${threadId}$`)).map((c) => c.body)).toContainEqual({ applied_tags: [tagId("paid"), tagId("hardcore")] });
     expect(JSON.stringify(discord.find("PATCH", new RegExp(`/channels/${threadId}/messages/${threadId}$`)).at(-1)!.body)).toContain("**PAID**");
     expect(closed()).toBe(true);
   });
