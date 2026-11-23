@@ -296,7 +296,7 @@ When a unit's GUID matches an open bounty:
 - **Tooltip:** `WANTED — 500g (Bounty #12, posted by Rich)` in red/gold.
 - **Alert (first sighting per session/zone):** raid-warning style banner + sound:
   > ☠ **WANTED: Grimlok Ashveil — 500g** spotted nearby!
-- **Last-seen update:** stores zone + time locally. It's shared to guildies via the addon channel (throttled) so the in-game board shows "Last seen: Stranglethorn, 3m ago."
+- **Last-seen update:** stores zone, time and who saw them locally. It's shared to guildies via the addon channel (throttled) so the in-game board shows "Last seen: Stranglethorn, 3m ago (by Slac Jaw)." With a relay online it also reaches the wanted poster on Discord (Section 5.10).
 
 ### 5.7 The kill
 
@@ -394,12 +394,13 @@ BountyLineCharDB = {
 
 ### 5.10 The relay (optional)
 
-Addons can't use the network, so by default every hop between the game and Discord is a paste. The **relay** is a small program an officer runs on their own PC that carries two things, so the guild doesn't have to:
+Addons can't use the network, so by default every hop between the game and Discord is a paste. The **relay** is a small program an officer runs on their own PC that carries three things, so the guild doesn't have to:
 
 | Direction | What | How |
 |---|---|---|
 | Discord → game | The Bounty Pack | The relay polls `GET /relay/pack` and writes the pack into its own tiny addon folder (`BountyLine_Relay`). The officer's next login or `/reload` loads it and guild sync shares it. Nobody types `/bl import`. |
 | Game → Discord | Guildies' bounty codes | A guildie's addon sends the bounty code over guild sync. The relay officer's addon shows it as a QR code and takes a screenshot; the relay reads the file and sends the code to `POST /relay/code`. |
+| Game → Discord | Sightings (last seen) | Sightings already travel over guild sync (Section 5.6). The relay officer's addon keeps the newest per bounty and, **at most every 5 minutes** and never in combat, shows them as one `W` code (Compendium 02 Section 3.6) and screenshots it; the relay sends it to `POST /relay/code`. Each wanted poster then shows **👁 Last seen: Wetlands, 12 minutes ago (by Slac Jaw)** in the post text and the embed (Discord keeps the time current). A poster is redrawn for sightings at most every 10 minutes, text only; a sighting held back by that gap is shown by the hourly sweep. Closed posters don't show it. Sightings you chose not to share (*Share my sightings*) aren't relayed. The addon sends sightings only to a relay program that says it carries them (`BountyLine_RelaySightings` in its data file), so an older relay never collects stray screenshots. |
 
 Rules:
 
@@ -589,8 +590,11 @@ Reward: 500g (honor system, paid by Rich Russell)
 Marked in: Stranglethorn Vale · Nov 20, 1:32 PM
 Bounty #12 · Expires Dec 4
 Status: OPEN
+👁 Last seen: Wetlands, 12 minutes ago (by Slac Jaw)   ← with a relay online (5.10)
 [parchment wanted-poster image]
 ```
+
+The note (if any) and the last-seen line are embed fields; the last-seen line is in the post text too, because forum cards preview only the text. Redrawing a poster (status changes, sightings) keeps the note.
 
 ### 8.3 Kill proof post (in the bounty's thread)
 
