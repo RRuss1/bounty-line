@@ -36,7 +36,8 @@ export async function processCode(
 ): Promise<Outcome> {
   const r = decode(raw);
   if (!r.ok) return { ok: false, ...decodeErrorMessage(r.error) };
-  if (r.type === "P") return { ok: null };
+  // Packs are ours; sighting reports only come through the relay (relay.ts).
+  if (r.type === "P" || r.type === "W") return { ok: null };
   if (r.type === "K") {
     const k = r.fields;
     if (!isSeasonKill(k)) return claimKill(env, rest, tenant, k, r.code, authorId, attachments, now);

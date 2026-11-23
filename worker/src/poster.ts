@@ -18,7 +18,26 @@ const STATUS_LABEL: Record<PosterStatus, string> = {
   cancelled: "CANCELLED",
 };
 
-export function wantedPoster(b: BountyPost, opts: { id: number; expiresAt: number; postedBy: string; tenant: Tenant; status?: PosterStatus }) {
+/** Where a wanted player was last seen in game (sightings the relay carried, spec 5.10). */
+export interface LastSeen {
+  at: number;
+  mapId: number;
+  by: string;
+}
+
+/** "Wetlands, <t:…:R> (by Slac Jaw)": Discord shows the time as "12 minutes ago" and keeps it current. */
+export function lastSeenText(s: LastSeen): string {
+  const where = zoneName(s.mapId) ?? "an unknown zone";
+  return `${where}, <t:${s.at}:R>${s.by ? ` (by ${escapeMd(s.by)})` : ""}`;
+}
+
+export function wantedPoster(
+  b: BountyPost,
+  opts: { id: number; expiresAt: number; postedBy: string; tenant: Tenant; status?: PosterStatus; lastSeen?: LastSeen | null },
+) {
+  const status = opts.status ?? "open";
+  // Only while it can still be hunted: a closed poster doesn't need to say where they were.
+  const seen = opts.lastSeen && (status === "open" || status === "review") ? lastSeenText(opts.lastSeen) : null;
   const name = escapeMd(b.targetName || "Unknown");
   const color = Number.parseInt(opts.tenant.config.branding_color.replace("#", ""), 16);
   const embed = {
@@ -29,9 +48,9 @@ export function wantedPoster(b: BountyPost, opts: { id: number; expiresAt: numbe
       `**Reward: ${gold(b.rewardGold)}** (honor system, paid by ${escapeMd(b.posterName || "the poster")})`,
       `Marked${zoneName(b.mapID) ? ` in: ${zoneName(b.mapID)} ·` : ":"} <t:${b.createdAt}:f>`,
       `Bounty #${opts.id} · Expires <t:${opts.expiresAt}:D>`,
-      `Status: **${STATUS_LABEL[opts.status ?? "open"]}**`,
+      `Status: **${STATUS_LABEL[status]}**`,
     ].join("\n"),
-    fields: b.note ? [{ name: "Note", value: escapeMd(b.note) }] : [],
+    fields: [...(b.note ? [{ name: "Note", value: escapeMd(b.note) }] : []), ...(seen ? [{ name: "👁 Last seen", value: seen }] : [])],
     footer: { text: `${boardName(opts.tenant.config.discord_display_name)} · board tag ${opts.tenant.board_tag}` },
   };
   const threadName = `${SKULL} ${b.targetName || "Unknown"} · ${gold(b.rewardGold)}`.slice(0, 100);
@@ -39,6 +58,7 @@ export function wantedPoster(b: BountyPost, opts: { id: number; expiresAt: numbe
   const content = [
     `**Reward: ${gold(b.rewardGold)}** · ${raceName(b.targetRaceID)} ${className(b.targetClassID)} ${level(b.targetLevel)} · ${factionName(b.targetFaction)}`,
     `Bounty #${opts.id} · expires <t:${opts.expiresAt}:D> · posted by <@${opts.postedBy}>`,
+    ...(seen ? [`👁 Last seen: ${seen}`] : []),
   ].join("\n");
   return { threadName, embed, content };
 }

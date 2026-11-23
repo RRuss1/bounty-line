@@ -5,6 +5,8 @@ import type { Env } from "../src/env";
 import worker from "../src/index";
 import { codeLimiter } from "../src/ratelimit";
 import { relayCodeLimiter, relayGuildLimiter, relayNoticeLimiter } from "../src/relay";
+import { seenSweep } from "../src/sightings";
+import { getTenant } from "../src/tenants";
 import { DiscordRest } from "../src/rest";
 import { TestD1 } from "./helpers/d1";
 import { ADMIN, call, command, GUILD_A, ids, makeEnv, MEMBER, setupOptions, STRANGER, USER } from "./helpers/env";
@@ -217,5 +219,68 @@ describe("POST /relay/code", () => {
     await linkPoster();
     for (let i = 0; i < 20; i++) relayCodeLimiter.allow(`${GUILD_A}:${USER}`);
     expect((await postCode(encode("B", bounty()))).status).toBe(429);
+  });
+});
+
+describe("sightings: last seen on the wanted poster (W codes)", () => {
+  // The relay endpoint runs on the real clock.
+  const T = () => Math.floor(Date.now() / 1000);
+  const sightings = (list: { bountyId: number; seenAt: number; mapID?: number; spotterName?: string }[], boardTag = tag) =>
+    encode("W", { schema: 1, boardTag, sentAt: T(), nonce: 9, sightings: list.map((s) => ({ mapID: 1437, spotterName: "Grey Warden", ...s })) });
+  const threadOf = (id: number) => (db.sqlite.prepare("SELECT thread_id FROM bounties WHERE id = ?").get(id) as { thread_id: string }).thread_id;
+  const posterEdits = (id: number) => discord.find("PATCH", new RegExp(`/channels/${threadOf(id)}/messages/${threadOf(id)}$`));
+  const seenRow = (id: number) => db.sqlite.prepare("SELECT last_seen_at, last_seen_map, last_seen_by FROM bounties WHERE id = ?").get(id);
+
+  beforeEach(async () => {
+    await linkPoster();
+    await postCode(encode("B", bounty({ note: "camps the flight master" })));
+  });
+
+  it("puts the newest sighting on the poster, text only", async () => {
+    const at = T() - 120;
+    const res = await postCode(sightings([{ bountyId: 1, seenAt: at }]));
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ ok: true, sightings: 1, updated: 1 });
+    expect(seenRow(1)).toEqual({ last_seen_at: at, last_seen_map: 1437, last_seen_by: "Grey Warden" });
+    const [edit] = posterEdits(1);
+    expect(String(edit!.body!.content)).toContain(`👁 Last seen: Wetlands, <t:${at}:R> (by Grey Warden)`);
+    const fields = (edit!.body!.embeds as { fields: { name: string; value: string }[] }[])[0]!.fields;
+    expect(fields.map((f) => f.name)).toEqual(["Note", "👁 Last seen"]); // a redraw keeps the note
+    expect(edit!.files).toBeUndefined(); // the parchment picture is left alone
+  });
+
+  it("ignores older sightings, unknown bounties, stale reports and other boards", async () => {
+    await postCode(sightings([{ bountyId: 1, seenAt: T() - 60 }]));
+    expect((await postCode(sightings([{ bountyId: 1, seenAt: T() - 600, mapID: 1429 }]))).body).toMatchObject({ updated: 0 });
+    expect((await postCode(sightings([{ bountyId: 99, seenAt: T() - 60 }]))).body).toMatchObject({ updated: 0 });
+    expect((await postCode(sightings([{ bountyId: 1, seenAt: T() - 7 * 3600 }]))).body).toMatchObject({ updated: 0 });
+    expect(seenRow(1)).toMatchObject({ last_seen_map: 1437 });
+    const other = await postCode(sightings([{ bountyId: 1, seenAt: T() }], tag === "ZZZZ" ? "YYYY" : "ZZZZ"));
+    expect(other.status).toBe(422);
+    expect(other.body).toMatchObject({ code: "BOARD" });
+  });
+
+  it("dates a sighting from a fast clock now, not in the future", async () => {
+    const before = T();
+    await postCode(sightings([{ bountyId: 1, seenAt: before + 9999 }]));
+    expect((seenRow(1) as { last_seen_at: number }).last_seen_at).toBeLessThanOrEqual(T());
+  });
+
+  it("redraws a poster at most every 10 minutes; the hourly sweep catches it up", async () => {
+    await postCode(sightings([{ bountyId: 1, seenAt: T() - 300 }]));
+    const newest = T() - 100;
+    expect((await postCode(sightings([{ bountyId: 1, seenAt: newest, mapID: 1429 }]))).body).toMatchObject({ updated: 1 });
+    expect(posterEdits(1)).toHaveLength(1);
+    const tenant = (await getTenant(env.DB, GUILD_A))!;
+    expect(await seenSweep(env, new DiscordRest("t"), tenant, T() + 60)).toBe(0); // still inside the gap
+    expect(await seenSweep(env, new DiscordRest("t"), tenant, T() + 601)).toBe(1);
+    expect(String(posterEdits(1).at(-1)!.body!.content)).toContain(`Elwynn Forest, <t:${newest}:R>`);
+    expect(await seenSweep(env, new DiscordRest("t"), tenant, T() + 1300)).toBe(0); // nothing new
+  });
+
+  it("a closed bounty takes no sightings", async () => {
+    db.sqlite.prepare("UPDATE bounties SET status = 'paid'").run();
+    expect((await postCode(sightings([{ bountyId: 1, seenAt: T() }]))).body).toMatchObject({ updated: 0 });
+    expect(posterEdits(1)).toHaveLength(0);
   });
 });

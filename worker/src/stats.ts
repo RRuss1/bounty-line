@@ -9,6 +9,7 @@ import { log } from "./log";
 import type { DiscordRest } from "./rest";
 import { seasonSweep } from "./seasons";
 import { refreshPack } from "./pack";
+import { seenSweep } from "./sightings";
 import { audit, getTenant, patchConfig, type Tenant } from "./tenants";
 import { escapeMd, gold } from "./wow";
 
@@ -167,6 +168,7 @@ export async function expirySweep(env: Env, rest: DiscordRest, now: number): Pro
       n++;
     }
     n += await seasonSweep(env, rest, tenant, now); // Open Seasons past their end date: payout sheet
+    await seenSweep(env, rest, tenant, now); // last-seen lines held back by the 10-minute gap
   }
   if (n) log(env, "info", "cron.expired", { count: n });
   await proofCleanup(env, now);

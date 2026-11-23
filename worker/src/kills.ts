@@ -13,7 +13,7 @@ import type { Env } from "./env";
 import { log } from "./log";
 import { refreshPack } from "./pack";
 import { postPaymentPrompt } from "./payments";
-import { SKULL, wantedPoster, wantedPosterImage } from "./poster";
+import { type LastSeen, SKULL, wantedPoster, wantedPosterImage } from "./poster";
 import type { PosterStatus } from "./poster-image";
 import type { DiscordRest } from "./rest";
 import { audit, bountyTagIds, type ForumTagKey, type Tenant } from "./tenants";
@@ -51,6 +51,14 @@ export interface BountyRow {
   thread_id: string | null;
   /** The B code that opened the bounty (rows are read with SELECT *). */
   source_code?: string | null;
+  /** The newest sighting the relay carried (spec 5.10). */
+  last_seen_at?: number | null;
+  last_seen_map?: number | null;
+  last_seen_by?: string | null;
+}
+
+export function lastSeenOf(b: BountyRow): LastSeen | null {
+  return b.last_seen_at ? { at: b.last_seen_at, mapId: b.last_seen_map ?? 0, by: b.last_seen_by ?? "" } : null;
 }
 
 const fail = (code: string, message: string): Result => ({ ok: false, code, message });
@@ -313,10 +321,7 @@ export async function setBountyStatus(env: Env, rest: DiscordRest, tenant: Tenan
     const tags = bountyTagIds(tenant, STATUS_TAG[status]!, b.reward_gold);
     if (tags.length) await rest.setThreadTags(b.thread_id, tags).catch((e) => log(env, "warn", "bounty.tag_failed", { tenant_id: tenant.id, error: String(e) }));
     try {
-      const post = rowToPost(updated);
-      const { n } = (await env.DB.prepare("SELECT COUNT(*) AS n FROM contributions WHERE tenant_id = ?1 AND bounty_id = ?2").bind(tenant.id, b.id).first<{ n: number }>()) ?? { n: 1 };
-      if (n > 1) post.posterName = `${post.posterName} +${n - 1}`; // stacked: "paid by Slac Jaw +2"
-      const poster = wantedPoster(post, { id: b.id, expiresAt: b.expires_at, postedBy: b.poster_discord_id ?? "", tenant, status });
+      const { post, poster } = await posterFor(env, tenant, updated, status);
       const image = await wantedPosterImage(env, post, { id: b.id, expiresAt: b.expires_at, tenant, status });
       // The forum post's first message has the thread's id.
       await rest.editPost(b.thread_id, b.thread_id, { content: poster.content, embed: poster.embed, image });
@@ -327,8 +332,19 @@ export async function setBountyStatus(env: Env, rest: DiscordRest, tenant: Tenan
   await refreshPack(env, rest, tenant, now);
 }
 
+/** A stored bounty's wanted-poster text: stacked posters ("Slac Jaw +2") and the last sighting. */
+export async function posterFor(env: Env, tenant: Tenant, b: BountyRow, status: PosterStatus) {
+  const post = rowToPost(b);
+  const { n } = (await env.DB.prepare("SELECT COUNT(*) AS n FROM contributions WHERE tenant_id = ?1 AND bounty_id = ?2").bind(tenant.id, b.id).first<{ n: number }>()) ?? { n: 1 };
+  if (n > 1) post.posterName = `${post.posterName} +${n - 1}`; // stacked: "paid by Slac Jaw +2"
+  const poster = wantedPoster(post, { id: b.id, expiresAt: b.expires_at, postedBy: b.poster_discord_id ?? "", tenant, status, lastSeen: lastSeenOf(b) });
+  return { post, poster };
+}
+
 /** Rebuilds the B-code view of a stored bounty, for redrawing its poster. */
 export function rowToPost(b: BountyRow) {
+  // The note lives only in the code that opened the bounty.
+  const opened = b.source_code ? decode(b.source_code) : null;
   return {
     schema: 1,
     boardTag: "",
@@ -345,7 +361,7 @@ export function rowToPost(b: BountyRow) {
     mapID: b.zone_map_id ?? 0,
     createdAt: b.created_at ?? 0,
     nonce: 0,
-    note: "",
+    note: opened && opened.ok && opened.type === "B" ? opened.fields.note : "",
     mode: 0,
     existingBountyId: 0,
   };

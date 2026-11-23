@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { dataLua, isBountyCode, isCode, parseSetupCode, readQr } from "../lib.mjs";
+import { dataLua, isCode, isRelayCode, isSightings, parseSetupCode, readQr } from "../lib.mjs";
 
 const vector = JSON.parse(readFileSync(new URL("../../shared/qr-vector.json", import.meta.url), "utf8"));
 const TOKEN = `111111111111111111.${"a".repeat(43)}`;
@@ -20,14 +20,18 @@ test("setup code refuses anything that isn't a plain https address and a token",
 
 test("only plain codes count as codes", () => {
   assert.equal(isCode(vector.code), true);
-  assert.equal(isBountyCode(vector.code), false); // the vector is a kill code
-  assert.equal(isBountyCode("BL1-B-04R30C1G00-1AXA"), true);
+  assert.equal(isRelayCode(vector.code), false); // the vector is a kill code
+  assert.equal(isRelayCode("BL1-B-04R30C1G00-1AXA"), true);
+  assert.equal(isRelayCode("BL1-W-04R30C1G00-1AXA"), true);
+  assert.equal(isSightings("BL1-W-04R30C1G00-1AXA"), true);
+  assert.equal(isSightings("BL1-B-04R30C1G00-1AXA"), false);
   for (const bad of ['BL1-B-AB"; os.exit() --', "bl1-b-abc-1234", "BL1-B-ABC 1234", null, 42]) assert.equal(isCode(bad), false);
 });
 
 test("the game's data file holds only codes and a time", () => {
   const lua = dataLua(["BL1-P-AAAA-1111", "BL1-P-BBBB-2222"], 1795200000);
   assert.match(lua, /^BountyLine_RelayAlive = 1795200000$/m);
+  assert.match(lua, /^BountyLine_RelaySightings = true$/m);
   assert.match(lua, /^BountyLine_RelayPack = "BL1-P-AAAA-1111 BL1-P-BBBB-2222"$/m);
   assert.match(dataLua(null, 5), /^BountyLine_RelayPack = nil$/m);
   assert.throws(() => dataLua(['BL1-P-AAAA-1111" os.exit() --'], 1));
