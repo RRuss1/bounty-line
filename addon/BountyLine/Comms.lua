@@ -191,10 +191,10 @@ end
 
 -- A wanted player was spotted: remember it and tell the guild (at most once a minute each).
 function Comms.Seen(bountyId, mapID, now)
-  local me = ns.FullName("player")
-  local newest = ns.RecordSeen(bountyId, mapID, now, me)
+  local myName = ns.FullName("player")
+  local newest = ns.RecordSeen(bountyId, mapID, now, myName)
   if (BountyLineDB.settings or {}).shareSeen == false then return end
-  if newest and ns.RelayNoteSeen then ns.RelayNoteSeen(bountyId, mapID, now, me) end
+  if newest and ns.RelayNoteSeen then ns.RelayNoteSeen(bountyId, mapID, now, myName) end
   local last = seenSentAt[bountyId]
   if last and GetTime() - last < SEEN_EVERY then return end
   seenSentAt[bountyId] = GetTime()
