@@ -223,6 +223,15 @@ describe("claiming Open Season kills", () => {
     expect(JSON.stringify(proof.body)).toContain("never saw their guild");
   });
 
+  it("open world only: a season kill outside the known zones is flagged and never auto-approved", async () => {
+    db.sqlite.prepare("INSERT INTO hunters (tenant_id, discord_user_id, approved, streak, trust) VALUES (?, ?, 5, 5, 'trusted')").run(GUILD_A, HUNTER_USER);
+    await say(kill({ mapID: 1460 }), [shot()], HUNTER_USER);
+    expect(rows("SELECT verdict FROM season_kills")).toEqual([{ verdict: "pending" }]);
+    expect(JSON.parse(String((rows("SELECT checks_json FROM season_kills")[0] as { checks_json: string }).checks_json))).toMatchObject({ openWorld: false });
+    const proof = discord.find("POST", new RegExp(`/channels/${seasonRow().thread_id}/messages$`))[0]!;
+    expect(JSON.stringify(proof.body)).toContain("Not a known open-world zone (map 1460)");
+  });
+
   it("a season a guildie just declared (no number in the code yet) is found by the guild", async () => {
     await say(kill({ seasonId: 0 }), [shot()], HUNTER_USER);
     expect(rows("SELECT season_id, guild_seen FROM season_kills")).toEqual([{ season_id: 1, guild_seen: 1 }]);

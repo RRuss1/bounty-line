@@ -17,7 +17,7 @@ import { refreshPack } from "./pack";
 import { SKULL } from "./poster";
 import type { DiscordRest } from "./rest";
 import { audit, type ForumTagKey, type Tenant } from "./tenants";
-import { escapeMd, gold } from "./wow";
+import { escapeMd, gold, openWorldCheck } from "./wow";
 
 const DAY = 86400;
 /** A season code must be posted within this long of being made in game. */
@@ -375,12 +375,13 @@ export async function claimSeasonKill(
     window: k.killedAt <= now + 300 && now - k.killedAt <= windowHours * 3600,
     ageMinutes: ageMin,
     linked: linked ? linked.discord_user_id === authorId : null,
+    openWorld: openWorldCheck(k.mapID).ok,
     imageHash: hash,
   };
   const ai = await checkStamp(env, { bytes, contentType }, { code, bountyId: s.id, target: k.victimName ?? "" }, now);
   const hunter = await env.DB.prepare("SELECT trust FROM hunters WHERE tenant_id = ?1 AND discord_user_id = ?2").bind(tenant.id, authorId).first<{ trust: string | null }>();
   const trusted = hunter?.trust === "trusted";
-  const clean = seen && checks.window && checks.linked !== false && ai.status === "match";
+  const clean = seen && checks.openWorld && checks.window && checks.linked !== false && ai.status === "match";
   const mode = tenant.config.auto_approve;
   const auto = clean && (mode === "all_clean" || (mode === "trusted_only" && trusted));
 
@@ -404,6 +405,7 @@ export async function claimSeasonKill(
       : `⚠️ The addon never saw their guild: check the nameplate in the screenshot says **${escapeMd(s.guild_name)}**`;
   const lines = [
     guildLine,
+    openWorldCheck(k.mapID).line,
     checks.window ? `✅ Posted ${ageMin} min after the kill` : `⚠️ Posted ${ageMin} min after the kill (limit ${windowHours}h)`,
     checks.honor ? "✅ Honor kill confirmed in game" : "➖ No honor message (some kills give none)",
     checks.linked === true ? "✅ Character linked to this Discord user" : checks.linked === false ? "⚠️ Character is linked to a different Discord user" : "➖ Character not linked yet (`/bl link` in game)",
