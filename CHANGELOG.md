@@ -1,7 +1,15 @@
 # Changelog
 
-## v0.9.2: open world only, Hardcore tag
+## v0.9.2: open world only, Hardcore tag, fair-play rules
 
+- **Totems, guardians and summons count.** A killing blow by your totem, guardian or other summon now gives a kill code, like your pet's, when you're not in a group. (In a group the game can't tell whose totem it was; see spec §23 item 28.)
+- **Only kills after the bounty count.** A kill from before the bounty was made in game is refused.
+- **One-hour cooldown per target** (as the spec always said): the same hunter can't claim the same player again within 60 minutes of their last kill on them. `/bl config claim_cooldown_minutes`.
+- **Trust needs different posters.** The five approved kills that make a hunter trusted must each be on a different poster's bounty, so nobody farms trust off a friend's alt.
+- **Pay your debts.** No new bounties (or gold added, or Open Seasons) while you owe on a bounty approved 3 or more days ago. `/bl config unpaid_block_days`.
+- **At most 10 open bounties per poster.** `/bl config max_open_per_poster`.
+- **`/bl extend id: days:`** gives an open bounty more days (poster, a contributor or an officer; at most 60 days from now). The poster and the Bounty Pack update.
+- **Hunters ping.** Pick a role with `/bl config hunter_role`; it's pinged on the wanted poster of every new bounty of 50g or more (`hunter_ping_min_gold`).
 - **Hardcore tag.** Bounties of 50g or more get a **Hardcore** forum tag next to their status, so the big ones stand out on the Bounty Board. It stays through Claimed, Awaiting Payment and Paid, and Add to Bounty adds it when the total crosses the line. Admins move the line with `/bl config hardcore_min_gold` (0 turns it off), which re-tags live bounties.
 - **Bounties are open world only.** A killing blow in a battleground, arena, dungeon, raid or scenario never makes a kill code, for a bounty or an Open Season; if the victim was wanted, a chat line says the kill doesn't count there. Inside instances wanted players get no skull, target badge, tooltip line, alert or last-seen report. No bounty options inside instances either: no right-click section, `/bl mark`, Add to Bounty or Open Season there, because battlegrounds mix in players from other realms you can never meet in the open world.
 - Bounty Board backstop: every kill claim now says where the kill happened ("Killed in Wetlands (open world)"). A kill whose map isn't a known open-world zone is flagged for the officers and is never auto-approved.
@@ -9,6 +17,8 @@
 ### Deployer notes
 
 - Run `/bl setup` again once (same options): it creates the **Hardcore** forum tag and tags the live bounties of 50g or more. The bot needs Manage Channels on the forum for this, as before.
+- Migration `0008_trust_posters.sql` adds two columns; the deploy applies it. `/bl extend` is new and `/bl config` has five new options; the deploy registers them.
+- Hunters ping: the role must allow being mentioned (Server Settings → Roles → the role → **Allow anyone to @mention this role**), or give the bot **Mention @everyone, @here and All Roles**.
 - The bot changes deploy when merged; players need the addon update for the in-game part.
 
 ## v0.9.1: Open Season window, prize pool minimum
