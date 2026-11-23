@@ -282,6 +282,19 @@ const packTerms: BountyPack = {
 };
 const packTermsNoSeasons: BountyPack = { ...packThree, schema: 3, packVersion: 1795302100, seasons: [], bountyTerms: [{ bountyId: 1, kills: 1, killsLeft: 1, payout: 0, terms: [{ kind: TERM.soloBonus, value: 0, gold: 10 }] }] };
 
+// ---------------------------------------------------------------- bounties by name (P4)
+
+const packWanted: BountyPack = {
+  ...packTerms,
+  schema: 4,
+  packVersion: 1795303000,
+  wanted: [
+    { bountyId: 14, targetName: "Grimlok Ashveil", targetFaction: 1, rewardGold: 75, posterName: "Slac Jaw", expiresAt: 1796500000 },
+    { bountyId: 1001, targetName: "Zoë Brightblade", targetFaction: 2, rewardGold: 10000, posterName: "", expiresAt: 1796600000 },
+  ],
+};
+const packWantedOnly: BountyPack = { ...packEmpty, schema: 4, packVersion: 1795303100, seasons: [], bountyTerms: [], wanted: [packWanted.wanted![0]!] };
+
 const codes = [
   { name: "B basic", type: "B", fields: bBasic },
   { name: "B add to existing, unicode, note, no board tag", type: "B", fields: bStack },
@@ -314,6 +327,8 @@ const codes = [
   { name: "K3 kill with nothing known", type: "K", fields: kTermsUnknown },
   { name: "P3 bounty terms and seasons", type: "P", fields: packTerms },
   { name: "P3 bounty terms, no seasons", type: "P", fields: packTermsNoSeasons },
+  { name: "P4 bounties by name, with seasons and terms", type: "P", fields: packWanted },
+  { name: "P4 one bounty by name, nothing else", type: "P", fields: packWantedOnly },
 ].map((v) => {
   const code = v.type === "P" ? encodePack(v.fields as BountyPack) : [encode(v.type as CodeType, v.fields)];
   assert(code.length === 1, `${v.name} should be a single code`);
@@ -325,11 +340,11 @@ const code = (name: string) => codes.find((c) => c.name === name)!.code;
 
 // ---------------------------------------------------------------- forward compatibility (newer schema)
 
-// K and P schema 3 are now real (bounty terms), so "a newer schema" is 4 for K and P, 3 for S and B, 2 for W.
+// K schema 3 and P schema 4 are now real, so "a newer schema" is 4 for K, 5 for P, 3 for S and B, 2 for W.
 const futureK = _unsafe.wrapBytes("K", [..._unsafe.payload("K", { ...kTerms, schema: 4, flags: 7, guildSeen: 9, facts: 255 }), 0xde, 0xad, 0xbe, 0xef]);
 const futureB = _unsafe.wrapBytes("B", [..._unsafe.payload("B", { ...bExpand, schema: 3, payout: 9, days: 3, kills: 0 }), 0x01, 0x02]);
 const futureS = _unsafe.wrapBytes("S", [..._unsafe.payload("S", { ...sPot, schema: 3, kind: 9, days: 3, minKills: 7 }), 0x01]);
-const futureP = _unsafe.wrapBytes("P", _unsafe.packBytes([..._unsafe.payload("P", { ...packTerms, schema: 4 }), 0x00, 0x2a]));
+const futureP = _unsafe.wrapBytes("P", _unsafe.packBytes([..._unsafe.payload("P", { ...packWanted, schema: 5 }), 0x00, 0x2a]));
 const futureW = _unsafe.wrapBytes("W", [..._unsafe.payload("W", { ...wOne, schema: 2, sightings: [] }), 0x07]);
 const forwardCompat = [
   {
@@ -351,10 +366,10 @@ const forwardCompat = [
     fields: { ...sPot, schema: 3, kind: 9, days: 3, minKills: 7 },
   },
   {
-    name: "P schema 4 with appended data: known fields read, rest ignored",
+    name: "P schema 5 with appended data: known fields read, rest ignored",
     code: futureP,
     type: "P",
-    fields: { ...packTerms, schema: 4 },
+    fields: { ...packWanted, schema: 5 },
   },
   {
     name: "W schema 2 with an appended byte and no sightings: known fields read, rest ignored",

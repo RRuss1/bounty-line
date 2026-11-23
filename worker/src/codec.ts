@@ -197,6 +197,16 @@ export interface PackSeason {
   expiresAt: number;
 }
 
+/** A bounty set by name from Discord (/bl wanted, spec 5.12): no GUID until a kill locks it. */
+export interface PackWanted {
+  bountyId: number;
+  targetName: string;
+  targetFaction: number;
+  rewardGold: number;
+  posterName: string;
+  expiresAt: number;
+}
+
 export interface CharacterLink {
   schema: number;
   boardTag: string;
@@ -253,6 +263,8 @@ export interface BountyPack {
   seasons?: PackSeason[];
   /** Schema 3 only: the terms of bounties that have any (the Expand section). */
   bountyTerms?: PackTerms[];
+  /** Schema 4 only: bounties set by name, not yet locked to a GUID. */
+  wanted?: PackWanted[];
 }
 
 export interface PackTerms {
@@ -334,6 +346,15 @@ const PACK_TERMS: readonly Field[] = [
   ["killsLeft", "u8"],
   ["payout", "u8"],
   ["terms", "list", TERM_FIELDS],
+];
+
+const PACK_WANTED: readonly Field[] = [
+  ["bountyId", "u32"],
+  ["targetName", "vstr", 255],
+  ["targetFaction", "faction"],
+  ["rewardGold", "u32"],
+  ["posterName", "vstr", 255],
+  ["expiresAt", "u32"],
 ];
 
 const SIGHTING: readonly Field[] = [
@@ -423,12 +444,13 @@ const LAYOUT: Readonly<Record<CodeType, readonly Field[]>> = {
  */
 const K2: readonly Field[] = [...LAYOUT.K, ["seasonId", "u32"], ["victimName", "vstr", 255], ["guildName", "vstr", 255], ["guildSeen", "u8"]];
 const P2: readonly Field[] = [...LAYOUT.P, ["seasons", "list", PACK_SEASON]];
+const P3: readonly Field[] = [...P2, ["bountyTerms", "list", PACK_TERMS]];
 
 export const SCHEMAS: Readonly<Record<CodeType, readonly (readonly Field[])[]>> = {
   B: [LAYOUT.B, [...LAYOUT.B, ["kills", "u8"], ["payout", "u8"], ["days", "u8"], ["terms", "list", TERM_FIELDS]]],
   K: [LAYOUT.K, K2, [...K2, ["killerClassID", "u8"], ["killerLevel", "u8"], ["victimLevel", "u8"], ["facts", "u8"]]],
   L: [LAYOUT.L],
-  P: [LAYOUT.P, P2, [...P2, ["bountyTerms", "list", PACK_TERMS]]],
+  P: [LAYOUT.P, P2, P3, [...P3, ["wanted", "list", PACK_WANTED]]],
   S: [LAYOUT.S, [...LAYOUT.S, ["minKills", "u16"]]],
   W: [LAYOUT.W],
 };

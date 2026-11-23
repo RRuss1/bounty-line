@@ -1330,136 +1330,14 @@
         ]
       },
       "code": "BL1-P-F3D67XHP1XTCPSJJQB1FRJPT4YTNHG9S4ERVGE5NPJM5G895AMGT0A1K2WMFCT6P2G30C1J60R37A086CRG8Q1T1A2DMPPP7JVFHTA4ZJEFTVR2RKH8SD6MSRF408N7NGMHKG9SHB70JQC9WBFM720TG6MQN0DAGP6FTGVVYF98P4JC689R7CTAE9SRM2KK6954PM497A27VN05G8XMHX453W2DGRRD44MKAESMBK017ACXZC1GE01QAHRBRHJHZQHDC3A986CYT69194WRJB583X0GCW8W2GZDQ5MMA6A9HB0JBYA5Q54WBYB5V6HEV83B04S8S30CR2913S34GR32W00P80FSQ-00MP"
-    }
-  ],
-  "forwardCompat": [
-    {
-      "name": "K schema 4 with appended fields and new values: known fields read, rest ignored",
-      "code": "BL1-K-0H5KEMA60000030024NGM6SC7M012AR14D2PE4T8ENQ78SBJ416P6J3NDST6AWK6C5HPA0BB084SY1CT0W102000000000090GK2NZYYNPZEY-0QFF",
-      "type": "K",
-      "fields": {
-        "schema": 4,
-        "boardTag": "K7QF",
-        "bountyId": 12,
-        "victimGUID": "Player-4395-0A1B2C3D",
-        "killerGUID": "Player-4395-01234567",
-        "killerName": "Hunter McHunterface",
-        "killerFaction": 1,
-        "killedAt": 1795295647,
-        "mapID": 1434,
-        "flags": 7,
-        "nonce": 513,
-        "seasonId": 0,
-        "victimName": "",
-        "guildName": "",
-        "guildSeen": 9,
-        "killerClassID": 4,
-        "killerLevel": 38,
-        "victimLevel": 42,
-        "facts": 255
-      }
     },
     {
-      "name": "B schema 3 with appended fields and new values: known fields read, rest ignored",
-      "code": "BL1-B-0D5KEMA6008JP2GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082581020000E20049B03ZYW488ADP62RS099GQE1CTDC09800GYW00000000000283004021CT00001J0200200000JR1G0000000341000000002B0M01G00001J0C000000006A200200000011G000000000082-0ZJH",
-      "type": "B",
-      "fields": {
-        "schema": 3,
-        "boardTag": "K7QF",
-        "targetGUID": "Player-4395-0A1B2C3D",
-        "targetName": "Grimlok Ashveil",
-        "targetClassID": 1,
-        "targetRaceID": 2,
-        "targetLevel": 42,
-        "targetFaction": 2,
-        "posterFaction": 1,
-        "rewardGold": 900,
-        "posterGUID": "Player-4395-00FFEE11",
-        "posterName": "Slac Jaw",
-        "mapID": 1434,
-        "createdAt": 1795200000,
-        "nonce": 4343,
-        "note": "",
-        "mode": 0,
-        "existingBountyId": 0,
-        "kills": 0,
-        "payout": 9,
-        "days": 3,
-        "terms": [
-          {
-            "kind": 1,
-            "value": 1434,
-            "gold": 200
-          },
-          {
-            "kind": 2,
-            "value": 4,
-            "gold": 150
-          },
-          {
-            "kind": 3,
-            "value": 0,
-            "gold": 50
-          },
-          {
-            "kind": 4,
-            "value": 0,
-            "gold": 75
-          },
-          {
-            "kind": 5,
-            "value": 24,
-            "gold": 100
-          },
-          {
-            "kind": 6,
-            "value": 0,
-            "gold": 25
-          },
-          {
-            "kind": 66,
-            "value": 4,
-            "gold": 0
-          },
-          {
-            "kind": 67,
-            "value": 0,
-            "gold": 0
-          }
-        ]
-      }
-    },
-    {
-      "name": "S schema 3 with an appended field and new kind: known fields read, rest ignored",
-      "code": "BL1-S-0D5KEMA61X46YVKFE8G62VK441B62V3FE80G42800001J0000Z80600H5C0FZVGH119PRRB341562XVB02A0044J00000000003G2-1NYF",
-      "type": "S",
-      "fields": {
-        "schema": 3,
-        "boardTag": "K7QF",
-        "guildName": "Honor and Valor",
-        "guildFaction": 1,
-        "posterFaction": 2,
-        "kind": 9,
-        "perKillGold": 25,
-        "totalGold": 2000,
-        "days": 3,
-        "posterGUID": "Player-4395-00FFEE11",
-        "posterName": "Slac Jaw",
-        "createdAt": 1795200000,
-        "nonce": 4242,
-        "mode": 0,
-        "existingSeasonId": 0,
-        "minKills": 7
-      }
-    },
-    {
-      "name": "P schema 4 with appended data: known fields read, rest ignored",
-      "code": "BL1-P-F3D7B45Z9V140767FXPTKDMA052142EBRQ291A4KH5RQ444C288T6TF2W1H8XXN09P7HXE9BP8CJD7P073R0MFG61S73X11ERVCGFW3Q60C17EF1XVVYFYXXZFY2XMSWQGZ8VKDDQVTNBEB0HBA47AGM3D44A0J6NSJD9GYTZFJ1200CG1N1WB4CP98DGQD9XGEYBKNGSX2MS3JNF37J4VMRN3X7CF2EFNS4X1ZHZB3GHNBBN13F2SD94PX959H1Y7H03SXASYHK8SEJ8N7KAQVC1G94RJ6BKW3HVTNKF3HG1QEP4Z02NEQFYAVP5YJCD8SEN1K9KF9R0E88WJZ199K3VT8S2KXWAK49WBY560Q8THSKSKJNRGS48899M174GSS223BM80CHQQHFMFXTC6CXRBFXJWB22F0Z8PG0PZYT16VEYT20X4XPCGT6CMGSZBAQTQFZGYNEG0Q85ESHDVMEC57K0ZHN461WF4ZPM59WE02D3CVF224PCSCVJDMK81YMX8ZZTEVFA71V7YARRTJM-0DQ8",
+      "name": "P4 bounties by name, with seasons and terms",
       "type": "P",
       "fields": {
         "schema": 4,
         "boardTag": "K7QF",
-        "packVersion": 1795302000,
+        "packVersion": 1795303000,
         "minAddonVersion": 1002,
         "discordDisplayName": "Les Chasseurs de Primes ⚔",
         "rewardMin": 1,
@@ -1583,6 +1461,326 @@
             "killsLeft": 5,
             "payout": 1,
             "terms": []
+          }
+        ],
+        "wanted": [
+          {
+            "bountyId": 14,
+            "targetName": "Grimlok Ashveil",
+            "targetFaction": 1,
+            "rewardGold": 75,
+            "posterName": "Slac Jaw",
+            "expiresAt": 1796500000
+          },
+          {
+            "bountyId": 1001,
+            "targetName": "Zoë Brightblade",
+            "targetFaction": 2,
+            "rewardGold": 10000,
+            "posterName": "",
+            "expiresAt": 1796600000
+          }
+        ]
+      },
+      "code": "BL1-P-F3D7AM9Z9Z14053ZDPPVD2G20A4R9S8PCQ8CKH1R7444D2C8T4T33HP53KPM2TWFTSE8PV46H57P077R19Z0J4RWKKY11EN8JE1HZG3QCMG0DFF1VTZXZVYXXYYSQABFKZQFQTPTQ7V5JEK226MVMD4AB1BM9H31WH27G7ECQM7EY02004M6EG235W2XKXFSTB34XYG0XCYF9JBEWKF313SB5AHBW3CBAEDHSMMYQZYDCHZM4AH12Z2WD226TGB3JXC7X5ZKX2D7PWECGJ4SRWH6AZNGC64GGRYQCPPMCSZ7W2YSV8XW00NJ5WSHFRF8G5A89NVPWCKAE3HKA28FK50X1NW4PY1PP7H50X3C27VFSGN0KZ49RJYQR8G191061RWT6F0M18SA1205DEHD2Z4H3A6YSVYSE5H1B1E9YE7VHNAVB4T56YXM2WT0B8SY2E8J4QYXJKWKYN759G0DJCN5W5PJHYGGZNKHASPGVH5HWCN51X8DER85HMSSPH6598183TJRHQEAFBPB75JAZ9D93Y8FSJBGZ4NR46ZWK1D5VCKKY05NZ3SZKA47WB0-0PC9"
+    },
+    {
+      "name": "P4 one bounty by name, nothing else",
+      "type": "P",
+      "fields": {
+        "schema": 4,
+        "boardTag": "K7QF",
+        "packVersion": 1795303100,
+        "minAddonVersion": 1000,
+        "discordDisplayName": "WoW Forever",
+        "rewardMin": 1,
+        "rewardMax": 10000,
+        "bounties": [],
+        "seasons": [],
+        "bountyTerms": [],
+        "wanted": [
+          {
+            "bountyId": 14,
+            "targetName": "Grimlok Ashveil",
+            "targetFaction": 1,
+            "rewardGold": 75,
+            "posterName": "Slac Jaw",
+            "expiresAt": 1796500000
+          }
+        ]
+      },
+      "code": "BL1-P-F3D67W9P1XTCPSJJVF1ZS0HV7GZNSG9DQWMBAB5NH20R30CHG50NT028GC091KE0RZQNX54SKE9SZBF0B2E535MTK41H5X761374JK2PY152SKRPS5900055DW8V4-0VWX"
+    }
+  ],
+  "forwardCompat": [
+    {
+      "name": "K schema 4 with appended fields and new values: known fields read, rest ignored",
+      "code": "BL1-K-0H5KEMA60000030024NGM6SC7M012AR14D2PE4T8ENQ78SBJ416P6J3NDST6AWK6C5HPA0BB084SY1CT0W102000000000090GK2NZYYNPZEY-0QFF",
+      "type": "K",
+      "fields": {
+        "schema": 4,
+        "boardTag": "K7QF",
+        "bountyId": 12,
+        "victimGUID": "Player-4395-0A1B2C3D",
+        "killerGUID": "Player-4395-01234567",
+        "killerName": "Hunter McHunterface",
+        "killerFaction": 1,
+        "killedAt": 1795295647,
+        "mapID": 1434,
+        "flags": 7,
+        "nonce": 513,
+        "seasonId": 0,
+        "victimName": "",
+        "guildName": "",
+        "guildSeen": 9,
+        "killerClassID": 4,
+        "killerLevel": 38,
+        "victimLevel": 42,
+        "facts": 255
+      }
+    },
+    {
+      "name": "B schema 3 with appended fields and new values: known fields read, rest ignored",
+      "code": "BL1-B-0D5KEMA6008JP2GV5GYGYHVJD5PPRVVB410Q6T3PCNMPR082581020000E20049B03ZYW488ADP62RS099GQE1CTDC09800GYW00000000000283004021CT00001J0200200000JR1G0000000341000000002B0M01G00001J0C000000006A200200000011G000000000082-0ZJH",
+      "type": "B",
+      "fields": {
+        "schema": 3,
+        "boardTag": "K7QF",
+        "targetGUID": "Player-4395-0A1B2C3D",
+        "targetName": "Grimlok Ashveil",
+        "targetClassID": 1,
+        "targetRaceID": 2,
+        "targetLevel": 42,
+        "targetFaction": 2,
+        "posterFaction": 1,
+        "rewardGold": 900,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Slac Jaw",
+        "mapID": 1434,
+        "createdAt": 1795200000,
+        "nonce": 4343,
+        "note": "",
+        "mode": 0,
+        "existingBountyId": 0,
+        "kills": 0,
+        "payout": 9,
+        "days": 3,
+        "terms": [
+          {
+            "kind": 1,
+            "value": 1434,
+            "gold": 200
+          },
+          {
+            "kind": 2,
+            "value": 4,
+            "gold": 150
+          },
+          {
+            "kind": 3,
+            "value": 0,
+            "gold": 50
+          },
+          {
+            "kind": 4,
+            "value": 0,
+            "gold": 75
+          },
+          {
+            "kind": 5,
+            "value": 24,
+            "gold": 100
+          },
+          {
+            "kind": 6,
+            "value": 0,
+            "gold": 25
+          },
+          {
+            "kind": 66,
+            "value": 4,
+            "gold": 0
+          },
+          {
+            "kind": 67,
+            "value": 0,
+            "gold": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "S schema 3 with an appended field and new kind: known fields read, rest ignored",
+      "code": "BL1-S-0D5KEMA61X46YVKFE8G62VK441B62V3FE80G42800001J0000Z80600H5C0FZVGH119PRRB341562XVB02A0044J00000000003G2-1NYF",
+      "type": "S",
+      "fields": {
+        "schema": 3,
+        "boardTag": "K7QF",
+        "guildName": "Honor and Valor",
+        "guildFaction": 1,
+        "posterFaction": 2,
+        "kind": 9,
+        "perKillGold": 25,
+        "totalGold": 2000,
+        "days": 3,
+        "posterGUID": "Player-4395-00FFEE11",
+        "posterName": "Slac Jaw",
+        "createdAt": 1795200000,
+        "nonce": 4242,
+        "mode": 0,
+        "existingSeasonId": 0,
+        "minKills": 7
+      }
+    },
+    {
+      "name": "P schema 5 with appended data: known fields read, rest ignored",
+      "code": "BL1-P-F3D7AM9Z9Z14053ZDPPVD2GA0A4R9S8P4N8JE4Z3WGG1G9928V9W860QEET0FB9XB9SJVCGS4RZ82WF05FW2AK3GE3S47T529R77W06ZJP0HHX46FFZQXFVQQZVMXBVDKZQFQTQAQ7V5JF3226MVGD4AB13M9H31WH27GVECQM7EW02004MAAGA35W2SKXESWB3CXRG1TSWYH4YXS2YP27JQAH27T6RPMWV3K92XFZMTV1Z8F5227Y1RBW7NQ0P65TRZR3Q7T4TZFRMR149KK9BMPVD0JC10ENXY8D59SQYDR5NJPNVR0EB4BYK2ZGQ10CMGQBZ5RR6MW7B6M0GF6A9KXKSTDW3CCB2T2T6V4BPFNYBY5Y8KKCTR1P1N040T73J8SWJG534800GPNJRMDWT5D8T35FV7RY4NA516SWZY4NKECQ8MSVEHDV81137T9H28MZ3NAFKFYM4N6M0P9JWMGTVT3T03YJFNB622ECQQKJ4M7S04V1V56K7784GNS84G8AH36NS9ZEHEWY8BT5H6FS0F5HY3WPQ0GVQGCDH7BJEER77QYFE2V87SJ6KYAW-0HSQ",
+      "type": "P",
+      "fields": {
+        "schema": 5,
+        "boardTag": "K7QF",
+        "packVersion": 1795303000,
+        "minAddonVersion": 1002,
+        "discordDisplayName": "Les Chasseurs de Primes ⚔",
+        "rewardMin": 1,
+        "rewardMax": 10000,
+        "bounties": [
+          {
+            "bountyId": 12,
+            "targetGUID": "Player-4395-0A1B2C3D",
+            "targetName": "Grimlok Ashveil",
+            "targetClassID": 1,
+            "targetFaction": 2,
+            "rewardGold": 500,
+            "posterName": "Slac Jaw",
+            "expiresAt": 1796400000
+          },
+          {
+            "bountyId": 13,
+            "targetGUID": "Player-4395-1B2C3D4E",
+            "targetName": "Mograth Skullsplitter",
+            "targetClassID": 9,
+            "targetFaction": 2,
+            "rewardGold": 10000,
+            "posterName": "Hunter McHunterface",
+            "expiresAt": 1796486400
+          },
+          {
+            "bountyId": 1000,
+            "targetGUID": "Player-11-2C3D4E5F",
+            "targetName": "Zoë Brightblade",
+            "targetClassID": 8,
+            "targetFaction": 1,
+            "rewardGold": 2500,
+            "posterName": "Ælfric Stormcrow",
+            "expiresAt": 1796572800
+          }
+        ],
+        "seasons": [
+          {
+            "seasonId": 7,
+            "guildName": "Honor and Valor",
+            "guildFaction": 1,
+            "kind": 1,
+            "perKillGold": 25,
+            "remainingGold": 1875,
+            "posterName": "Slac Jaw",
+            "expiresAt": 1795804800
+          },
+          {
+            "seasonId": 8,
+            "guildName": "Les Chasseurs ⚔",
+            "guildFaction": 2,
+            "kind": 2,
+            "perKillGold": 0,
+            "remainingGold": 10000,
+            "posterName": "Hunter McHunterface",
+            "expiresAt": 1797619200
+          },
+          {
+            "seasonId": 9,
+            "guildName": "Dawnbreakers",
+            "guildFaction": 1,
+            "kind": 3,
+            "perKillGold": 50,
+            "remainingGold": 0,
+            "posterName": "Ælfric Stormcrow",
+            "expiresAt": 1796409600
+          }
+        ],
+        "bountyTerms": [
+          {
+            "bountyId": 12,
+            "kills": 3,
+            "killsLeft": 2,
+            "payout": 0,
+            "terms": [
+              {
+                "kind": 1,
+                "value": 1434,
+                "gold": 200
+              },
+              {
+                "kind": 2,
+                "value": 4,
+                "gold": 150
+              },
+              {
+                "kind": 3,
+                "value": 0,
+                "gold": 50
+              },
+              {
+                "kind": 4,
+                "value": 0,
+                "gold": 75
+              },
+              {
+                "kind": 5,
+                "value": 24,
+                "gold": 100
+              },
+              {
+                "kind": 6,
+                "value": 0,
+                "gold": 25
+              },
+              {
+                "kind": 66,
+                "value": 4,
+                "gold": 0
+              },
+              {
+                "kind": 67,
+                "value": 0,
+                "gold": 0
+              }
+            ]
+          },
+          {
+            "bountyId": 13,
+            "kills": 5,
+            "killsLeft": 5,
+            "payout": 1,
+            "terms": []
+          }
+        ],
+        "wanted": [
+          {
+            "bountyId": 14,
+            "targetName": "Grimlok Ashveil",
+            "targetFaction": 1,
+            "rewardGold": 75,
+            "posterName": "Slac Jaw",
+            "expiresAt": 1796500000
+          },
+          {
+            "bountyId": 1001,
+            "targetName": "Zoë Brightblade",
+            "targetFaction": 2,
+            "rewardGold": 10000,
+            "posterName": "",
+            "expiresAt": 1796600000
           }
         ]
       }
