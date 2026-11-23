@@ -13,6 +13,7 @@ import { posterChecks } from "./limits";
 import { checkBountyPost, decodeErrorMessage } from "./rules";
 import { claimSeasonKill, isSeasonKill, postSeason } from "./seasons";
 import { audit, bountyTagIds, type Tenant } from "./tenants";
+import { isExpanded } from "./terms";
 import { escapeMd, gold } from "./wow";
 
 export type Outcome =
@@ -88,13 +89,15 @@ async function postBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bounty
   }
 
   // Insert first: the UNIQUE source_code settles races between two pastes of the same code.
-  const expiresAt = now + tenant.config.expiry_days * 86400;
+  // The Expand section may pick the length (7, 14 or 28 days); 0 or none is the server's default.
+  const expiresAt = now + (b.days || tenant.config.expiry_days) * 86400;
   let id: number;
   try {
     const row = await env.DB.prepare(
       `INSERT INTO bounties (tenant_id, target_guid, target_name, class, race, level, faction, reward_gold,
-         poster_guid, poster_name, poster_discord_id, zone_map_id, created_at, expires_at, status, source_code)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'open', ?15) RETURNING id`,
+         poster_guid, poster_name, poster_discord_id, zone_map_id, created_at, expires_at, status, source_code,
+         kills_wanted, payout_mode, terms_json)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'open', ?15, ?16, ?17, ?18) RETURNING id`,
     )
       .bind(
         tenant.id,
@@ -112,6 +115,9 @@ async function postBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bounty
         now,
         expiresAt,
         code,
+        b.kills ?? 1,
+        b.payout ?? 0,
+        JSON.stringify(b.terms ?? []),
       )
       .first<{ id: number }>();
     id = row!.id;
@@ -120,7 +126,7 @@ async function postBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bounty
     throw e;
   }
 
-  const poster = wantedPoster(b, { id, expiresAt, postedBy: authorId, tenant });
+  const poster = wantedPoster(b, { id, expiresAt, postedBy: authorId, tenant, killsDone: 0 });
   const image = await wantedPosterImage(env, b, { id, expiresAt, tenant });
   // The Hunters role (if set) hears about new bounties at or above hunter_ping_min_gold.
   const { hunter_role: role, hunter_ping_min_gold: pingMin } = tenant.config;
@@ -182,6 +188,10 @@ async function stackBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bount
   if (!row) return { ok: false, code: "CLOSED", message: `Bounty #${b.existingBountyId} isn't on this Bounty Board.` };
   if (row.target_guid !== b.targetGUID) return { ok: false, code: "MISMATCH", message: `That code isn't for bounty #${row.id}'s target.` };
   if (row.status !== "open" || row.expires_at <= now) return { ok: false, code: "CLOSED", message: `Bounty #${row.id} is no longer open.` };
+  // One payer: its kills are paid one by one, with bonuses, by whoever set it up.
+  if (isExpanded(row)) {
+    return { ok: false, code: "STACK", message: `Bounty #${row.id} has its own terms (kills, bonuses or limits), so gold can't be added to it.` };
+  }
   try {
     await addContribution(env, tenant, row.id, b, code, authorId, now);
   } catch (e) {

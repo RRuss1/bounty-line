@@ -12,11 +12,12 @@ import { decode, FACTION } from "./codec";
 import type { Env } from "./env";
 import { log } from "./log";
 import { refreshPack } from "./pack";
-import { postPaymentPrompt } from "./payments";
+import { postKillPayment, postPaymentPrompt } from "./payments";
 import { type LastSeen, SKULL, wantedPoster, wantedPosterImage } from "./poster";
 import type { PosterStatus } from "./poster-image";
 import type { DiscordRest } from "./rest";
 import { audit, bountyTagIds, type ForumTagKey, type Tenant } from "./tenants";
+import { allOrNothing, bonusesMet, checkRestrictions, describeTerm, factsFromChecks, factsOf, isExpanded, isMultiKill, killShare, killsWanted, termsOf, type KillFacts } from "./terms";
 import { escapeMd, gold, openWorldCheck } from "./wow";
 
 export interface Attachment {
@@ -55,6 +56,10 @@ export interface BountyRow {
   last_seen_at?: number | null;
   last_seen_map?: number | null;
   last_seen_by?: string | null;
+  /** The Expand section's terms (spec 5.4c); absent or default on plain bounties. */
+  kills_wanted?: number | null;
+  payout_mode?: number | null;
+  terms_json?: string | null;
 }
 
 export function lastSeenOf(b: BountyRow): LastSeen | null {
@@ -126,8 +131,9 @@ export async function claimKill(
         : `Bounty #${k.bountyId} isn't on this Bounty Board.`,
     );
   }
-  if (b.status === "review") return fail("CLOSED", `Bounty #${b.id} already has a kill claim waiting for the officers.`);
-  if (b.status !== "open" || b.expires_at <= now) return fail("CLOSED", `Bounty #${b.id} is no longer open.`);
+  // A bounty wanting several kills takes claims while others wait for the officers.
+  if (b.status === "review" && !isMultiKill(b)) return fail("CLOSED", `Bounty #${b.id} already has a kill claim waiting for the officers.`);
+  if ((b.status !== "open" && b.status !== "review") || b.expires_at <= now) return fail("CLOSED", `Bounty #${b.id} is no longer open.`);
   if (k.victimGUID !== b.target_guid) return fail("MISMATCH", `That kill wasn't on ${escapeMd(b.target_name ?? "the target")} (bounty #${b.id}).`);
   if (k.killerFaction === factionId(b.faction)) return fail("FACTION", "Bounties must be on the opposite faction.");
   const contributor = await env.DB.prepare("SELECT 1 FROM contributions WHERE tenant_id = ?1 AND bounty_id = ?2 AND poster_guid = ?3")
@@ -156,6 +162,18 @@ export async function claimKill(
         `You already collected on ${escapeMd(b.target_name ?? "that player")} <t:${recent.killed_at}:R>. The same hunter can claim them again ${tenant.config.claim_cooldown_minutes} minutes after their last kill.`,
       );
     }
+  }
+  // The bounty's own terms (spec 5.4c). A broken restriction means the kill doesn't count; one an
+  // older addon can't show (no facts in its code) goes to the officers.
+  const terms = termsOf(b);
+  const facts = factsOf(k);
+  const context = { mapId: k.mapID, killedAt: k.killedAt, madeAt, facts };
+  const restrictions = checkRestrictions(terms, context);
+  if (restrictions.broken.length) {
+    return fail("TERMS", `That kill doesn't meet bounty #${b.id}'s terms: ${restrictions.broken.map(escapeMd).join(", ")}.`);
+  }
+  if (isMultiKill(b) && !allOrNothing(b) && (await approvedKills(env, tenant, b.id)).length >= killsWanted(b)) {
+    return fail("CLOSED", `Bounty #${b.id} already has all ${killsWanted(b)} kills.`);
   }
 
   // 2. The screenshot (check 4): one PNG/JPG under 25 MB, never seen before.
@@ -191,6 +209,9 @@ export async function claimKill(
     linked: linked ? linked.discord_user_id === authorId : null, // null = not linked yet
     openWorld: openWorldCheck(k.mapID).ok,
     imageHash: hash,
+    // What the hunter's addon knew (K schema 3): bonuses are worked out from it at approval.
+    facts,
+    termsUnknown: restrictions.unknown,
   };
 
   // 4. AI stamp read (check 5), trust (spec 9.4) and the verdict (spec 9.3).
@@ -199,7 +220,7 @@ export async function claimKill(
     .bind(tenant.id, authorId)
     .first<{ trust: string | null }>();
   const trusted = hunter?.trust === "trusted";
-  const clean = checks.openWorld && checks.window && checks.linked !== false && ai.status === "match";
+  const clean = checks.openWorld && checks.window && checks.linked !== false && ai.status === "match" && restrictions.unknown.length === 0;
   const mode = tenant.config.auto_approve;
   const auto = clean && (mode === "all_clean" || (mode === "trusted_only" && trusted));
   const allChecks = { ...checks, ai: ai.status, aiRead: "read" in ai ? ai.read : undefined, trusted };
@@ -224,12 +245,13 @@ export async function claimKill(
     aiLine(ai),
     trusted ? "⭐ Trusted hunter" : `➖ New hunter (trusted after ${tenant.config.trust_threshold} approved kills in a row)`,
     ...(checks.pet ? ["🐾 Killing blow by their pet, totem or summon"] : []),
+    ...termsLines(terms, context, restrictions.unknown),
   ];
   const embed = {
     title: `💰 BOUNTY CLAIMED by ${escapeMd(k.killerName)}`,
     color: auto ? 0x2e8b57 : 0xd4a017,
     description: [
-      `<@${authorId}> claims **${gold(b.reward_gold)}** for killing **${escapeMd(b.target_name ?? "the target")}** <t:${k.killedAt}:f>.`,
+      `<@${authorId}> claims ${claimWhat(b)} for killing **${escapeMd(b.target_name ?? "the target")}** <t:${k.killedAt}:f>.`,
       "",
       ...lines,
       "",
@@ -266,7 +288,7 @@ export async function claimKill(
   }
   await env.DB.prepare("UPDATE kills SET proof_message_id = ?1 WHERE id = ?2").bind(proofId, killId).run();
   if (auto) await onApproved(env, rest, tenant, b, killId, authorId, now);
-  else await setBountyStatus(env, rest, tenant, b, "review", now);
+  else if (!isMultiKill(b)) await setBountyStatus(env, rest, tenant, b, "review", now); // several kills: others can still claim
   await audit(env.DB, tenant.id, authorId, "kill.claim", { kill: killId, bounty: b.id, auto }, now);
   log(env, "info", "kill.claimed", { tenant_id: tenant.id, bounty_id: b.id, kill_id: killId, outcome: auto ? "auto" : "pending", ai: ai.status });
   const where = b.thread_id ? `<#${b.thread_id}>` : `bounty #${b.id}`;
@@ -274,9 +296,27 @@ export async function claimKill(
   return {
     ok: true,
     message: auto
-      ? `${SKULL} Kill on **${target}** auto-approved! Payment details are in ${where}.`
+      ? `${SKULL} Kill on **${target}** auto-approved! ${allOrNothing(b) ? "Your tally is" : "Payment details are"} in ${where}.`
       : `${SKULL} Kill claim on **${target}** received. Officers will review it in ${where}.`,
   };
+}
+
+/** "**500g**", "kill 2 of 3 (**300g**)" or "a kill toward 5 by one hunter (**900g**)". */
+function claimWhat(b: BountyRow): string {
+  if (!isMultiKill(b)) return `**${gold(b.reward_gold)}**`;
+  if (allOrNothing(b)) return `a kill toward ${killsWanted(b)} by one hunter (**${gold(b.reward_gold)}** in all)`;
+  return `a kill of ${killsWanted(b)} (**${gold(killShare(b.reward_gold, killsWanted(b), 1))}** each)`;
+}
+
+/** The claim's lines for the bounty's terms: which bonuses this kill meets, and what can't be checked. */
+function termsLines(terms: ReturnType<typeof termsOf>, context: Parameters<typeof bonusesMet>[1], unknown: string[]): string[] {
+  if (!terms.length) return [];
+  const met = new Set(bonusesMet(terms, context).map((t) => t.kind));
+  return [
+    ...terms.filter((t) => t.kind < 64).map((t) => `${met.has(t.kind) ? "🎯" : "➖"} ${escapeMd(describeTerm(t))}${met.has(t.kind) ? "" : " (not this kill)"}`),
+    ...terms.filter((t) => t.kind >= 64 && !unknown.includes(describeTerm(t))).map((t) => `✅ ${escapeMd(describeTerm(t))}`),
+    ...unknown.map((u) => `⚠️ ${escapeMd(u)}: the hunter's addon is too old to show it. Check the screenshot.`),
+  ];
 }
 
 // ---------------------------------------------------------------- status changes
@@ -337,9 +377,37 @@ export async function posterFor(env: Env, tenant: Tenant, b: BountyRow, status: 
   const post = rowToPost(b);
   const { n } = (await env.DB.prepare("SELECT COUNT(*) AS n FROM contributions WHERE tenant_id = ?1 AND bounty_id = ?2").bind(tenant.id, b.id).first<{ n: number }>()) ?? { n: 1 };
   if (n > 1) post.posterName = `${post.posterName} +${n - 1}`; // stacked: "paid by Slac Jaw +2"
-  const poster = wantedPoster(post, { id: b.id, expiresAt: b.expires_at, postedBy: b.poster_discord_id ?? "", tenant, status, lastSeen: lastSeenOf(b) });
+  const killsDone = isMultiKill(b) ? await approvedKills(env, tenant, b.id).then((ks) => ks.length) : 0;
+  const poster = wantedPoster(post, { id: b.id, expiresAt: b.expires_at, postedBy: b.poster_discord_id ?? "", tenant, status, lastSeen: lastSeenOf(b), killsDone });
   return { post, poster };
 }
+
+interface ApprovedKill {
+  id: number;
+  killer_discord_id: string | null;
+  killer_guid: string | null;
+  killed_at: number;
+  zone_map_id: number | null;
+  checks_json: string | null;
+  bonus_json: string | null;
+  amount_gold: number | null;
+  paid_at: number | null;
+  received_at: number | null;
+}
+
+/** A bounty's approved (or auto-approved) kills, oldest first. */
+export async function approvedKills(env: Env, tenant: Tenant, bountyId: number): Promise<ApprovedKill[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT id, killer_discord_id, killer_guid, killed_at, zone_map_id, checks_json, bonus_json, amount_gold, paid_at, received_at
+       FROM kills WHERE tenant_id = ?1 AND bounty_id = ?2 AND verdict IN ('approved', 'auto') ORDER BY id`,
+  )
+    .bind(tenant.id, bountyId)
+    .all<ApprovedKill>();
+  return results;
+}
+
+const sameHunter = (a: { killer_discord_id: string | null; killer_guid: string | null }, b: { killer_discord_id: string | null; killer_guid: string | null }) =>
+  (a.killer_discord_id !== null && a.killer_discord_id === b.killer_discord_id) || (a.killer_guid !== null && a.killer_guid === b.killer_guid);
 
 /** Rebuilds the B-code view of a stored bounty, for redrawing its poster. */
 export function rowToPost(b: BountyRow) {
@@ -362,6 +430,10 @@ export function rowToPost(b: BountyRow) {
     createdAt: b.created_at ?? 0,
     nonce: 0,
     note: opened && opened.ok && opened.type === "B" ? opened.fields.note : "",
+    kills: b.kills_wanted ?? 1,
+    payout: b.payout_mode ?? 0,
+    days: 0,
+    terms: termsOf(b),
     mode: 0,
     existingBountyId: 0,
   };
@@ -390,22 +462,29 @@ export async function reviewKill(
   if (!officer.isAdmin && !(tenant.officer_role_id && officer.roles.includes(tenant.officer_role_id))) {
     return { ephemeral: `Only <@&${tenant.officer_role_id}> can approve or deny kill claims.` };
   }
-  const kill = await env.DB.prepare("SELECT id, bounty_id, verdict, killer_discord_id FROM kills WHERE id = ?1 AND tenant_id = ?2")
+  const kill = await env.DB.prepare("SELECT id, bounty_id, verdict, killer_discord_id, paid_at, received_at FROM kills WHERE id = ?1 AND tenant_id = ?2")
     .bind(killId, tenant.id)
-    .first<{ id: number; bounty_id: number; verdict: string; killer_discord_id: string | null }>();
+    .first<{ id: number; bounty_id: number; verdict: string; killer_discord_id: string | null; paid_at: number | null; received_at: number | null }>();
   if (!kill) return { ephemeral: "I can't find that claim any more." };
   const b = await env.DB.prepare("SELECT * FROM bounties WHERE id = ?1 AND tenant_id = ?2").bind(kill.bounty_id, tenant.id).first<BountyRow>();
   // An auto-approved claim can still be denied until the bounty is paid.
-  const overturn = action === "deny" && kill.verdict === "auto" && b?.status === "awaiting_payment";
+  // A bounty with terms pays kill by kill: an auto-approved kill can be denied until its own payment starts.
+  const expanded = !!b && isExpanded(b);
+  const overturn =
+    action === "deny" &&
+    kill.verdict === "auto" &&
+    (expanded ? !kill.paid_at && !kill.received_at && ["open", "review", "awaiting_payment"].includes(b!.status) : b?.status === "awaiting_payment");
   if (kill.verdict !== "pending" && !overturn) {
     return { ephemeral: `That claim was already ${kill.verdict === "auto" ? "auto-approved" : kill.verdict}.` };
   }
 
   const verdict = action === "approve" ? "approved" : "denied";
   await env.DB.prepare("UPDATE kills SET verdict = ?1, reviewed_by = ?2 WHERE id = ?3").bind(verdict, officer.id, killId).run();
+  let note = "";
   if (action === "approve") {
-    if (b && b.status === "review") await onApproved(env, rest, tenant, b, killId, kill.killer_discord_id, now);
+    if (b && (b.status === "review" || (expanded && b.status === "open"))) note = await onApproved(env, rest, tenant, b, killId, kill.killer_discord_id, now);
   } else {
+    if (expanded) await env.DB.prepare("UPDATE kills SET amount_gold = NULL, bonus_json = NULL WHERE id = ?1").bind(killId).run();
     if (kill.killer_discord_id) {
       await env.DB.prepare(
         `INSERT INTO hunters (tenant_id, discord_user_id, denied, streak, trust) VALUES (?1, ?2, 1, 0, 'new')
@@ -414,28 +493,82 @@ export async function reviewKill(
         .bind(tenant.id, kill.killer_discord_id)
         .run();
     }
-    if (b && (b.status === "review" || overturn)) await setBountyStatus(env, rest, tenant, b, "open", now);
+    if (b && (b.status === "review" || overturn || (expanded && b.status === "open"))) await setBountyStatus(env, rest, tenant, b, "open", now);
   }
   await audit(env.DB, tenant.id, officer.id, `kill.${verdict}`, { kill: killId, bounty: kill.bounty_id }, now);
   log(env, "info", "kill.reviewed", { tenant_id: tenant.id, kill_id: killId, outcome: verdict });
 
   const line =
     action === "approve"
-      ? `✅ **Approved** by <@${officer.id}>. Payment instructions are below.`
+      ? `✅ **Approved** by <@${officer.id}>. ${note || "Payment instructions are below."}`
       : `❌ **Denied** by <@${officer.id}>. The bounty is open again.`;
   return { update: { content: line, components: [] } };
 }
 
 // ---------------------------------------------------------------- shared approval
 
-/** Approved (by an officer or automatically): credit the hunter, await payment, post the payment buttons. */
-async function onApproved(env: Env, rest: DiscordRest, tenant: Tenant, b: BountyRow, killId: number, hunterId: string | null, now: number) {
+/**
+ * Approved (by an officer or automatically): credit the hunter, await payment, post the payment
+ * buttons. Returns a short note for the officer's message ("" = the usual one).
+ */
+async function onApproved(env: Env, rest: DiscordRest, tenant: Tenant, b: BountyRow, killId: number, hunterId: string | null, now: number): Promise<string> {
   await env.DB.prepare("UPDATE kills SET approved_at = ?1 WHERE id = ?2 AND tenant_id = ?3").bind(now, killId, tenant.id).run();
   if (hunterId) await creditHunter(env, tenant, hunterId, posterKeyOf(b));
+  if (isExpanded(b)) return approveWithTerms(env, rest, tenant, b, killId, hunterId, now);
   await setBountyStatus(env, rest, tenant, b, "awaiting_payment", now);
   await postPaymentPrompt(env, rest, b, killId, hunterId).catch((e) =>
     log(env, "warn", "bounty.payment_prompt_failed", { tenant_id: tenant.id, error: String(e) }),
   );
+  return "";
+}
+
+/**
+ * A kill on a bounty with terms (spec 5.4c). Each kill: this kill's share plus the bonuses it
+ * earns, paid now. All or nothing: nothing until one hunter has every kill, then the whole
+ * reward plus the bonuses their kills earned. Each bonus is paid once per bounty.
+ */
+async function approveWithTerms(env: Env, rest: DiscordRest, tenant: Tenant, b: BountyRow, killId: number, hunterId: string | null, now: number): Promise<string> {
+  const terms = termsOf(b);
+  const wanted = killsWanted(b);
+  const madeAt = bountyMadeAt(b);
+  const kills = await approvedKills(env, tenant, b.id);
+  const me = kills.find((x) => x.id === killId);
+  if (!me) return "";
+  const met = (x: (typeof kills)[number]) =>
+    bonusesMet(terms, { mapId: x.zone_map_id ?? 0, killedAt: x.killed_at, madeAt, facts: factsFromChecks(x.checks_json) as KillFacts });
+  const kindsPaid = new Set(kills.filter((x) => x.id !== killId && x.bonus_json).flatMap((x) => (JSON.parse(x.bonus_json!) as { kind: number }[]).map((t) => t.kind)));
+  const fail = (text: string) => log(env, "warn", "bounty.payment_prompt_failed", { tenant_id: tenant.id, error: text });
+
+  if (allOrNothing(b)) {
+    const mine = kills.filter((x) => sameHunter(x, me));
+    if (mine.length < wanted) {
+      await setBountyStatus(env, rest, tenant, b, "open", now);
+      const line = `🎯 Kill **${mine.length} of ${wanted}** for <@${hunterId ?? ""}> on bounty #${b.id}. One hunter must land all ${wanted} to collect.`;
+      if (b.thread_id) await rest.send(b.thread_id, { content: line, allowed_mentions: { parse: [] } }).catch((e) => fail(String(e)));
+      return `Kill ${mine.length} of ${wanted} for this hunter.`;
+    }
+    const earned: typeof terms = [];
+    for (const x of mine) for (const t of met(x)) if (!earned.some((e) => e.kind === t.kind)) earned.push(t);
+    const amount = b.reward_gold + earned.reduce((n, t) => n + t.gold, 0);
+    await env.DB.prepare("UPDATE kills SET amount_gold = ?1, bonus_json = ?2 WHERE id = ?3").bind(amount, JSON.stringify(earned), killId).run();
+    await setBountyStatus(env, rest, tenant, b, "awaiting_payment", now);
+    await postKillPayment(env, rest, b, killId, hunterId, amount, earned, `all ${wanted} kills`).catch((e) => fail(String(e)));
+    return "";
+  }
+
+  const index = kills.findIndex((x) => x.id === killId) + 1;
+  if (index > wanted) {
+    // Two claims approved at once for the last kill: this one came second.
+    await env.DB.prepare("UPDATE kills SET verdict = 'denied' WHERE id = ?1").bind(killId).run();
+    return `But bounty #${b.id} already had all ${wanted} kills, so this one doesn't count.`;
+  }
+  const earned = met(me).filter((t) => !kindsPaid.has(t.kind));
+  const share = killShare(b.reward_gold, wanted, index);
+  const amount = share + earned.reduce((n, t) => n + t.gold, 0);
+  await env.DB.prepare("UPDATE kills SET amount_gold = ?1, bonus_json = ?2 WHERE id = ?3").bind(amount, JSON.stringify(earned), killId).run();
+  await setBountyStatus(env, rest, tenant, b, index >= wanted ? "awaiting_payment" : "open", now);
+  await postKillPayment(env, rest, b, killId, hunterId, amount, earned, wanted > 1 ? `kill ${index} of ${wanted}` : "the kill").catch((e) => fail(String(e)));
+  return "";
 }
 
 /**

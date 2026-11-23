@@ -26,10 +26,22 @@ export async function posterChecks(
     )
       .bind(tenant.id, authorId, now - days * 86400)
       .first<{ id: number }>();
-    if (owed) {
+    // Bounties with terms are paid kill by kill, by their one poster (spec 5.4c).
+    const owedKill = owed
+      ? null
+      : await env.DB.prepare(
+          `SELECT b.id FROM kills k JOIN bounties b ON b.id = k.bounty_id AND b.tenant_id = k.tenant_id
+           WHERE k.tenant_id = ?1 AND b.poster_discord_id = ?2 AND k.amount_gold IS NOT NULL AND k.paid_at IS NULL
+             AND k.verdict IN ('approved', 'auto') AND COALESCE(k.approved_at, k.claimed_at) <= ?3
+           ORDER BY b.id LIMIT 1`,
+        )
+          .bind(tenant.id, authorId, now - days * 86400)
+          .first<{ id: number }>();
+    const debt = owed ?? owedKill;
+    if (debt) {
       return {
         code: "OWING",
-        message: `You still owe the reward on bounty #${owed.id}. Pay the hunter in game and click **Paid** in its thread, then post again.`,
+        message: `You still owe the reward on bounty #${debt.id}. Pay the hunter in game and click **Paid** in its thread, then post again.`,
       };
     }
   }

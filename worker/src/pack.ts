@@ -3,12 +3,13 @@
  * addon imports with /bl import. The bot keeps it pinned in #bounty-line and edits it whenever
  * a bounty opens or closes.
  */
-import { encodePack, FACTION, type PackEntry } from "./codec";
+import { encodePack, FACTION, type PackEntry, type PackTerms } from "./codec";
 import type { Env } from "./env";
 import { log } from "./log";
 import type { DiscordRest } from "./rest";
 import { packSeasons } from "./seasons";
 import { patchConfig, type Tenant } from "./tenants";
+import { allOrNothing, isExpanded, killsWanted, termsOf } from "./terms";
 
 /** Oldest addon that reads this pack (major*1000 + minor): 0.4 added /bl import. */
 export const MIN_ADDON_VERSION = 4;
@@ -28,13 +29,19 @@ interface OpenRow {
   reward_gold: number;
   poster_name: string | null;
   expires_at: number;
+  kills_wanted: number;
+  payout_mode: number;
+  terms_json: string;
+  kills_done: number;
 }
 
 /** packVersion: normally the build time; the relay passes a fixed value to compare packs by content. */
 export async function buildPack(env: Env, tenant: Tenant, now: number, packVersion = now): Promise<{ codes: string[]; count: number; seasons: number }> {
   const { results } = await env.DB.prepare(
-    `SELECT id, target_guid, target_name, class, faction, reward_gold, poster_name, expires_at
-       FROM bounties WHERE tenant_id = ?1 AND status = 'open' AND expires_at > ?2 ORDER BY id`,
+    `SELECT b.id, b.target_guid, b.target_name, b.class, b.faction, b.reward_gold, b.poster_name, b.expires_at,
+            b.kills_wanted, b.payout_mode, b.terms_json,
+            (SELECT COUNT(*) FROM kills k WHERE k.tenant_id = b.tenant_id AND k.bounty_id = b.id AND k.verdict IN ('approved', 'auto')) AS kills_done
+       FROM bounties b WHERE b.tenant_id = ?1 AND b.status = 'open' AND b.expires_at > ?2 ORDER BY b.id`,
   )
     .bind(tenant.id, now)
     .all<OpenRow>();
@@ -48,11 +55,19 @@ export async function buildPack(env: Env, tenant: Tenant, now: number, packVersi
     posterName: r.poster_name ?? "",
     expiresAt: r.expires_at,
   }));
+  // Bounty terms (spec 5.4c) ride in schema 3, written only when a bounty has some.
+  const bountyTerms: PackTerms[] = results.filter(isExpanded).map((r) => ({
+    bountyId: r.id,
+    kills: killsWanted(r),
+    killsLeft: allOrNothing(r) ? killsWanted(r) : Math.max(0, killsWanted(r) - r.kills_done),
+    payout: r.payout_mode,
+    terms: termsOf(r),
+  }));
   // Open seasons ride in schema 2, written only when there is one: older addons read either.
   const seasons = await packSeasons(env, tenant, now);
   const codes = encodePack(
     {
-      schema: seasons.length ? 2 : 1,
+      schema: bountyTerms.length ? 3 : seasons.length ? 2 : 1,
       boardTag: tenant.board_tag,
       packVersion,
       minAddonVersion: MIN_ADDON_VERSION,
@@ -60,7 +75,8 @@ export async function buildPack(env: Env, tenant: Tenant, now: number, packVersi
       rewardMin: tenant.config.reward_min,
       rewardMax: tenant.config.reward_max,
       bounties,
-      ...(seasons.length ? { seasons } : {}),
+      ...(seasons.length || bountyTerms.length ? { seasons } : {}),
+      ...(bountyTerms.length ? { bountyTerms } : {}),
     },
     PACK_PART_LENGTH,
   );
