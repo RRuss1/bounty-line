@@ -990,14 +990,14 @@ do
   local T = Codec.TERM
   local terms = { { kind = T.soloBonus, value = 0, gold = 50 }, { kind = T.insultBonus, value = 0, gold = 25 } }
   local extras = { kills = 3, payout = 0, days = 7, terms = terms }
-  local snap = assert(ns.SnapshotUnit("target"))
-  local b = Codec.Decode(assert(ns.BuildBountyCode(snap, 900, "", nil, extras)))
-  eq("a bounty with terms is schema 2", b and b.fields.schema, 2)
-  eq("  with its kills", b and b.fields.kills, 3)
-  eq("  its length", b and b.fields.days, 7)
-  eq("  and its terms", b and #b.fields.terms, 2)
-  eq("Add to Bounty never carries terms", Codec.Decode(ns.BuildBountyCode(snap, 100, "", 5, extras)).fields.schema, 1)
-  eq("no extras: schema 1 as before", Codec.Decode(ns.BuildBountyCode(snap, 100, "")).fields.schema, 1)
+  local termSnap = assert(ns.SnapshotUnit("target"))
+  local bCode = Codec.Decode(assert(ns.BuildBountyCode(termSnap, 900, "", nil, extras)))
+  eq("a bounty with terms is schema 2", bCode and bCode.fields.schema, 2)
+  eq("  with its kills", bCode and bCode.fields.kills, 3)
+  eq("  its length", bCode and bCode.fields.days, 7)
+  eq("  and its terms", bCode and #bCode.fields.terms, 2)
+  eq("Add to Bounty never carries terms", Codec.Decode(ns.BuildBountyCode(termSnap, 100, "", 5, extras)).fields.schema, 1)
+  eq("no extras: schema 1 as before", Codec.Decode(ns.BuildBountyCode(termSnap, 100, "")).fields.schema, 1)
 
   -- The pack carries the terms (schema 3) and they land on the bounty.
   local p = {
@@ -1017,7 +1017,7 @@ do
   check("a plain bounty has none", not ns.HasTerms({ id = 1, reward = 5 }))
 
   -- The kill: facts in the code (K schema 3), and a wait for the /lol.
-  local K = ns._kills
+  -- (K is ns._kills, from the kill-queue tests)
   K.start(wanted, VICTIM, false, false)
   check("an insult bonus waits for the /lol", K.pending() ~= nil and K.pending().wantsInsult == true)
   ns.OnLaugh("Player-4395-0FFFFFFF")
