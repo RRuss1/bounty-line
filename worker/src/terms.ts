@@ -63,7 +63,7 @@ export function describeTerm(t: BountyTerm): string {
     case TERM.rushBonus:
       return `+${gold(t.gold)} if killed within ${t.value}h of the bounty`;
     case TERM.insultBonus:
-      return `+${gold(t.gold)} for a /lol at the corpse within 10 seconds`;
+      return `+${gold(t.gold)} for a /lol within 10 seconds of the kill`;
     case TERM.zoneOnly:
       return `Only in ${where()}`;
     case TERM.classOnly:

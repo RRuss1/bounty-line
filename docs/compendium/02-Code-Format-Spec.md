@@ -105,7 +105,7 @@ Term kinds (each at most once). Bonuses (gold ≥ 1, extra gold on top):
 | 3 | the hunter is not in a group | 0 |
 | 4 | the hunter is a lower level than the target | 0 |
 | 5 | killed within N hours of the bounty | 1–168 |
-| 6 | the hunter `/lol`s at the corpse within 10 seconds | 0 |
+| 6 | the hunter `/lol`s within 10 seconds of the kill | 0 |
 
 Restrictions (gold = 0; a kill that breaks one doesn't count): `65` only in a zone (mapID), `66` only a class (classID), `67` solo only (0).
 
@@ -149,7 +149,7 @@ No victim name: the Worker already has it on the bounty (matched by `victimGUID`
 | 16 | killerClassID | u8 (`0` unknown) |
 | 17 | killerLevel | u8 (`0` unknown) |
 | 18 | victimLevel | u8 (`0` unknown: the victim wasn't the target, mouseover or focus) |
-| 19 | facts | u8: bit0 not in a group, bit1 `/lol` at the corpse within 10 seconds; other bits must be 0 |
+| 19 | facts | u8: bit0 not in a group, bit1 `/lol` within 10 seconds of the kill; other bits must be 0 |
 
 The addon writes schema 3 only for a bounty whose pack entry has terms. With no Open Season the schema 2 fields are `seasonId = 0`, `victimName = ""`, `guildName = ""`, `guildSeen = 0`; the Worker treats a schema 3 code with no season number, no guild and a bounty number as a plain bounty claim. Both `0` with `guildSeen = 0` is a kill of an enemy whose guild the addon never saw while a season was open.
 

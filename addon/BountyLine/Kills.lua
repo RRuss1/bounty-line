@@ -15,7 +15,7 @@ local L = ns.L
 local FACTION_ID = { Alliance = 1, Horde = 2 }
 local DUEL_GRACE = 10     -- seconds after a duel ends during which kills are ignored
 local HONOR_WAIT = 1.2    -- seconds to wait for the honor message before taking the shot
-local INSULT_WAIT = 10    -- seconds to /lol at the corpse for an insult bonus (spec 5.4c)
+local INSULT_WAIT = 10    -- seconds to /lol after the kill for an insult bonus (spec 5.4c)
 local MAX_SAVED = 20
 
 local duel = { active = false, endedAt = -math.huge }
@@ -198,6 +198,11 @@ function ns.KillFacts(victimGUID)
       break
     end
   end
+  -- Usually the dead player has already dropped off the target: use the level we last saw.
+  if level == 0 then
+    local seen = ns.GuildOf and ns.GuildOf(victimGUID)
+    level = seen and seen.l or 0
+  end
   local _, _, classID = UnitClass("player")
   return {
     classID = classID or 0,
@@ -230,7 +235,7 @@ end
 
 begin = function(k)
   pending = k
-  -- An insult bonus: give the hunter time to /lol at the corpse; the shot is taken as soon as
+  -- An insult bonus: give the hunter time to /lol; the shot is taken as soon as
   -- they do (so it shows "You laugh at ..."), or when the time is up.
   if k.wantsInsult then
     if RaidNotice_AddMessage and RaidWarningFrame then RaidNotice_AddMessage(RaidWarningFrame, L.INSULT_NOW, ChatTypeInfo.RAID_WARNING) end
@@ -241,11 +246,12 @@ begin = function(k)
   C_Timer.After(k.practice and 0 or HONOR_WAIT, function() if pending == k then capture(k) end end)
 end
 
--- An emote by the player (DoEmote or the chat line): a /lol at the victim of a kill waiting for it.
+-- An emote by the player (DoEmote or the chat line) while a kill waits for it. A dead player
+-- drops off your target, so a /lol at nobody counts; a /lol at someone else doesn't.
 function ns.OnLaugh(targetGUID)
   local k = pending
   if not k or not k.wantsInsult or k.code or k.insult then return end
-  if ns.IsSecret(targetGUID) or targetGUID ~= k.victimGUID then return end
+  if ns.IsSecret(targetGUID) or (targetGUID ~= nil and targetGUID ~= k.victimGUID) then return end
   k.insult = true
   ns.Print(L.INSULT_DONE)
   C_Timer.After(0.5, function() if pending == k and not k.code then capture(k) end end)
@@ -287,7 +293,7 @@ ns._kills = { start = startKill, finish = finish, pending = function() return pe
 -- ---------------------------------------------------------------- events
 
 local events = CreateFrame("Frame")
--- /lol (and /laugh) at the corpse for an insult bonus. DoEmote is how the game sends a typed
+-- /lol (and /laugh) after a kill for an insult bonus. DoEmote is how the game sends a typed
 -- emote; whether Forever calls it for /lol is spec 23 item 29 (/bl debugkills prints it).
 if hooksecurefunc and DoEmote then
   hooksecurefunc("DoEmote", function(token, unit)
@@ -331,11 +337,11 @@ events:SetScript("OnEvent", function(_, event, a, b)
     local first = pending and pending.bounty.name and pending.bounty.name:match("^(%S+)")
     if first and type(a) == "string" and a:find(first, 1, true) then pending.honor = true end
   elseif event == "CHAT_MSG_TEXT_EMOTE" then
-    -- The backup for the insult bonus: my own "You laugh at <victim>." line (English client).
+    -- The backup for the insult bonus: my own "You laugh." or "You laugh at <victim>." (English client).
     local k = pending
-    if k and k.wantsInsult and type(a) == "string" and not ns.IsSecret(a) and a:find("^You laugh") then
+    if k and k.wantsInsult and type(a) == "string" and not ns.IsSecret(a) then
       local first = k.bounty.name and k.bounty.name:match("^(%S+)")
-      if first and a:find(first, 1, true) then ns.OnLaugh(k.victimGUID) end
+      if a:find("^You laugh%.") or (first and a:find("^You laugh at") and a:find(first, 1, true)) then ns.OnLaugh(k.victimGUID) end
     end
   elseif event == "DUEL_REQUESTED" or event == "DUEL_INBOUNDS" then
     ns.SetDuel(true, GetTime())
