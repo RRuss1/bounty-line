@@ -151,7 +151,7 @@ No victim name: the Worker already has it on the bounty (matched by `victimGUID`
 | 18 | victimLevel | u8 (`0` unknown: the victim wasn't the target, mouseover or focus) |
 | 19 | facts | u8: bit0 not in a group, bit1 `/lol` within 10 seconds of the kill; other bits must be 0 |
 
-The addon writes schema 3 only for a bounty whose pack entry has terms. With no Open Season the schema 2 fields are `seasonId = 0`, `victimName = ""`, `guildName = ""`, `guildSeen = 0`; the Worker treats a schema 3 code with no season number, no guild and a bounty number as a plain bounty claim. Both `0` with `guildSeen = 0` is a kill of an enemy whose guild the addon never saw while a season was open.
+The addon writes schema 3 for a bounty whose pack entry has terms, and for a bounty set by name (design spec 5.12), with the victim's name in `victimName` so the Worker can match it. With no Open Season the schema 2 fields are `seasonId = 0`, `victimName = ""`, `guildName = ""`, `guildSeen = 0`; the Worker treats a schema 3 code with no season number, no guild and a bounty number as a plain bounty claim. Both `0` with `guildSeen = 0` is a kill of an enemy whose guild the addon never saw while a season was open.
 
 ### 3.3 `P`: bounty pack (Discord → addon)
 The payload bytes below are **zlib-compressed** before Base32: 2-byte zlib header (`78 DA`), raw DEFLATE, then the big-endian **Adler-32** of the uncompressed bytes. Readers verify the header (CM=8, FCHECK, no preset dictionary) and the Adler-32. Worker: `fflate` (pinned version); addon: LibDeflate `DecompressDeflate`. Only the Worker writes packs.
@@ -183,6 +183,17 @@ Pack entry:
 **Schema 2** appends, after the entries, a `u16` count and that many Open Season entries. The Worker writes schema 2 only when at least one season is open.
 
 **Schema 3** appends, after the seasons (an empty list when none), a `u16` count and that many bounty terms entries: bountyId u32, kills u8, killsLeft u8 (each-kill bounties: kills not yet approved; all or nothing: the whole count), payout u8, terms (as in B schema 2). Only bounties with terms are listed. The Worker writes schema 3 only when at least one open bounty has terms.
+
+**Schema 4** appends, after the bounty terms (an empty list when none), a `u16` count and that many **wanted-by-name** entries (design spec 5.12): bounties set from Discord with `/bl wanted`, known only by name until a kill locks them to a GUID. They are not in the main list (they have no GUID). The Worker writes schema 4 only when at least one is open.
+
+| Field | Type |
+|---|---|
+| bountyId | u32 |
+| targetName | vstr (full name as typed, "First Surname") |
+| targetFaction | u8 |
+| rewardGold | u32 |
+| posterName | vstr |
+| expiresAt | u32 |
 | Field | Type |
 |---|---|
 | seasonId | u32 |
@@ -329,7 +340,7 @@ Structure:
 
 Packs are decode-only in Lua; their frozen codes are byte-exact only for the pinned `fflate` version. The actual file also has `adler32`, `forwardCompat`, `packs` (multi-part cases) and `encodeErrors` sections.
 
-`forwardCompat` holds codes from a schema newer than any shipped one. When `K` schema 2 became real (Open Season), its entry moved from a made-up "K schema 2" to "K schema 3"; when K and P schema 3 became real (bounty terms), the entries moved to schema 4, and a B schema 3 entry was added. No shipped code changed meaning: no addon ever wrote those schemas before.
+`forwardCompat` holds codes from a schema newer than any shipped one. When `K` schema 2 became real (Open Season), its entry moved from a made-up "K schema 2" to "K schema 3"; when K and P schema 3 became real (bounty terms), the entries moved to schema 4, and a B schema 3 entry was added; when P schema 4 became real (bounties by name), the P entry moved to schema 5. No shipped code changed meaning: no addon ever wrote those schemas before.
 
 The Base32 vectors above other than the empty and single-byte cases should be double-checked by the reference implementation before freezing.
 

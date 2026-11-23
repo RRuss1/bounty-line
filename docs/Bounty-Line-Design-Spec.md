@@ -122,7 +122,7 @@ These facts shape every design choice. **Forever is NOT a Classic client.**
 | AddOns folder: `World of Warcraft\_forever_\Interface\AddOns`. Screenshots: `World of Warcraft\_forever_\Screenshots`. | Tell players exactly where screenshots land. |
 | **Combat log is closed to addons.** Registering `COMBAT_LOG_EVENT_UNFILTERED` is forbidden. | Kill detection must use other events (below). No combat-log "proof line." |
 | Kill signals available: **`PARTY_KILL`** (your killing blow, with victim GUID), **`CHAT_MSG_COMBAT_HONOR_GAIN`** (names the victim), `PLAYER_PVP_KILLS_CHANGED` (HK credit with no victim, i.e. assists). | `PARTY_KILL` + GUID match = killing blow. Honor message as corroboration. Assists ignored (killing blow only). |
-| **No realms.** Characters have a first name + surname; addons key players by **GUID**. | Every bounty is locked to a GUID → no name collisions or typos. |
+| **No realms.** Characters have a first name + surname; addons key players by **GUID**. | Every bounty is locked to a GUID → no name collisions or typos. The one exception, a bounty set by name from Discord (Section 5.12), is matched by exact full name until an approved kill locks it to a GUID. |
 | Enemy detection via **nameplates, target, focus, mouseover** (how Spy works on Forever). | Highlight logic hooks those units. |
 | **Secret values**: some unit data is hidden from addons during combat. | Cache target GUIDs when seen out of combat; degrade gracefully (see Section 23). |
 | **Addons cannot make network requests.** Only SavedVariables + Screenshots touch disk. | That's why codes are copy/paste. |
@@ -455,6 +455,16 @@ An **Open Season** puts a price on every member of one enemy guild. Many hunters
 - **Payment: one payout sheet at close.** When the season closes, the bot posts one line per hunter with what they collect, who pays it, and Paid / Received / Force close buttons. Funders pay in the order they put gold in, so most hunters are paid by one person. When every line is settled the season is PAID and the thread is closed. If claims are still waiting for officers at the close, the sheet waits for them. With no kills, the season just ends. A season that gets stuck (a claim or a payout line whose buttons never appeared, a payer who left) is finished by an officer with `/bl season action: close`: claims still waiting are denied and open lines are marked paid. Closing, settling and every button are safe against double clicks and two people at once: each happens once.
 - **In the pack.** Open seasons travel in the Bounty Pack (P schema 2), so every guildie's addon marks that guild's members (skull, "OPEN SEASON" tooltip line).
 
+### 5.12 Wanted by name (set from Discord)
+
+For a guildie who has only the enemy's name: no addon, or never met them in game. Decided with Rich on 2026-11-23.
+
+- **Setting it.** `/bl wanted name: faction: gold: note:` in Discord. The name is the character's full name as the game shows it ("First Surname"); it is matched without regard to case or extra spaces. The usual rules apply: the reward limits, the owing block, the open-bounty cap, and the poster pays. There can't be two open bounties on one name, and gold can't be added until it is locked.
+- **Not confirmed yet.** The wanted poster says "Set by name in Discord: not confirmed in game yet" and shows no class, race or level. It travels in the Bounty Pack (P schema 4) as a name, not a GUID.
+- **Locking in game.** Every addon with the pack watches enemy players on nameplates, targets and mouseover (open world only). A player of the named faction, opposite yours, whose full name matches exactly is taken to be the target: the addon remembers their GUID (saved, per account) and from then on marks them like any bounty (skull, tooltip, alert). A kill on a player of that name is matched the same way. Nothing is sent: each addon locks it for itself.
+- **Kills.** A kill on it makes a K code (schema 3) carrying the victim's name. The Bounty Board checks that the name matches, and the claim **always goes to officer review**, whatever the auto-approve setting: the officer checks the name on the screenshot. **Approving locks the bounty to that player's GUID**; a denied claim leaves it name-only.
+- **After locking** it is a normal bounty: paid the normal way, and the next pack lists it with its GUID.
+
 ---
 
 ## 6. Component 2: The Codes
@@ -578,6 +588,7 @@ on MESSAGE_CREATE (channel == tenant.bountyLineChannel, author not a bot):
 | `/bl setup` | Server admin | Pick #bounty-line channel, #bounty-board forum, officer role, link in-game guild name |
 | `/bl pack` | Anyone | Post and pin a fresh Bounty Pack in `#bounty-line` and remove the old one (at most once a minute; otherwise the pinned one is updated in place) |
 | `/bl submit code: image:` | Anyone | **Fallback** if pasting doesn't work (same pipeline as chat paste) |
+| `/bl wanted name: faction: gold: note:` | Anyone | Put a bounty on an enemy known only by name (Section 5.12) |
 | `/bl cancel id:` | Poster or officer | Cancel an open bounty |
 | `/bl extend id: days:` | Poster, a contributor or officer | Give an open bounty more days (at most 60 days from now) |
 | `/bl hunters` | Anyone | Take or drop the hunter role (`hunter_role`), which is pinged on new big bounties |
@@ -711,6 +722,7 @@ A tiny opt-in companion app could auto-upload. It's parked; Tier 1 never depends
 | Bounties on guildmates | Blocked (implied by opposite-faction rule) | No |
 | Claim own bounty | Blocked | No |
 | One bounty per target | Multiple posters can **stack** gold on the same GUID (shows total); not on a bounty with terms | Stacking on/off |
+| Bounty by name | `/bl wanted` from Discord: matched by exact full name and faction until an officer approves a kill, which locks it to that player; its kills always go to officer review (Section 5.12) | No |
 | Closing | First approved kill closes the bounty | Expand: up to 10 kills, each paid its share or all by one hunter (Section 5.4c) |
 | Bonuses and restrictions | Zone, class, solo, underdog, rush and insult (`/lol`) bonuses, each paid once; zone, class and solo restrictions (Section 5.4c) | Per bounty, by the poster |
 | Expiry | 14 days | 1–60 days |
@@ -790,7 +802,8 @@ CREATE TABLE characters (                      -- Discord user ↔ WoW character
 CREATE TABLE bounties (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   tenant_id TEXT NOT NULL,
-  target_guid TEXT NOT NULL, target_name TEXT, class TEXT, race TEXT, level INTEGER, faction TEXT,
+  target_guid TEXT NOT NULL,     -- "name:<lowercase full name>" for a bounty set by name, until a kill locks it (5.12)
+  target_name TEXT, class TEXT, race TEXT, level INTEGER, faction TEXT,
   reward_gold INTEGER NOT NULL,
   poster_guid TEXT, poster_name TEXT, poster_discord_id TEXT,
   zone_map_id INTEGER, created_at INTEGER, expires_at INTEGER,
@@ -1190,6 +1203,7 @@ The same packager can upload to **Wago** (`-a <wago-id>`) and **WoWInterface** (
 24. **Automatic screenshot:** on 2026-11-21 a practice kill in combat left the stamp up until Print Screen was pressed: `Screenshot()` never ran and the 5-second fallback never fired, which points at the line `C_Timer.After(0.15, Screenshot)` failing. The addon now calls `Screenshot()` from its own function, sets the fallback first, and prints a chat line if the call errors or the game blocks it (`ADDON_ACTION_BLOCKED`). Check with `/bl test` in and out of combat that a file appears by itself.
 25. **QR code on the stamp:** ✅ **Verified 2026-11-21** on a real 2560×1440 JPG screenshot: the kill code reads back exactly, from the whole image and from the lower-left region alone. ✅ **Verified in Discord the same day:** a practice screenshot dropped into `#bounty-line` with no text was read by the bot and answered.
 26. **Right-click menus inside dungeons:** reported 2026-11-22: on enemy NPCs in a dungeon the unit menu's submenu did not open, while the same menu in the open world was fine. Unverified cause: our menu hook reading hidden (secret) unit data, or adding a row for a hidden unit. The addon now adds nothing to unit menus in dungeons, raids and scenarios (battlegrounds and arenas still get the section) and checks every unit value for secrecy first. Test: `/bl debugmenu`, then right-click an enemy NPC in a dungeon; the submenus must open and no error may print.
+30. **Bounties by name (Section 5.12):** the addon compares the typed name with `UnitName`'s first name and surname joined by a space (Section 23 item 12). Check on Forever that a `/bl wanted` bounty on a real enemy locks the first time they're targeted, moused over or seen on a nameplate (a chat line says so), that a player with no surname matches a one-word name, and that a kill on someone never seen locks it: `GetPlayerInfoByGUID` must return their first name, and their surname where retail returns the realm.
 27. **Enemy guild names (Open Season):** ✅ **Verified 2026-11-22** with `/bl debug guild` on a guilded Alliance player: `GetGuildInfo(unit)` returned the guild name ("Honor and Valor"), rank and rank index for both `target` and `nameplate1`, **in and out of combat**, never hidden; tooltip line 2 carries the same name as a fallback. A kill event carries only a GUID, so the addon remembers GUID → guild from targets, mouseover and nameplates. Still open: whether guild names are unique without realms (a clash would merge two guilds under one Open Season).
 21. **Guild roster names:** officers-only pack sync matches the `CHAT_MSG_ADDON` sender against `GetGuildRosterInfo` names by full name or first name. Check on Forever that an officer's pack is accepted and a low rank's is ignored with the setting on.
 20. **AI stamp reading:** the default model is `@cf/meta/llama-4-scout-17b-16e-instruct` (Variable `AI_MODEL` overrides it). Check on real screenshots (1080p and 4K, PNG and JPG, dark and bright scenes) that it finds the stamp, and how often it returns `match`. The stamp is plain white Arial Narrow on a dark band for this reason.
