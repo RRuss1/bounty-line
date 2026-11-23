@@ -306,6 +306,20 @@ eq("fine 10s later", (ns.CheckKill(ME, VICTIM, 111) or {}).id, 7)
 withBounty(1)
 eq("same-faction bounty never pays out", select(2, ns.CheckKill(ME, VICTIM, 100)), "SAME_FACTION")
 
+-- Open world only (spec Section 10): every kind of instance is out, the open world is in.
+withBounty()
+for _, kind in ipairs({ "pvp", "arena", "party", "raid", "scenario" }) do
+  IsInInstance = function() return true, kind end
+  local got, why, missed = ns.CheckKill(ME, VICTIM, 100)
+  check("no kill code inside a " .. kind .. " instance", got == nil and why == "INSTANCE")
+  eq("  ...but the bounty comes back so the player is told (" .. kind .. ")", (missed or {}).id, 7)
+end
+IsInInstance = function() return false, "none" end
+eq("open world kills count", (ns.CheckKill(ME, VICTIM, 100) or {}).id, 7)
+check("InOpenWorld is true outdoors", ns.InOpenWorld())
+IsInInstance = nil
+check("InOpenWorld assumes open world when the API is missing", ns.InOpenWorld())
+
 withBounty()
 local kill = Codec.Decode(ns.BuildKillCode(7, VICTIM, 1795200100, true, true))
 check("K code decodes", kill ~= nil and kill.type == "K")

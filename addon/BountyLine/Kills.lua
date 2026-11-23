@@ -24,13 +24,15 @@ local deferred = {}  -- popups held back during combat, oldest first
 
 -- ---------------------------------------------------------------- rules (tested in addon/tests)
 
--- Returns the bounty if this PARTY_KILL counts, or nil and a reason.
+-- Returns the bounty if this PARTY_KILL counts, or nil and a reason. "INSTANCE" (bounties
+-- are open world only, spec Section 10) also returns the bounty, so the player can be told.
 function ns.CheckKill(attackerGUID, victimGUID, now)
   if ns.IsSecret(attackerGUID) or ns.IsSecret(victimGUID) then return nil, "SECRET" end
   local mine = attackerGUID ~= nil and attackerGUID == UnitGUID("player")
   local pet = attackerGUID ~= nil and not mine and attackerGUID == UnitGUID("pet")
   if not mine and not pet then return nil, "NOT_MINE" end
   if duel.active or (now - duel.endedAt) < DUEL_GRACE then return nil, "DUEL" end
+  if not ns.InOpenWorld() then return nil, "INSTANCE", ns.GetBounty(victimGUID) end
   local b = ns.GetBounty(victimGUID)
   if not b then return nil, "NO_BOUNTY" end
   if b.faction == FACTION_ID[UnitFactionGroup("player")] then return nil, "SAME_FACTION" end
@@ -226,8 +228,14 @@ events:SetScript("OnEvent", function(_, event, a, b)
   local debug = BountyLineDB and BountyLineDB.settings and BountyLineDB.settings.debugKills
   if event == "PARTY_KILL" then
     if debug then ns.Print(L.DEBUGKILL:format(tostring(a), tostring(b))) end
-    local bounty, how = ns.CheckKill(a, b, GetTime())
+    local bounty, how, missed = ns.CheckKill(a, b, GetTime())
     if debug then ns.Print("  -> " .. tostring(bounty and ("bounty #" .. bounty.id) or how)) end
+    -- In a battleground, arena or dungeon: nothing counts (no code, no season claim). Say so
+    -- when the victim was wanted, so nobody waits for a kill code that won't come.
+    if how == "INSTANCE" then
+      if missed or (not ns.IsSecret(b) and ns.SeasonOf(b)) then ns.Print(L.KILL_NOT_OPEN_WORLD) end
+      return
+    end
     -- Open Season (spec 5.11): my kill, no duel.
     local season
     if bounty or how == "NO_BOUNTY" then

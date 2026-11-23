@@ -13,6 +13,14 @@ function ns.IsSecret(v)
   return issecretvalue ~= nil and v ~= nil and issecretvalue(v) == true
 end
 
+-- Bounties are open world only (spec Section 10): kills in battlegrounds, arenas, dungeons,
+-- raids and scenarios never count, and wanted players aren't marked there. IsInInstance()
+-- returns false (type "none") everywhere in the open world, capital cities included.
+function ns.InOpenWorld()
+  if not IsInInstance then return true end
+  return not IsInInstance()
+end
+
 function ns.FormatGold(n)
   local s = BreakUpLargeNumbers and BreakUpLargeNumbers(n) or tostring(n)
   return s .. "g"

@@ -16,8 +16,10 @@ local function setting(key)
 end
 local lastSight = {} -- bounty id -> GetTime() of the latest sighting
 
+-- Bounties are open world only, so nobody is marked or announced in battlegrounds, arenas or
+-- dungeons: no skull, badge, tooltip line, alert or last-seen report there.
 local function wanted(unit)
-  if not unit or not UnitIsPlayer(unit) then return nil end
+  if not unit or not ns.InOpenWorld() or not UnitIsPlayer(unit) then return nil end
   return ns.GetBounty(UnitGUID(unit))
 end
 
@@ -25,8 +27,8 @@ end
 -- (and what we know of the player), unless you already collected on them today.
 local function inSeason(unit)
   if not unit then return nil end
-  local e = ns.RememberUnit(unit)
-  if not e then return nil end
+  local e = ns.RememberUnit(unit) -- guilds are still learned inside instances
+  if not e or not ns.InOpenWorld() then return nil end
   local guid = UnitGUID(unit)
   if ns.IsSecret(guid) or ns.SeasonClaimedToday(guid) then return nil end
   local s = ns.SeasonOf(guid)
@@ -125,7 +127,7 @@ end
 local function onTooltip(tooltip, data)
   local guid = data and data.guid
   if not guid or ns.IsSecret(guid) then return end
-  if not setting("tooltip") then return end
+  if not setting("tooltip") or not ns.InOpenWorld() then return end
   local b = ns.GetBounty(guid)
   if b then
     local text = b.pending and L.TOOLTIP_PENDING:format(ns.FormatGold(b.reward), b.poster)
@@ -142,8 +144,11 @@ events:RegisterEvent("NAME_PLATE_UNIT_ADDED")
 events:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
 events:RegisterEvent("PLAYER_TARGET_CHANGED")
 events:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
+events:RegisterEvent("PLAYER_ENTERING_WORLD") -- zoning into or out of an instance
 events:SetScript("OnEvent", function(_, event, unit)
-  if event == "PLAYER_LOGIN" then
+  if event == "PLAYER_ENTERING_WORLD" then
+    ns.RefreshMarks()
+  elseif event == "PLAYER_LOGIN" then
     if TooltipDataProcessor and Enum and Enum.TooltipDataType then
       TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, onTooltip)
     end
