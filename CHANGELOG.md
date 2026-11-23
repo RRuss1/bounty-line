@@ -1,7 +1,9 @@
 # Changelog
 
-## v0.9.2: open world only, Hardcore tag, fair-play rules
+## v0.9.2: Expand (bounty terms), last seen, open world only, Hardcore tag, fair-play rules
 
+- **Expand: bounty terms.** The Set Bounty window has an **Expand ▾** button. Want up to 10 kills (each paid its share, or all by one hunter), pick 7, 14 or 28 days, add bonuses (zone, class, solo, lower level, within N hours, and an insult bonus for a `/lol` at the corpse within 10 seconds) and limits (only in a zone, only a class, solo only). Hunters see the terms in tooltips and on the board; the wanted poster lists them; each kill gets its own payment post with the bonuses it earned. A bounty with terms takes no added gold.
+- Code format: bounty codes schema 2 (terms), kill codes schema 3 (the hunter's class and level, the victim's level, solo, the insult) and packs schema 3 (terms for hunters). Plain bounties and kills write the same codes as before, and older addons read the new packs.
 - **Last seen on the wanted posters.** With a relay online, the wanted poster on Discord shows where the target was last spotted: *👁 Last seen: Wetlands, 12 minutes ago (by Slac Jaw)*. The relay officer's addon collects guildies' sightings and sends the newest at most every 5 minutes (never in combat) as one QR screenshot. The in-game board's tooltip names who saw them too.
 - Fix: a bounty's **note** no longer disappears from its poster when the status changes.
 - Code format: new `W` code (sightings, written only for the relay). No other code changed.
@@ -20,7 +22,7 @@
 ### Deployer notes
 
 - Run `/bl setup` again once (same options): it creates the **Hardcore** forum tag and tags the live bounties of 50g or more. The bot needs Manage Channels on the forum for this, as before.
-- Migrations `0008_trust_posters.sql` and `0009_last_seen.sql` add columns; the deploy applies them. `/bl extend` is new and `/bl config` has five new options; the deploy registers them.
+- Migrations `0008_trust_posters.sql`, `0009_last_seen.sql` and `0010_bounty_terms.sql` add columns; the deploy applies them. `/bl extend` is new and `/bl config` has five new options; the deploy registers them.
 - Hunters ping: the role must allow being mentioned (Server Settings → Roles → the role → **Allow anyone to @mention this role**), or give the bot **Mention @everyone, @here and All Roles**.
 - Relay officers: update the relay (`git pull`, then `npm.cmd ci` in `relay`) for last seen. An older relay keeps working for bounties and packs; the addon just doesn't send it sightings.
 - The bot changes deploy when merged; players need the addon update for the in-game part.
