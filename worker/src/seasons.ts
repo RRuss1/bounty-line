@@ -281,8 +281,11 @@ async function fundSeason(env: Env, rest: DiscordRest, tenant: Tenant, f: Season
 /**
  * True when a kill code is an Open Season claim (it may also name a personal bounty). The addon
  * writes schema 2 only for those, including kills on a guild whose season has no number yet.
+ * Schema 3 is also written for kills on a bounty with terms (its kill facts); with no season
+ * number and no guild it is a plain bounty claim.
  */
-export const isSeasonKill = (k: KillClaim) => k.schema >= 2;
+export const isSeasonKill = (k: KillClaim) =>
+  k.schema >= 2 && !(k.schema >= 3 && (k.seasonId ?? 0) === 0 && (k.guildName ?? "") === "" && k.bountyId !== 0);
 
 /** Open seasons a kill by this faction could count for, newest first. */
 const openSeasonsAgainst = async (env: Env, tenantId: string, killerFaction: number, now: number) =>

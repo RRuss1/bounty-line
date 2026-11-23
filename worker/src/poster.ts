@@ -4,6 +4,7 @@ import type { Env } from "./env";
 import { log } from "./log";
 import type { PosterStatus } from "./poster-image";
 import type { Tenant } from "./tenants";
+import { allOrNothing, describeTerm, isMultiKill, killsWanted, rewardText, termsOf } from "./terms";
 import { boardName, className, escapeMd, factionName, gold, level, raceName, zoneName } from "./wow";
 
 /** ☠ plus the emoji variation selector, so Discord draws the emoji, not the text glyph. */
@@ -33,9 +34,26 @@ export function lastSeenText(s: LastSeen): string {
 
 export function wantedPoster(
   b: BountyPost,
-  opts: { id: number; expiresAt: number; postedBy: string; tenant: Tenant; status?: PosterStatus; lastSeen?: LastSeen | null },
+  opts: {
+    id: number;
+    expiresAt: number;
+    postedBy: string;
+    tenant: Tenant;
+    status?: PosterStatus;
+    lastSeen?: LastSeen | null;
+    /** Kills approved so far (bounties paid per kill). */
+    killsDone?: number;
+  },
 ) {
   const status = opts.status ?? "open";
+  // The Expand section (spec 5.4c): kills, payout, bonuses and restrictions.
+  const row = { reward_gold: b.rewardGold, kills_wanted: b.kills ?? 1, payout_mode: b.payout ?? 0, terms_json: JSON.stringify(b.terms ?? []) };
+  const reward = rewardText(row);
+  const multi = isMultiKill(row);
+  const termLines = [
+    ...(multi && !allOrNothing(row) ? [`Kills: **${opts.killsDone ?? 0} of ${killsWanted(row)}** done`] : []),
+    ...termsOf(row).map((t) => `• ${escapeMd(describeTerm(t))}`),
+  ];
   // Only while it can still be hunted: a closed poster doesn't need to say where they were.
   const seen = opts.lastSeen && (status === "open" || status === "review") ? lastSeenText(opts.lastSeen) : null;
   const name = escapeMd(b.targetName || "Unknown");
@@ -45,19 +63,24 @@ export function wantedPoster(
     color: Number.isFinite(color) ? color : 0xb8860b,
     description: [
       `${raceName(b.targetRaceID)} ${className(b.targetClassID)} · Level ${level(b.targetLevel)} · ${factionName(b.targetFaction)}`,
-      `**Reward: ${gold(b.rewardGold)}** (honor system, paid by ${escapeMd(b.posterName || "the poster")})`,
+      `**Reward: ${reward}** (honor system, paid by ${escapeMd(b.posterName || "the poster")})`,
       `Marked${zoneName(b.mapID) ? ` in: ${zoneName(b.mapID)} ·` : ":"} <t:${b.createdAt}:f>`,
       `Bounty #${opts.id} · Expires <t:${opts.expiresAt}:D>`,
       `Status: **${STATUS_LABEL[status]}**`,
     ].join("\n"),
-    fields: [...(b.note ? [{ name: "Note", value: escapeMd(b.note) }] : []), ...(seen ? [{ name: "👁 Last seen", value: seen }] : [])],
+    fields: [
+      ...(termLines.length ? [{ name: "🎯 Terms", value: termLines.join("\n").slice(0, 1024) }] : []),
+      ...(b.note ? [{ name: "Note", value: escapeMd(b.note) }] : []),
+      ...(seen ? [{ name: "👁 Last seen", value: seen }] : []),
+    ],
     footer: { text: `${boardName(opts.tenant.config.discord_display_name)} · board tag ${opts.tenant.board_tag}` },
   };
   const threadName = `${SKULL} ${b.targetName || "Unknown"} · ${gold(b.rewardGold)}`.slice(0, 100);
   // Forum cards preview only the message text (never embeds), so the key facts go here too.
   const content = [
-    `**Reward: ${gold(b.rewardGold)}** · ${raceName(b.targetRaceID)} ${className(b.targetClassID)} ${level(b.targetLevel)} · ${factionName(b.targetFaction)}`,
+    `**Reward: ${reward}** · ${raceName(b.targetRaceID)} ${className(b.targetClassID)} ${level(b.targetLevel)} · ${factionName(b.targetFaction)}`,
     `Bounty #${opts.id} · expires <t:${opts.expiresAt}:D> · posted by <@${opts.postedBy}>`,
+    ...(termsOf(row).length ? [`🎯 ${termsOf(row).map(describeTerm).map(escapeMd).join(" · ")}`.slice(0, 600)] : []),
     ...(seen ? [`👁 Last seen: ${seen}`] : []),
   ].join("\n");
   return { threadName, embed, content };
