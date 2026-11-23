@@ -113,6 +113,39 @@ export async function cancel(
   return `🚫 Bounty #${id} on **${escapeMd(b.target_name ?? "?")}** is cancelled.`;
 }
 
+/** Longest a bounty can run, counted from now (matches expiry_days' upper limit). */
+export const MAX_RUN_DAYS = 60;
+
+/** /bl extend: more days on an open bounty. Its poster, anyone who added gold, or an officer. */
+export async function extend(
+  env: Env,
+  rest: DiscordRest,
+  tenant: Tenant,
+  id: number,
+  days: number,
+  user: { id: string; roles: string[]; isAdmin: boolean },
+  now: number,
+): Promise<string> {
+  const b = await env.DB.prepare("SELECT * FROM bounties WHERE id = ?1 AND tenant_id = ?2").bind(id, tenant.id).first<BountyRow>();
+  if (!b) return `❌ There's no bounty #${id} on this board.`;
+  const officer = user.isAdmin || (!!tenant.officer_role_id && user.roles.includes(tenant.officer_role_id));
+  const contributor = await env.DB.prepare("SELECT 1 FROM contributions WHERE tenant_id = ?1 AND bounty_id = ?2 AND poster_discord_id = ?3")
+    .bind(tenant.id, id, user.id)
+    .first();
+  if (b.poster_discord_id !== user.id && !contributor && !officer) return "❌ Only the poster, someone who added gold, or an officer can extend a bounty.";
+  if (b.status !== "open" || b.expires_at <= now) return `❌ Bounty #${id} isn't open, so it can't be extended.`;
+  if (!Number.isInteger(days) || days < 1 || days > MAX_RUN_DAYS) return `❌ Extend by 1 to ${MAX_RUN_DAYS} days.`;
+  const cap = now + MAX_RUN_DAYS * 86400;
+  if (b.expires_at >= cap) return `❌ Bounty #${id} already runs the longest it can (${MAX_RUN_DAYS} days from now).`;
+  const expires = Math.min(b.expires_at + days * 86400, cap);
+  await env.DB.prepare("UPDATE bounties SET expires_at = ?1 WHERE id = ?2 AND tenant_id = ?3").bind(expires, id, tenant.id).run();
+  // Same status: redraws the poster with the new date and refreshes the Bounty Pack.
+  await setBountyStatus(env, rest, tenant, { ...b, expires_at: expires }, "open", now);
+  await audit(env.DB, tenant.id, user.id, "bounty.extend", { bounty: id, days, expires }, now);
+  const capped = expires === cap && b.expires_at + days * 86400 > cap ? ` (capped at ${MAX_RUN_DAYS} days from now)` : "";
+  return `⏳ Bounty #${id} on **${escapeMd(b.target_name ?? "?")}** now runs until <t:${expires}:D>${capped}.`;
+}
+
 // ---------------------------------------------------------------- crons
 
 async function tenantIds(env: Env): Promise<string[]> {
@@ -257,6 +290,14 @@ export async function configure(env: Env, rest: DiscordRest, tenant: Tenant, o: 
   int("proof_window_hours", 1, 168);
   int("trust_threshold", 1, 50);
   int("hardcore_min_gold", 0, 1_000_000);
+  int("claim_cooldown_minutes", 0, 1440);
+  int("unpaid_block_days", 0, 60);
+  int("max_open_per_poster", 0, 100);
+  int("hunter_ping_min_gold", 0, 1_000_000);
+  if (o.hunter_role !== undefined) {
+    if (/^[0-9]{17,20}$/.test(o.hunter_role)) patch.hunter_role = o.hunter_role;
+    else errors.push("`hunter_role` must be a role.");
+  }
   if (o.auto_approve !== undefined) {
     if ((AUTO as readonly string[]).includes(o.auto_approve)) patch.auto_approve = o.auto_approve;
     else errors.push("`auto_approve` must be off, trusted_only or all_clean.");
@@ -281,6 +322,10 @@ export async function configure(env: Env, rest: DiscordRest, tenant: Tenant, o: 
     `Rewards: ${gold(f.reward_min)} to ${gold(f.reward_max)} · bounties last ${f.expiry_days} days · kill proof within ${f.proof_window_hours}h`,
     `Auto-approve: **${f.auto_approve}** · trusted after ${f.trust_threshold} approved kills in a row`,
     `Hardcore tag: ${f.hardcore_min_gold > 0 ? `bounties of ${gold(f.hardcore_min_gold)} or more` : "off"}`,
+    `Hunters ping: ${f.hunter_role && f.hunter_ping_min_gold > 0 ? `<@&${f.hunter_role}> on new bounties of ${gold(f.hunter_ping_min_gold)} or more` : "off"}`,
+    `Same target again: ${f.claim_cooldown_minutes > 0 ? `${f.claim_cooldown_minutes} min after a hunter's last kill on them` : "any time"} · ` +
+      `unpaid block: ${f.unpaid_block_days > 0 ? `${f.unpaid_block_days} days` : "off"} · ` +
+      `open bounties per poster: ${f.max_open_per_poster > 0 ? f.max_open_per_poster : "no limit"}`,
     `Stacking: ${f.allow_stacking ? "on" : "off"} · weekly recap: ${f.weekly_recap ? "on" : "off"} in ${fresh.hall_of_fame_ch ? `<#${fresh.hall_of_fame_ch}>` : `<#${fresh.bounty_line_ch}>`}`,
   ].join("\n");
 }

@@ -73,6 +73,17 @@ export const COMMANDS = [
             description: "Bounties of this much gold or more get the Hardcore tag (0 = off)",
             min_value: 0,
           },
+          { type: OptionType.ROLE, name: "hunter_role", description: "Role pinged on the poster of new big bounties" },
+          { type: OptionType.INTEGER, name: "hunter_ping_min_gold", description: "Ping the hunter role on new bounties of this much or more (0 = off)", min_value: 0 },
+          {
+            type: OptionType.INTEGER,
+            name: "claim_cooldown_minutes",
+            description: "Minutes before a hunter can claim the same target again (0 = off)",
+            min_value: 0,
+            max_value: 1440,
+          },
+          { type: OptionType.INTEGER, name: "unpaid_block_days", description: "No new bounties while owing one approved this many days ago (0 = off)", min_value: 0, max_value: 60 },
+          { type: OptionType.INTEGER, name: "max_open_per_poster", description: "Most open bounties per poster (0 = no limit)", min_value: 0, max_value: 100 },
           { type: OptionType.BOOLEAN, name: "allow_stacking", description: "Let several players add gold to one bounty" },
           { type: OptionType.BOOLEAN, name: "weekly_recap", description: "Post the Sunday recap" },
           { type: OptionType.CHANNEL, name: "hall_of_fame", description: "Channel for the weekly recap", channel_types: [ChannelType.GUILD_TEXT] },
@@ -89,6 +100,15 @@ export const COMMANDS = [
         name: "cancel",
         description: "Cancel an open bounty (its poster or an officer)",
         options: [{ type: OptionType.INTEGER, name: "id", description: "Bounty number", required: true, min_value: 1 }],
+      },
+      {
+        type: OptionType.SUB_COMMAND,
+        name: "extend",
+        description: "Give an open bounty more days (its poster, a contributor or an officer)",
+        options: [
+          { type: OptionType.INTEGER, name: "id", description: "Bounty number", required: true, min_value: 1 },
+          { type: OptionType.INTEGER, name: "days", description: "Days to add (1-60; it can run at most 60 days from now)", required: true, min_value: 1, max_value: 60 },
+        ],
       },
       {
         type: OptionType.SUB_COMMAND,
