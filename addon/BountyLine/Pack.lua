@@ -95,12 +95,38 @@ function ns.StorePack(p)
       count = count + 1
     end
   end
+  -- Bounties set by name in Discord (pack schema 4, spec 5.12), keyed by name; the ones this
+  -- account already locked to a player go in with the others, under their GUID.
+  local wanted, oldWanted, wantedIds = {}, cur and cur.wanted or {}, {}
+  for _, w in ipairs(p.wanted or {}) do
+    if w.expiresAt > now then
+      local key = ns.NameKey(w.targetName)
+      if cur and not oldWanted[key] then added[#added + 1] = w end
+      wanted[key] = {
+        id = w.bountyId, name = w.targetName, faction = w.targetFaction, reward = w.rewardGold,
+        poster = w.posterName, expires = w.expiresAt, byName = true,
+      }
+      wantedIds[w.bountyId] = wanted[key]
+      ids[w.bountyId] = true
+      count = count + 1
+    end
+  end
+  db.wantedLocks = db.wantedLocks or {}
+  for id, lock in pairs(db.wantedLocks) do
+    local w = wantedIds[id]
+    if not w then
+      db.wantedLocks[id] = nil -- gone, or the Bounty Board locked it and the pack lists it by GUID
+    elseif not bounties[lock.guid] then
+      bounties[lock.guid] = ns.LockedCopy(w, lock.classID, lock.name)
+    end
+  end
   -- Open seasons (pack schema 2), keyed by guild. Older packs have none.
   local seasons, seasonCount = ns.SeasonsFromPack(p.seasons, now)
   db.pack = {
     version = p.packVersion, boardTag = p.boardTag, discordName = p.discordDisplayName,
     rewardMin = p.rewardMin, rewardMax = p.rewardMax, minAddon = p.minAddonVersion,
     bounties = bounties, count = count, codes = p.codes, seasons = seasons, seasonCount = seasonCount,
+    wanted = wanted,
   }
   -- Seasons a guildie just declared that the pack now lists, or that timed out.
   for key, pend in pairs(db.pendingSeasons or {}) do
@@ -187,6 +213,84 @@ function ns.GetBounty(guid)
   return nil
 end
 
+-- ---------------------------------------------------------------- bounties set by name (spec 5.12)
+--
+-- /bl wanted in Discord puts a bounty on a name, with no GUID; the pack lists those by name.
+-- The first time this account sees an enemy of that name and faction (nameplate, target,
+-- mouseover) or kills one, the bounty is locked to their GUID here, and from then on it is
+-- marked and claimed like any other. The Bounty Board locks it when an officer approves a kill.
+
+local FACTION_ID = { Alliance = 1, Horde = 2 }
+
+-- "  Grimlok  ASHVEIL " -> "grimlok ashveil". The game's lower() only changes A-Z.
+function ns.NameKey(name)
+  if type(name) ~= "string" then return "" end
+  local s = name:gsub("^%s+", ""):gsub("%s+$", ""):gsub("%s+", " ")
+  return (s:lower())
+end
+
+-- The open bounty set on this name, if any.
+function ns.WantedByName(name)
+  local pack = BountyLineDB and BountyLineDB.pack
+  local w = pack and pack.wanted and pack.wanted[ns.NameKey(name)]
+  if w and w.expires > GetServerTime() and not ns.IsClaimed(w.id) then return w end
+  return nil
+end
+
+-- The bounty, now on this player: their name as the game shows it, and their class if seen.
+function ns.LockedCopy(w, classID, name)
+  local b = {}
+  for k, v in pairs(w) do b[k] = v end
+  b.classID = classID or 0
+  b.name = name or w.name
+  return b
+end
+
+-- Locks a bounty set by name to this player. faction: theirs (1 or 2), or nil when it isn't
+-- known (a kill: names are unique on the server, and the faction is checked as for any bounty).
+function ns.LockWanted(guid, name, faction, classID)
+  if type(guid) ~= "string" or ns.IsSecret(guid) or ns.IsSecret(name) then return nil end
+  local w = ns.WantedByName(name)
+  local db = BountyLineDB
+  if not w or (faction and faction ~= w.faction) or db.pack.bounties[guid] then return nil end
+  db.wantedLocks = db.wantedLocks or {}
+  local old = db.wantedLocks[w.id]
+  if old and db.pack.bounties[old.guid] and db.pack.bounties[old.guid].id == w.id then db.pack.bounties[old.guid] = nil end
+  local b = ns.LockedCopy(w, classID, name)
+  db.pack.bounties[guid] = b
+  db.wantedLocks[w.id] = { guid = guid, classID = b.classID, name = name }
+  ns.Print(ns.L.WANTED_LOCKED:format(name, w.id))
+  return b
+end
+
+local function anyWanted()
+  local pack = BountyLineDB and BountyLineDB.pack
+  return pack ~= nil and pack.wanted ~= nil and next(pack.wanted) ~= nil
+end
+
+-- A player on screen: is a bounty by name about them? Enemy faction only.
+function ns.LockUnit(unit)
+  if not anyWanted() then return nil end
+  local faction = UnitFactionGroup(unit)
+  if ns.IsSecret(faction) or not FACTION_ID[faction] or faction == UnitFactionGroup("player") then return nil end
+  local name = ns.FullName(unit)
+  if not name then return nil end
+  local _, _, classID = UnitClass(unit)
+  if ns.IsSecret(classID) or type(classID) ~= "number" then classID = 0 end
+  return ns.LockWanted(UnitGUID(unit), name, FACTION_ID[faction], classID)
+end
+
+-- A kill on a player this account never saw: the game still names them from the GUID
+-- (first name and, on Forever, the surname where retail has the realm: spec 23 item 30).
+function ns.LockVictim(guid)
+  if not anyWanted() or not GetPlayerInfoByGUID or ns.IsSecret(guid) then return nil end
+  local ok, _, _, _, _, _, first, surname = pcall(GetPlayerInfoByGUID, guid)
+  if not ok or type(first) ~= "string" or ns.IsSecret(first) or first == "" then return nil end
+  local name = first
+  if type(surname) == "string" and not ns.IsSecret(surname) and surname ~= "" then name = first .. " " .. surname end
+  return ns.LockWanted(guid, name, nil, 0)
+end
+
 local function pendingList()
   local out, now = {}, GetServerTime()
   for guid, p in pairs(BountyLineDB.pending or {}) do
@@ -206,6 +310,13 @@ function ns.ListBounties()
       list[#list + 1] = setmetatable({ guid = guid, claimed = ns.IsClaimed(b.id) }, { __index = b })
     end
   end
+  -- Bounties by name nobody here has seen yet (the locked ones are listed above, by GUID).
+  local locks = BountyLineDB.wantedLocks or {}
+  for _, w in pairs(pack.wanted or {}) do
+    if w.expires > now and not locks[w.id] then
+      list[#list + 1] = setmetatable({ claimed = ns.IsClaimed(w.id) }, { __index = w })
+    end
+  end
   table.sort(list, function(a, b) return a.reward > b.reward or (a.reward == b.reward and a.id < b.id) end)
   return list
 end
@@ -220,6 +331,9 @@ function ns.GetBountyById(id)
   if not pack then return nil end
   for _, b in pairs(pack.bounties) do
     if b.id == id then return b end
+  end
+  for _, w in pairs(pack.wanted or {}) do
+    if w.id == id then return w end
   end
   return nil
 end

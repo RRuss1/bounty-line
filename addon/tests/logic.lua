@@ -1069,5 +1069,80 @@ do
   IsInGroup = realGroup
 end
 
+-- ---------------------------------------------------------------- bounties set by name (spec 5.12)
+do
+  reset() -- the player is Alliance; the target is Grimlok Ashveil, Horde
+  serverTime = PACK_TIME
+  BountyLineDB.boardTag = "K7QF"
+  BountyLineCharDB = { kills = {} }
+  timers = {}
+  ns.SetDuel(false, -1000)
+  local GRIM, ZED = "Player-4395-0A1B2C3D", "Player-4395-0000ZED1"
+  local function namedPack(wanted, bounties, version)
+    return {
+      packVersion = version, boardTag = "K7QF", discordDisplayName = "Grief", rewardMin = 1, rewardMax = 10000,
+      minAddonVersion = 4, bounties = bounties or {}, wanted = wanted,
+    }
+  end
+  local grim = {
+    bountyId = 50, targetName = "grimlok  ASHVEIL", targetFaction = 2, rewardGold = 75, posterName = "Buddy", expiresAt = PACK_TIME + 86400,
+  }
+  check("a pack with a bounty by name is stored", ns.StorePack(namedPack({ grim }, nil, PACK_TIME - 100)))
+  eq("names are compared tidied and in lower case", ns.NameKey("  Grimlok   ASHVEIL "), "grimlok ashveil")
+  check("nobody is huntable by GUID before anyone sees them", ns.GetBounty(GRIM) == nil)
+  local list = ns.ListBounties()
+  eq("it's on the board", #list, 1)
+  check("  by name, with no GUID", list[1].byName == true and list[1].guid == nil)
+  eq("found by number", (ns.GetBountyById(50) or {}).name, "grimlok  ASHVEIL")
+
+  units.target.faction = "Alliance"
+  check("someone of that name on my own faction isn't them", ns.LockUnit("target") == nil)
+  units.target.faction = "Horde"
+  units.target.name = "Grimlock"
+  check("another name isn't them", ns.LockUnit("target") == nil)
+  units.target.name = "Grimlok"
+  units.target.faction = "Alliance"
+  units.player.faction = "Horde"
+  check("the wrong faction for the bounty isn't them", ns.LockUnit("target") == nil)
+  units.target.faction, units.player.faction = "Horde", "Alliance"
+  eq("seeing them locks it", (ns.LockUnit("target") or {}).id, 50)
+  eq("now they're huntable by GUID", (ns.GetBounty(GRIM) or {}).id, 50)
+  eq("  with the class seen", ns.GetBounty(GRIM).classID, 1)
+  eq("  and their name as the game shows it", ns.GetBounty(GRIM).name, "Grimlok Ashveil")
+  list = ns.ListBounties()
+  check("listed once, now with the GUID", #list == 1 and list[1].guid == GRIM)
+  check("the lock outlives a new pack", ns.StorePack(namedPack({ grim }, nil, PACK_TIME - 50)))
+  eq("  still huntable by GUID", (ns.GetBounty(GRIM) or {}).id, 50)
+
+  eq("my kill on them counts", (ns.CheckKill(ME, GRIM, 100) or {}).id, 50)
+  ns._kills.start(ns.GetBounty(GRIM), GRIM, false, false)
+  runTimers()
+  ns._kills.finish(true)
+  local kc = Codec.Decode(BountyLineCharDB.kills[1].code)
+  eq("the kill code is schema 3", kc and kc.fields.schema, 3)
+  eq("  with their name as the game shows it", kc and kc.fields.victimName, "Grimlok Ashveil")
+  eq("  the bounty's number", kc and kc.fields.bountyId, 50)
+  eq("  and no season", kc and kc.fields.seasonId, 0)
+  check("then it's marked claimed", ns.IsClaimed(50))
+
+  -- The Bounty Board locked it: the next pack lists it by GUID, and the lock is forgotten.
+  check("a pack listing it by GUID is stored", ns.StorePack(namedPack({}, { {
+    bountyId = 50, targetGUID = GRIM, targetName = "grimlok  ASHVEIL", targetClassID = 0, targetFaction = 2, rewardGold = 75,
+    posterName = "Buddy", expiresAt = PACK_TIME + 86400,
+  } }, PACK_TIME)))
+  check("  the lock is forgotten", BountyLineDB.wantedLocks[50] == nil)
+
+  -- A kill on a player this account never saw: the game names them from the GUID.
+  local zed = {
+    bountyId = 51, targetName = "Zed Stranger", targetFaction = 2, rewardGold = 10, posterName = "Buddy", expiresAt = PACK_TIME + 86400,
+  }
+  check("a pack with another bounty by name is stored", ns.StorePack(namedPack({ zed }, nil, PACK_TIME + 1)))
+  GetPlayerInfoByGUID = function(guid) if guid == ZED then return "Rogue", "ROGUE", "Orc", "Orc", 2, "Zed", "Stranger" end end
+  eq("a kill on someone never seen locks it by the name the game gives", (ns.CheckKill(ME, ZED, 100) or {}).id, 51)
+  GetPlayerInfoByGUID = function() return "Rogue", "ROGUE", "Orc", "Orc", 2, "Zed", "Other" end
+  check("another name never locks it", ns.LockVictim("Player-4395-0000ZED2") == nil)
+  GetPlayerInfoByGUID = nil
+end
+
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

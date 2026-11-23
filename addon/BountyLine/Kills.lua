@@ -49,7 +49,8 @@ function ns.CheckKill(attackerGUID, victimGUID, now)
   end
   if duel.active or (now - duel.endedAt) < DUEL_GRACE then return nil, "DUEL" end
   if not ns.InOpenWorld() then return nil, "INSTANCE", ns.GetBounty(victimGUID) end
-  local b = ns.GetBounty(victimGUID)
+  -- Or a bounty set by name in Discord on a player this account never saw (spec 5.12).
+  local b = ns.GetBounty(victimGUID) or ns.LockVictim(victimGUID)
   if not b then return nil, "NO_BOUNTY" end
   if b.faction == FACTION_ID[UnitFactionGroup("player")] then return nil, "SAME_FACTION" end
   return b, pet and "PET" or "MINE"
@@ -64,6 +65,7 @@ end
 -- season (Open Season kills only): { id, name, guild, seen } -> schema 2. The Bounty Board finds
 -- the season by the guild, so a season declared moments ago (no number yet) still works.
 -- facts (bounties with terms, spec 5.4c): { classID, level, victimLevel, solo, insult } -> schema 3.
+-- A bounty set by name (spec 5.12) also writes schema 3, with facts.victimName for the Bounty Board.
 function ns.BuildKillCode(bountyId, victimGUID, killedAt, honor, pet, season, facts)
   local FACT = ns.Codec.FACT
   return ns.Codec.Encode("K", {
@@ -73,7 +75,7 @@ function ns.BuildKillCode(bountyId, victimGUID, killedAt, honor, pet, season, fa
     victimLevel = facts and (facts.victimLevel or 0) or nil,
     facts = facts and ((facts.solo and FACT.solo or 0) + (facts.insult and FACT.insult or 0)) or nil,
     seasonId = (season or facts) and (season and season.id or 0) or nil,
-    victimName = (season or facts) and (season and season.name or "") or nil,
+    victimName = (season or facts) and (season and season.name or facts and facts.victimName or "") or nil,
     guildName = (season or facts) and (season and season.guild or "") or nil,
     guildSeen = (season or facts) and (season and season.seen and 1 or 0) or nil,
     boardTag = ns.BoardTag(),
@@ -270,8 +272,10 @@ local function startKill(bounty, victimGUID, pet, practice, season)
     season = season,
   }
   -- A bounty with terms: the Bounty Board checks them from facts in the code (K schema 3).
-  if not practice and not bounty.seasonOnly and ns.HasTerms(bounty) then
+  -- A bounty set by name: the code carries the victim's name, so the Bounty Board can match it.
+  if not practice and not bounty.seasonOnly and (ns.HasTerms(bounty) or bounty.byName) then
     k.facts = ns.KillFacts(victimGUID)
+    if bounty.byName then k.facts.victimName = bounty.name end
     k.wantsInsult = ns.HasTerm(bounty, ns.Codec.TERM.insultBonus) ~= nil
   end
   if pending then
