@@ -24,6 +24,30 @@ export type CommandResult = { reply: InteractionResponse } | { defer: () => Prom
 const SNOWFLAKE = /^[0-9]{17,20}$/;
 const actorOf = (i: Interaction) => i.member?.user?.id ?? i.user?.id ?? "unknown";
 
+/**
+ * /bl hunters: gives or takes the hunter role (/bl config hunter_role) for whoever runs it. The bot
+ * needs Manage Roles, and Discord only lets it hand out roles below its own: the bot's role sits
+ * just above the hunter role and below every staff role (spec Section 13).
+ */
+async function toggleHunter(rest: DiscordRest, tenant: Tenant, user: string, roles: string[], now: number, env: Env): Promise<string> {
+  const role = tenant.config.hunter_role;
+  if (!role) return "There's no hunter role yet. An admin sets it with `/bl config hunter_role:`.";
+  const had = roles.includes(role);
+  try {
+    if (had) await rest.removeMemberRole(tenant.id, user, role);
+    else await rest.addMemberRole(tenant.id, user, role);
+  } catch (e) {
+    log(env, "warn", "hunters.toggle_failed", { tenant_id: tenant.id, error: String(e) });
+    return `❌ I couldn't change your <@&${role}> role. An admin should give me **Manage Roles** and drag my role above <@&${role}> in Server Settings → Roles.`;
+  }
+  await audit(env.DB, tenant.id, user, had ? "hunters.leave" : "hunters.join", {}, now);
+  const min = tenant.config.hunter_ping_min_gold;
+  if (had) return `🔕 You no longer have <@&${role}>: no more pings for new bounties. Run \`/bl hunters\` again to turn them back on.`;
+  return min > 0
+    ? `🔔 You now have <@&${role}>: you'll be pinged on every new bounty of **${gold(min)}** or more. Run \`/bl hunters\` again to turn it off.`
+    : `🔔 You now have <@&${role}>. Pings are switched off on this server right now (an admin sets \`hunter_ping_min_gold\`).`;
+}
+
 function optionMap(opts: CommandOption[] | undefined): Record<string, string> {
   const out: Record<string, string> = {};
   for (const o of opts ?? []) if (o.value !== undefined) out[o.name] = String(o.value);
@@ -95,6 +119,14 @@ export async function runCommand(
           if (!tenant) return "This server isn't set up yet.";
           const user = { id: actorOf(interaction), roles: interaction.member?.roles ?? [], isAdmin: hasAdmin(interaction) };
           return extend(env, rest, tenant, Number(o.id), Number(o.days), user, now);
+        },
+      };
+    case "hunters":
+      return {
+        defer: async () => {
+          const tenant = await getTenant(env.DB, guildId);
+          if (!tenant) return "This server isn't set up yet.";
+          return toggleHunter(rest, tenant, actorOf(interaction), interaction.member?.roles ?? [], now, env);
         },
       };
     case "pack":

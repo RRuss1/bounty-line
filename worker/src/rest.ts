@@ -125,6 +125,12 @@ export class DiscordRest {
       post.image ? [{ name: "wanted-poster.png", data: post.image, type: "image/png" }] : [],
     );
 
+  // ---- members' roles (the hunter role only: /bl hunters)
+  addMemberRole = (guildId: string, userId: string, roleId: string) =>
+    this.request("PUT", `/guilds/${guildId}/members/${userId}/roles/${roleId}`);
+  removeMemberRole = (guildId: string, userId: string, roleId: string) =>
+    this.request("DELETE", `/guilds/${guildId}/members/${userId}/roles/${roleId}`);
+
   // ---- guilds & interactions
   leaveGuild = (guildId: string) => this.request("DELETE", `/users/@me/guilds/${guildId}`);
   editInteractionReply = (appId: string, token: string, content: string, extra: Record<string, unknown> = {}) =>

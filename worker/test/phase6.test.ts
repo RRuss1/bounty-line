@@ -344,6 +344,39 @@ describe("stacking (Add to Bounty…)", () => {
   });
 });
 
+describe("/bl hunters", () => {
+  const HUNTER_ROLE = "300000000000000099";
+  const member = (roles: string[]) => ({ ...command(GUILD_A, "hunters", [], "0"), member: { user: { id: "700000000000000555" }, permissions: "0", roles } });
+  const roleCalls = () =>
+    discord.calls.filter((c) => c.path.includes("/members/700000000000000555/roles/")).map((c) => `${c.method} ${c.path.split("/").pop()}`);
+  const setRole = () =>
+    db.sqlite.prepare("UPDATE tenants SET config_json = json_patch(config_json, ?)").run(JSON.stringify({ hunter_role: HUNTER_ROLE, hunter_ping_min_gold: 50 }));
+
+  it("no hunter role set: says how to set one, touches no roles", async () => {
+    await call(env, member([]));
+    expect(discord.followups().at(-1)).toContain("There's no hunter role yet");
+    expect(roleCalls()).toEqual([]);
+  });
+
+  it("gives the role to someone without it, and takes it from someone with it", async () => {
+    setRole();
+    await call(env, member([]));
+    expect(roleCalls()).toEqual([`PUT ${HUNTER_ROLE}`]);
+    expect(discord.followups().at(-1)).toContain("pinged on every new bounty of **50g** or more");
+    discord.calls = [];
+    await call(env, member([HUNTER_ROLE]));
+    expect(roleCalls()).toEqual([`DELETE ${HUNTER_ROLE}`]);
+    expect(discord.followups().at(-1)).toContain("no more pings");
+  });
+
+  it("without Manage Roles: says what the admin must fix", async () => {
+    setRole();
+    discord.fail.role = 403;
+    await call(env, member([]));
+    expect(discord.followups().at(-1)).toContain("Manage Roles");
+  });
+});
+
 describe("/bl config", () => {
   const cfg = (options: { name: string; type: number; value: string }[], perms = String(1n << 5n)) => command(GUILD_A, "config", options, perms);
 

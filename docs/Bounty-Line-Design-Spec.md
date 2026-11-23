@@ -580,6 +580,7 @@ on MESSAGE_CREATE (channel == tenant.bountyLineChannel, author not a bot):
 | `/bl submit code: image:` | Anyone | **Fallback** if pasting doesn't work (same pipeline as chat paste) |
 | `/bl cancel id:` | Poster or officer | Cancel an open bounty |
 | `/bl extend id: days:` | Poster, a contributor or officer | Give an open bounty more days (at most 60 days from now) |
+| `/bl hunters` | Anyone | Take or drop the hunter role (`hunter_role`), which is pinged on new big bounties |
 | `/bl season action: id:` | Anyone (end: its declarer or an officer; close: officers) | List the Open Seasons running, end one early, or finish a stuck one (Section 5.11) |
 | `/bl leaderboard` | Anyone | Top hunters, most wanted, biggest payers |
 | `/bl me` | Anyone | Your stats, trust level, pending payments |
@@ -724,7 +725,7 @@ A tiny opt-in companion app could auto-upload. It's parked; Tier 1 never depends
 | Owing | No new bounty (or gold added) while you owe on one approved 3+ days ago | `unpaid_block_days` |
 | Open bounties per poster | 10 | `max_open_per_poster` |
 | Extending | Poster, contributor or officer: `/bl extend` (at most 60 days from now) | No |
-| Hunters ping | A chosen role is pinged on new bounties of 50g or more | `hunter_role`, `hunter_ping_min_gold` |
+| Hunters ping | A chosen role is pinged on new bounties of 50g or more; members opt in or out with `/bl hunters` | `hunter_role`, `hunter_ping_min_gold` |
 | Open Season: kinds | Per head + pot, prize pool, or per head with no ceiling (Section 5.11) | No |
 | Open Season: length | 7, 14 or 28 days, picked at creation | No |
 | Open Season: gold | Price per kill, pot and pool each within the reward min/max | Via reward min/max |
@@ -844,7 +845,7 @@ Open Season (Section 5.11) adds four tables in migration `0006_seasons.sql`: `se
 - No tokens in the repo, ever. Use `wrangler secret put` and GitHub Actions secrets.
 - Enable **GitHub secret scanning + push protection**.
 - Least-privilege Cloudflare API token for CI (Workers + D1 + R2 edit on one account).
-- Bot permissions: only what's needed (View Channel, Send Messages, Send Messages in Threads, Embed Links, Attach Files, Add Reactions, Manage Threads, Create Public Threads, Read Message History, Pin Messages in the two channels; invite permission integer `2252126231317568`). Never Administrator, Manage Server, Manage Roles or Manage Messages. Manage Channels (to create forum tags) is granted only on the `#bounty-board` forum through a channel override, not server-wide.
+- Bot permissions: only what's needed (View Channel, Send Messages, Send Messages in Threads, Embed Links, Attach Files, Add Reactions, Manage Threads, Create Public Threads, Read Message History, Pin Messages in the two channels; Manage Roles, used only by `/bl hunters` to give or take the hunter role; invite permission integer `2252126499753024`). Discord only lets a bot manage roles **below its own**, so the bot's role sits just above the hunter role and below every staff role: it can't touch anything that matters (decided with Rich 2026-11-23). Never Administrator, Manage Server or Manage Messages. Manage Channels (to create forum tags) is granted only on the `#bounty-board` forum through a channel override, not server-wide.
 
 **Privacy**
 - Store only: Discord user IDs, WoW character names/GUIDs, screenshots submitted as proof.
