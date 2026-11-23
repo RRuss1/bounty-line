@@ -24,13 +24,28 @@ local deferred = {}  -- popups held back during combat, oldest first
 
 -- ---------------------------------------------------------------- rules (tested in addon/tests)
 
+-- Totems, guardians and other summons have creature GUIDs. The game never tells an addon who
+-- owns one (the combat log is closed), but PARTY_KILL only reports killing blows by you, your
+-- party and what you own, so when you're not in a group a creature's killing blow is yours.
+local function isSummon(guid)
+  return type(guid) == "string" and (guid:find("^Creature%-") or guid:find("^Pet%-") or guid:find("^Vehicle%-")) ~= nil
+end
+
 -- Returns the bounty if this PARTY_KILL counts, or nil and a reason. "INSTANCE" (bounties
 -- are open world only, spec Section 10) also returns the bounty, so the player can be told.
+-- "PET" covers your pet and, out of a group, your totems and summons (code flag bit1).
 function ns.CheckKill(attackerGUID, victimGUID, now)
   if ns.IsSecret(attackerGUID) or ns.IsSecret(victimGUID) then return nil, "SECRET" end
   local mine = attackerGUID ~= nil and attackerGUID == UnitGUID("player")
   local pet = attackerGUID ~= nil and not mine and attackerGUID == UnitGUID("pet")
-  if not mine and not pet then return nil, "NOT_MINE" end
+  if not mine and not pet then
+    -- In a group it could be a groupmate's totem, so only solo summons count (spec Section 23).
+    if isSummon(attackerGUID) and not (IsInGroup and IsInGroup()) then
+      pet = true
+    else
+      return nil, "NOT_MINE"
+    end
+  end
   if duel.active or (now - duel.endedAt) < DUEL_GRACE then return nil, "DUEL" end
   if not ns.InOpenWorld() then return nil, "INSTANCE", ns.GetBounty(victimGUID) end
   local b = ns.GetBounty(victimGUID)
