@@ -14,13 +14,13 @@ BL1-<T>-<PAYLOAD>-<CHECK>
 | Part | Definition |
 |---|---|
 | `BL1` | Magic + format generation. Literal. |
-| `<T>` | One char: `B` bounty post, `K` kill claim, `P` bounty pack, `L` character link, `S` Open Season |
+| `<T>` | One char: `B` bounty post, `K` kill claim, `P` bounty pack, `L` character link, `S` Open Season, `W` sightings |
 | `<PAYLOAD>` | Crockford Base32 of the payload bytes (Section 3) |
 | `<CHECK>` | 4 Crockford Base32 chars = CRC-16/CCITT-FALSE (Section 4), left-padded |
 
 **Regex (case-insensitive):**
 ```
-BL1-[BKPLS]-[0-9A-HJKMNP-TV-Z]+-[0-9A-HJKMNP-TV-Z]{4}
+BL1-[BKPLSW]-[0-9A-HJKMNP-TV-Z]+-[0-9A-HJKMNP-TV-Z]{4}
 ```
 
 ### 1.1 Normalization before decoding (both sides)
@@ -65,7 +65,7 @@ Enums:
 
 Every payload starts with **`u8 schema`**. Schema `0` is invalid. For a **newer** schema than the reader knows, it reads the fields it knows and ignores trailing bytes (forward compatibility). For a schema it knows, trailing bytes are an error, so every code has exactly one valid form (needed for duplicate detection).
 
-**Schemas are per code type.** `B` and `L` have schema 1. `K`, `P` and `S` have schemas 1 and 2: schema 2 is schema 1 with fields appended (Open Season, Sections 3.2 and 3.3). A writer uses schema 1 unless it needs the appended fields, so codes for ordinary bounties are unchanged and older addons keep reading packs.
+**Schemas are per code type.** `B`, `L` and `W` have schema 1. `K`, `P` and `S` have schemas 1 and 2: schema 2 is schema 1 with fields appended (Open Season, Sections 3.2 and 3.3). A writer uses schema 1 unless it needs the appended fields, so codes for ordinary bounties are unchanged and older addons keep reading packs.
 
 ### 3.1 `B`: bounty post (addon → Discord)
 | # | Field | Type |
@@ -197,6 +197,26 @@ Declares a bounty on every member of an enemy guild, or adds gold to one (design
 
 **Validation (both sides):** guildFaction ≠ posterFaction. For `mode = 0`: kind 1 needs `perKillGold ≥ 1` and `totalGold ≥ perKillGold`; kind 2 needs `perKillGold = 0` and `totalGold ≥ 1`; kind 3 needs `perKillGold ≥ 1` and `totalGold = 0`. For `mode = 1`: `kind`, `perKillGold` and `days` are `0`, `totalGold ≥ 1` is the gold added, and `existingSeasonId ≠ 0`. The Worker also applies the tenant reward limits to `perKillGold` and `totalGold`.
 
+### 3.6 `W`: sightings (addon → relay → Worker)
+The latest sightings of wanted players, for "last seen" on the wanted posters (design spec 5.10). Only a relay officer's addon writes them, as a QR screenshot the relay program reads; players never paste them, and the bot ignores one pasted in chat.
+| # | Field | Type |
+|---|---|---|
+| 1 | schema (=1) | u8 |
+| 2 | boardTag | str4 |
+| 3 | sentAt | u32 |
+| 4 | nonce | u16 |
+| 5 | sightings | `u16` count, then that many entries |
+
+Sighting entry:
+| Field | Type |
+|---|---|
+| bountyId | u32 (≠ 0: only numbered bounties) |
+| mapID | u16 (`0` = unknown) |
+| seenAt | u32 |
+| spotterName | vstr (`""` = unknown) |
+
+**Validation (both sides):** 1 to 8 sightings, no `bountyId` of 0. The addon puts the newest first and stops adding once the code would pass ~170 characters (a QR code that size reads reliably from a screenshot); the rest wait for the next report. **Worker:** the board tag must be the tenant's; a `seenAt` ahead of the Worker's clock counts as now; sightings over 6 hours old are dropped; only open or under-review bounties of that tenant take them, and only if newer than the one stored.
+
 ---
 
 ## 4. Checksum
@@ -223,6 +243,7 @@ Declares a bounty on every member of an enemy guild, or adds gold to one (design
 |---|---|
 | B code length | ~120 chars typical (more with a note) |
 | K code length | ~90–100 chars typical; ~150 if GUIDs fall back to raw form |
+| W code length | ≤ ~170 chars as the addon writes them (63 for one sighting) |
 | P code inline | ≤ 3,800 chars, else multi-part (max 8 parts) |
 | Decompressed pack | ≤ 256 KB (deflate-bomb guard) |
 | Addon EditBox | `SetMaxLetters(0)` (unlimited) on import box |
