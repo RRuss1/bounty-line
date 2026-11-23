@@ -117,6 +117,7 @@ Changed live by admins with `/bl config`. No redeploy needed.
 | `pet_kills_count` | true |
 | `allow_stacking` | true |
 | `weekly_recap` | true |
+| `hardcore_min_gold` | 50 (bounties at or above get the **Hardcore** forum tag; 0 = off) |
 | `branding_color` | `#B8860B` |
 
 ### 3.4 Deployment-level feature flags (vars)

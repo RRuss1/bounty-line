@@ -577,7 +577,7 @@ on MESSAGE_CREATE (channel == tenant.bountyLineChannel, author not a bot):
 | `#bounty-board` | **Forum** | One thread per bounty (the wanted poster). Bot-managed |
 | (optional) `#bounty-hall-of-fame` | Text | Bot posts PAID bounties + weekly Most Wanted recap |
 
-**Forum tags:** `Open`, `Claimed – Review`, `Awaiting Payment`, `Paid`, `Expired`, `Cancelled`.
+**Forum tags:** `Open`, `Claimed – Review`, `Awaiting Payment`, `Paid`, `Expired`, `Cancelled` (one per status), plus **`Hardcore`** on any bounty of `hardcore_min_gold` (default 50g) or more, kept through every status change and added when stacking crosses the line. `/bl setup` creates the tags; `/bl config hardcore_min_gold` moves the line (0 = off) and re-tags live bounties.
 
 ### 8.2 Wanted poster (thread starter embed)
 
@@ -894,7 +894,7 @@ All strings live in `Locales/`. Ship enUS first; accept community translations (
 
 ### 14.8 Forever rulesets
 
-Works on Normal, PvP, RP and Hardcore rulesets. **Hardcore note:** a bounty kill is permanent for the victim, so expect higher stakes and higher rewards. Consider a "Hardcore" tag on posters.
+Works on Normal, PvP, RP and Hardcore rulesets. **Hardcore note:** a bounty kill is permanent for the victim, so expect higher stakes and higher rewards. (The `Hardcore` forum tag is unrelated to this ruleset: it marks big bounties, Section 8.1. Bounty Line isn't aimed at Hardcore servers.)
 
 ---
 

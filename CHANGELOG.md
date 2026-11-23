@@ -1,13 +1,15 @@
 # Changelog
 
-## v0.9.2: open world only
+## v0.9.2: open world only, Hardcore tag
 
+- **Hardcore tag.** Bounties of 50g or more get a **Hardcore** forum tag next to their status, so the big ones stand out on the Bounty Board. It stays through Claimed, Awaiting Payment and Paid, and Add to Bounty adds it when the total crosses the line. Admins move the line with `/bl config hardcore_min_gold` (0 turns it off), which re-tags live bounties.
 - **Bounties are open world only.** A killing blow in a battleground, arena, dungeon, raid or scenario never makes a kill code, for a bounty or an Open Season; if the victim was wanted, a chat line says the kill doesn't count there. Inside instances wanted players get no skull, target badge, tooltip line, alert or last-seen report. No bounty options inside instances either: no right-click section, `/bl mark`, Add to Bounty or Open Season there, because battlegrounds mix in players from other realms you can never meet in the open world.
 - Bounty Board backstop: every kill claim now says where the kill happened ("Killed in Wetlands (open world)"). A kill whose map isn't a known open-world zone is flagged for the officers and is never auto-approved.
 
 ### Deployer notes
 
-Nothing to do. The bot change deploys when merged; players need the addon update for the in-game part.
+- Run `/bl setup` again once (same options): it creates the **Hardcore** forum tag and tags the live bounties of 50g or more. The bot needs Manage Channels on the forum for this, as before.
+- The bot changes deploy when merged; players need the addon update for the in-game part.
 
 ## v0.9.1: Open Season window, prize pool minimum
 
