@@ -118,6 +118,10 @@ Changed live by admins with `/bl config`. No redeploy needed.
 | `allow_stacking` | true |
 | `weekly_recap` | true |
 | `hardcore_min_gold` | 50 (bounties at or above get the **Hardcore** forum tag; 0 = off) |
+| `claim_cooldown_minutes` | 60 (same hunter, same target; 0 = off) |
+| `unpaid_block_days` | 3 (no new bounties while owing on one approved this long ago; 0 = off) |
+| `max_open_per_poster` | 10 (0 = no limit) |
+| `hunter_role` / `hunter_ping_min_gold` | none / 50 (role pinged on new bounties at or above) |
 | `branding_color` | `#B8860B` |
 
 ### 3.4 Deployment-level feature flags (vars)

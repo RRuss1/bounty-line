@@ -553,6 +553,7 @@ on MESSAGE_CREATE (channel == tenant.bountyLineChannel, author not a bot):
 | `/bl pack` | Anyone | Post and pin a fresh Bounty Pack in `#bounty-line` and remove the old one (at most once a minute; otherwise the pinned one is updated in place) |
 | `/bl submit code: image:` | Anyone | **Fallback** if pasting doesn't work (same pipeline as chat paste) |
 | `/bl cancel id:` | Poster or officer | Cancel an open bounty |
+| `/bl extend id: days:` | Poster, a contributor or officer | Give an open bounty more days (at most 60 days from now) |
 | `/bl season action: id:` | Anyone (end: its declarer or an officer; close: officers) | List the Open Seasons running, end one early, or finish a stuck one (Section 5.11) |
 | `/bl leaderboard` | Anyone | Top hunters, most wanted, biggest payers |
 | `/bl me` | Anyone | Your stats, trust level, pending payments |
@@ -653,7 +654,7 @@ Drawn for ~0.5s around the auto-screenshot, centered, high contrast, large font:
 ### 9.4 Trust levels
 
 - **New hunter:** officer approves.
-- **Trusted:** ≥ 5 approved kills, 0 denials in last 30 days → clean matches auto-approve.
+- **Trusted:** `trust_threshold` (5) approved kills in a row, **each on a different poster's bounty** (more kills on one poster's bounties still count as approvals but don't build trust, so nobody farms it off a friend's alt) → clean matches auto-approve.
 - A denied claim resets trust to New.
 
 ### 9.5 Making the drag-and-drop painless
@@ -672,7 +673,7 @@ A tiny opt-in companion app could auto-upload. It's parked; Tier 1 never depends
 
 | Rule | Default | Configurable |
 |---|---|---|
-| Kill credit | Killing blow only (`PARTY_KILL` attacker == you or your pet) | Pet kills count: on |
+| Kill credit | Killing blow only: you, your pet, or (when you're not in a group) your totem, guardian or other summon | Pet kills count: on |
 | Who can post | Any guild member | Min guild rank |
 | Target faction | **Opposite faction only** (addon + server check) | No |
 | Duels | **Never count.** Duel kills are ignored; no "duel bounties" | No |
@@ -686,7 +687,14 @@ A tiny opt-in companion app could auto-upload. It's parked; Tier 1 never depends
 | Proof window | 24h from kill to Discord post | Yes |
 | Payment | Poster clicks Paid, hunter clicks Received | Officer can force-close |
 | Unpaid nudge | Weekly list of approved-but-unpaid | On/off |
-| Cooldown | Same hunter can't claim the same target's new bounty within 1h | Yes |
+| Cooldown | Same hunter can't claim the same target again within 1h of their last kill on them (enforced by the Bounty Board) | `claim_cooldown_minutes` |
+| Kill timing | Only kills **after** the bounty was made in game count (the B code's time, 5 min slack) | No |
+| Free-for-all zones | Open world: the Gurubashi Arena and similar count. Opposite faction is already enforced by the bounty | No |
+| Grey kills | Count. No level rule: griefing is in the name | No |
+| Owing | No new bounty (or gold added) while you owe on one approved 3+ days ago | `unpaid_block_days` |
+| Open bounties per poster | 10 | `max_open_per_poster` |
+| Extending | Poster, contributor or officer: `/bl extend` (at most 60 days from now) | No |
+| Hunters ping | A chosen role is pinged on new bounties of 50g or more | `hunter_role`, `hunter_ping_min_gold` |
 | Open Season: kinds | Per head + pot, prize pool, or per head with no ceiling (Section 5.11) | No |
 | Open Season: length | 7, 14 or 28 days, picked at creation | No |
 | Open Season: gold | Price per kill, pot and pool each within the reward min/max | Via reward min/max |
@@ -1144,6 +1152,7 @@ The same packager can upload to **Wago** (`-a <wago-id>`) and **WoWInterface** (
 16. **Nameplate skull:** the addon parents a texture to `C_NamePlate.GetNamePlateForUnit(unit)`. Check it appears over enemy players and that forbidden plates are skipped without errors.
 17. **Kill debugging:** `/bl debugkills` prints every `PARTY_KILL` (attacker, victim) and honor message, to settle items 1 and 3 on a real kill.
 18. **Spoiler copy line:** the code box holds `WANTED: **Name** · 500g ||BL1-B-…||` (Section 5.7b). In a WoW EditBox, `||` is how a literal `|` is stored. ✅ **Verified 2026-11-21:** Ctrl+C copies one `|` per `||` pair, so `||` pasted as single pipes. The addon now writes `||||` around the code, which pastes as `||…||`.
+28. **Summon kills in a group:** solo, a killing blow by a creature GUID (totem, guardian, summon) counts as yours, because `PARTY_KILL` only reports you, your party and what you own. In a group it could be a groupmate's, so it doesn't count. Check with `/bl debugkills` whether Forever reports the **owner** as the attacker for totem/guardian kills; if so, they already count in groups too.
 22. **Menus and settings UI:** check on Forever that `MenuUtil.CreateContextMenu` opens from the minimap button and from board rows (with the Debug submenu and its checkboxes), that `UICheckButtonTemplate` checkboxes show in the Settings window, that the entry appears under Esc > Options > AddOns, and where the WANTED badge sits relative to the target frame.
 23. **Sounds:** the addon plays the client's own sounds: sound file `554523` (Mage-Lord Urom, `A_UROMKILL03`) when a bounty is created, and the `SOUNDKIT` names `LOOT_WINDOW_COIN_SOUND`, `ALARM_CLOCK_WARNING_3`, `UI_PVP_HONOR_PRESTIGE_RANK_UP`, `IG_PVP_UPDATE` and `IG_QUEST_LIST_COMPLETE` (names taken from the modern client's list). Whether Forever has each of them is unknown: a missing file falls back to its kit, a missing kit to the raid warning. `/bl debug sounds` plays each one and prints what was found.
 24. **Automatic screenshot:** on 2026-11-21 a practice kill in combat left the stamp up until Print Screen was pressed: `Screenshot()` never ran and the 5-second fallback never fired, which points at the line `C_Timer.After(0.15, Screenshot)` failing. The addon now calls `Screenshot()` from its own function, sets the fallback first, and prints a chat line if the call errors or the game blocks it (`ADDON_ACTION_BLOCKED`). Check with `/bl test` in and out of combat that a file appears by itself.
