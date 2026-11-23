@@ -72,6 +72,16 @@ local PACK_SEASON = {
   { "expiresAt", "u32" },
 }
 
+-- A bounty set by name from Discord (/bl wanted, P schema 4): no GUID until a kill locks it.
+local PACK_WANTED = {
+  { "bountyId", "u32" },
+  { "targetName", "vstr", 255 },
+  { "targetFaction", "faction" },
+  { "rewardGold", "u32" },
+  { "posterName", "vstr", 255 },
+  { "expiresAt", "u32" },
+}
+
 -- One sighting of a wanted player, as guild sync carried it (W codes).
 -- Bounty terms (B schema 2, the Expand section): bonuses (gold > 0) and restrictions (gold = 0).
 local TERM_FIELDS = {
@@ -228,12 +238,13 @@ end
 -- SCHEMAS.K[1] is K schema 1, SCHEMAS.K[2] is K schema 2. A later schema only appends fields.
 local K2 = extend(LAYOUT.K, { { "seasonId", "u32" }, { "victimName", "vstr", 255 }, { "guildName", "vstr", 255 }, { "guildSeen", "u8" } })
 local P2 = extend(LAYOUT.P, { { "seasons", "list", PACK_SEASON } })
+local P3 = extend(P2, { { "bountyTerms", "list", PACK_TERMS } })
 
 local SCHEMAS = {
   B = { LAYOUT.B, extend(LAYOUT.B, { { "kills", "u8" }, { "payout", "u8" }, { "days", "u8" }, { "terms", "list", TERM_FIELDS } }) },
   K = { LAYOUT.K, K2, extend(K2, { { "killerClassID", "u8" }, { "killerLevel", "u8" }, { "victimLevel", "u8" }, { "facts", "u8" } }) },
   L = { LAYOUT.L },
-  P = { LAYOUT.P, P2, extend(P2, { { "bountyTerms", "list", PACK_TERMS } }) },
+  P = { LAYOUT.P, P2, P3, extend(P3, { { "wanted", "list", PACK_WANTED } }) },
   S = { LAYOUT.S, extend(LAYOUT.S, { { "minKills", "u16" } }) },
   W = { LAYOUT.W },
 }
