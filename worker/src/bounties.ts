@@ -9,6 +9,7 @@ import { log } from "./log";
 import { refreshPack } from "./pack";
 import { SKULL, wantedPoster, wantedPosterImage } from "./poster";
 import type { DiscordRest } from "./rest";
+import { posterChecks } from "./limits";
 import { checkBountyPost, decodeErrorMessage } from "./rules";
 import { claimSeasonKill, isSeasonKill, postSeason } from "./seasons";
 import { audit, bountyTagIds, type Tenant } from "./tenants";
@@ -62,6 +63,8 @@ export async function processCode(
 async function postBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: BountyPost, code: string, authorId: string, now: number): Promise<Outcome> {
   const broken = checkBountyPost(b, tenant, now);
   if (broken) return { ok: false, ...broken };
+  const limited = await posterChecks(env, tenant, authorId, now, { newBounty: b.mode === 0 });
+  if (limited) return { ok: false, ...limited };
 
   const DUPLICATE = { ok: false as const, code: "DUPLICATE", message: "That code was already used." };
   if (await env.DB.prepare("SELECT 1 FROM bounties WHERE source_code = ?1").bind(code).first()) return DUPLICATE;
@@ -118,14 +121,18 @@ async function postBounty(env: Env, rest: DiscordRest, tenant: Tenant, b: Bounty
 
   const poster = wantedPoster(b, { id, expiresAt, postedBy: authorId, tenant });
   const image = await wantedPosterImage(env, b, { id, expiresAt, tenant });
+  // The Hunters role (if set) hears about new bounties at or above hunter_ping_min_gold.
+  const { hunter_role: role, hunter_ping_min_gold: pingMin } = tenant.config;
+  const pingRole = role && pingMin > 0 && b.rewardGold >= pingMin ? role : undefined;
   let threadId: string;
   try {
     const thread = await rest.createForumPost(tenant.bounty_board_forum!, {
       name: poster.threadName,
       tagIds: bountyTagIds(tenant, "open", b.rewardGold),
-      content: poster.content,
+      content: pingRole ? `${poster.content}\n<@&${pingRole}> new bounty!` : poster.content,
       embed: poster.embed,
       image,
+      pingRole,
     });
     threadId = thread.id;
   } catch (e) {
