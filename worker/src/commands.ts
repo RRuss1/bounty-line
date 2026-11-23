@@ -45,6 +45,7 @@ export const COMMANDS = [
       },
       { type: OptionType.SUB_COMMAND, name: "status", description: "Admin: deployment and board status" },
       { type: OptionType.SUB_COMMAND, name: "pack", description: "Post and pin a fresh Bounty Pack (for /bl import in game)" },
+      { type: OptionType.SUB_COMMAND, name: "hunters", description: "Turn pings for big new bounties on or off for yourself (the hunter role)" },
       { type: OptionType.SUB_COMMAND, name: "leaderboard", description: "Top hunters, most wanted and biggest payers" },
       { type: OptionType.SUB_COMMAND, name: "me", description: "Your kills, trust level, open bounties and pending payments" },
       {

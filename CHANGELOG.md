@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.9.4 (unreleased)
+
+- **`/bl hunters`**: anyone can turn pings for big new bounties on or off for themselves. It gives or takes the hunter role set with `/bl config hunter_role`.
+
+### Deployer notes
+
+- `/bl hunters` needs the bot to have **Manage Roles**, and the bot's role must be **above** the hunter role in Server Settings → Roles (keep it below your staff roles). New invites ask for Manage Roles; an existing bot needs it given once by hand. The deploy registers the command.
+
 ## v0.9.3: insult bonus works without a target, no duplicate forum tags
 
 - Insult bonus: a `/lol` within 10 seconds of the kill counts with no target (a dead player drops off your target), or at the corpse; a `/lol` at someone else still doesn't. Found in game.

@@ -17,7 +17,7 @@ export class FakeDiscord {
   messages = new Set<string>();
   /** Screenshot bytes served at cdn.discordapp.com URLs. */
   images = new Map<string, Uint8Array>();
-  fail: Partial<Record<"forumPatch" | "threads" | "pin" | "send", number>> = {};
+  fail: Partial<Record<"forumPatch" | "threads" | "pin" | "send" | "role", number>> = {};
   private next = 900000000000000000n;
 
   newId(): string {
@@ -79,6 +79,9 @@ export class FakeDiscord {
     if (method === "PATCH" && (m = /^\/channels\/\d+\/messages\/(\d+)$/.exec(path))) return this.messages.has(m[1]!) ? ok({ id: m[1] }) : status(404);
     if (method === "PUT" && /\/messages\/pins\//.test(path)) return this.fail.pin ? status(this.fail.pin) : noContent();
     if (method === "PUT" && /\/reactions\//.test(path)) return noContent();
+    if ((method === "PUT" || method === "DELETE") && /^\/guilds\/\d+\/members\/\d+\/roles\/\d+$/.test(path)) {
+      return this.fail.role ? status(this.fail.role) : noContent();
+    }
     if (method === "DELETE") return noContent();
     if (method === "PATCH" && /^\/webhooks\/.+\/messages\/@original$/.test(path)) return ok({});
     if (method === "POST" && /^\/webhooks\/\d+\/[^/]+$/.test(path)) return ok({ id: this.newId() }); // ephemeral follow-up

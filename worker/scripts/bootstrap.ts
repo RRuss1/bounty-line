@@ -15,7 +15,7 @@ import { pathToFileURL } from "node:url";
 export const CF_API = "https://api.cloudflare.com/client/v4";
 export const DISCORD_API = "https://discord.com/api/v10";
 /** Bot permissions (spec 13) and scopes for the invite link. */
-export const BOT_PERMISSIONS = "2252126231317568";
+export const BOT_PERMISSIONS = "2252126499753024"; // + Manage Roles (1 << 28), for /bl hunters only
 const MESSAGE_CONTENT = (1 << 18) | (1 << 19); // GATEWAY_MESSAGE_CONTENT (+ _LIMITED)
 
 export interface Inputs {

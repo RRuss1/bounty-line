@@ -120,6 +120,7 @@ Click **Sync fork** on GitHub. Your deploy workflow applies database migrations 
 | `/bl leaderboard` | Anyone | Top hunters, most wanted, biggest payers |
 | `/bl me` | Anyone | Your kills, trust level, open bounties and payments |
 | `/bl cancel` | Poster or officer | Cancel an open bounty |
+| `/bl hunters` | Anyone | Turn pings for big new bounties on or off for yourself (gives or takes the hunter role) |
 | `/bl season` | Anyone (ending one: its declarer or an officer; close: officers) | List the Open Seasons (bounties on a whole enemy guild) that are running, end one early, or finish a stuck one |
 | `/bl forget-me` | Anyone | Delete your links and stats from this board |
 | `/bl relay` | Officers | Get a setup code for the optional [relay program](docs/relay.md): packs reach the game and bounties reach Discord without pasting |
