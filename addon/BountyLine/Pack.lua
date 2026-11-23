@@ -217,12 +217,14 @@ function ns.GetBountyById(id)
 end
 
 -- Last sightings, from you or guildies (spec 5.6), keyed by bounty id. Newest wins.
-function ns.RecordSeen(id, mapID, t)
+-- by: who saw them. Returns true when this is the newest sighting.
+function ns.RecordSeen(id, mapID, t, by)
   BountyLineDB.lastSeen = BountyLineDB.lastSeen or {}
   local seen = BountyLineDB.lastSeen
   local cur = seen[id]
-  if cur and cur.t >= t then return end
-  seen[id] = { map = mapID, t = t }
+  if cur and cur.t >= t then return false end
+  seen[id] = { map = mapID, t = t, by = by }
+  return true
 end
 
 function ns.LastSeen(id)

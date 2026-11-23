@@ -159,6 +159,7 @@ ns.L = {
   KILLS_EMPTY = "No kills yet.\nLand the killing blow on a wanted player and your kill code is saved here.",
   TIP_REWARD = "%s · posted by %s",
   TIP_SEEN = "Last seen: %s, %s",
+  TIP_SEEN_BY = " (by %s)",
   TIP_EXPIRES = "Open until %s",
   TIP_ADD = "Right-click: add gold to this bounty",
   TIP_PENDING = "New: a guildie just made this bounty. It gets its number once it's posted in Discord.",
