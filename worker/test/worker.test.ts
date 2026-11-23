@@ -137,6 +137,29 @@ describe("/bl setup", () => {
     expect(discord.followups()[1]).toContain("updated");
   });
 
+  it("keeps tags an admin renamed or retyped: no duplicates", async () => {
+    const db = TestD1.migrated();
+    const env = await makeEnv(db.asD1());
+    await call(env, command(GUILD_A, "setup", setupOptions()));
+    const saved = JSON.parse((db.sqlite.prepare("SELECT config_json FROM tenants").get() as { config_json: string }).config_json).forum_tags;
+    // An admin renames Open to "Wanted", and retypes the review tag with a plain hyphen.
+    discord.forumTags = discord.forumTags.map((t) =>
+      t.id === saved.open ? { ...t, name: "Wanted" } : t.id === saved.review ? { ...t, name: "claimed - review" } : t,
+    );
+    const before = discord.forumTags.length;
+    await call(env, command(GUILD_A, "setup", setupOptions()));
+    expect(discord.forumTags).toHaveLength(before);
+    const after = JSON.parse((db.sqlite.prepare("SELECT config_json FROM tenants").get() as { config_json: string }).config_json).forum_tags;
+    expect(after).toEqual(saved);
+    // A forum that already has the tags under other spellings (made by hand before setup).
+    const fresh = TestD1.migrated();
+    discord.forumTags = [{ id: "901", name: "Claimed - Review" }, { id: "902", name: "HARDCORE" }];
+    await call(await makeEnv(fresh.asD1()), command(GUILD_A, "setup", setupOptions()));
+    expect(discord.forumTags.filter((t) => /claimed/i.test(t.name))).toHaveLength(1);
+    const tags = JSON.parse((fresh.sqlite.prepare("SELECT config_json FROM tenants").get() as { config_json: string }).config_json).forum_tags;
+    expect(tags).toMatchObject({ review: "901", hardcore: "902" });
+  });
+
   it("explains missing Manage Channels instead of failing", async () => {
     const db = TestD1.migrated();
     discord.fail.forumPatch = 403;

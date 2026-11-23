@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Bounty Board: `/bl setup` no longer makes a second forum tag when an admin renamed one, retyped its dash or gave it an emoji. It keeps the tags it saved, and otherwise matches names ignoring case, dashes, spaces and emoji.
+
 ## v0.9.2: Expand (bounty terms), last seen, open world only, Hardcore tag, fair-play rules
 
 - **Expand: bounty terms.** The Set Bounty window has an **Expand ▾** button. Want up to 10 kills (each paid its share, or all by one hunter), pick 7, 14 or 28 days, add bonuses (zone, class, solo, lower level, within N hours, and an insult bonus for a `/lol` at the corpse within 10 seconds) and limits (only in a zone, only a class, solo only). Hunters see the terms in tooltips and on the board; the wanted poster lists them; each kill gets its own payment post with the bonuses it earned. A bounty with terms takes no added gold.

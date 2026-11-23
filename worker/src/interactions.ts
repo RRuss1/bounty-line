@@ -180,7 +180,7 @@ function setup(interaction: Interaction, env: Env, rest: DiscordRest, guildId: s
 
       const warnings: string[] = [];
       try {
-        await patchConfig(env.DB, guildId, { forum_tags: await ensureForumTags(rest, tenant.bounty_board_forum!) });
+        await patchConfig(env.DB, guildId, { forum_tags: await ensureForumTags(rest, tenant.bounty_board_forum!, tenant.config.forum_tags) });
         // A tag added in an update (e.g. Hardcore) reaches bounties that are already up.
         await retagBounties(env, rest, (await getTenant(env.DB, guildId))!);
       } catch (e) {
@@ -216,17 +216,33 @@ function setup(interaction: Interaction, env: Env, rest: DiscordRest, guildId: s
 }
 
 /** Makes sure the status tags exist on the forum. Keeps any other tags. Returns tag IDs by key. */
-export async function ensureForumTags(rest: DiscordRest, forumId: string): Promise<Partial<Record<ForumTagKey, string>>> {
+/** "Claimed - Review", "claimed – review" and "🔍 Claimed – Review" are the same tag. */
+export const tagKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+/**
+ * Finds (or creates) one forum tag per status, plus Hardcore. A tag the bot saved before keeps
+ * its place even if an admin renamed it or gave it an emoji; otherwise a tag with the same name
+ * (ignoring case, dashes, spaces and emoji) is used. Only tags found neither way are created,
+ * so re-running /bl setup never makes duplicates.
+ */
+export async function ensureForumTags(
+  rest: DiscordRest,
+  forumId: string,
+  known: Partial<Record<ForumTagKey, string>> = {},
+): Promise<Partial<Record<ForumTagKey, string>>> {
   const channel = await rest.getChannel(forumId);
   let tags: ForumTag[] = channel.available_tags ?? [];
-  const missing = Object.values(FORUM_TAGS).filter((name) => !tags.some((t) => t.name === name));
+  const find = (key: ForumTagKey, list: ForumTag[]) =>
+    list.find((t) => t.id !== undefined && t.id === known[key]) ?? list.find((t) => tagKey(t.name) === tagKey(FORUM_TAGS[key]));
+  const keys = Object.keys(FORUM_TAGS) as ForumTagKey[];
+  const missing = keys.filter((key) => !find(key, tags)).map((key) => FORUM_TAGS[key]);
   if (missing.length) {
     if (tags.length + missing.length > 20) throw new Error("forum has too many tags (Discord allows 20)");
     tags = (await rest.setForumTags(forumId, [...tags, ...missing.map((name) => ({ name }))])).available_tags;
   }
   const ids: Partial<Record<ForumTagKey, string>> = {};
-  for (const [key, name] of Object.entries(FORUM_TAGS) as [ForumTagKey, string][]) {
-    const id = tags.find((t) => t.name === name)?.id;
+  for (const key of keys) {
+    const id = find(key, tags)?.id;
     if (id) ids[key] = id;
   }
   return ids;
