@@ -2,7 +2,7 @@
 
 ## v0.9.5 (unreleased)
 
-- **`/bl wanted` opens a form**: first name, last name, faction (a dropdown) and gold, which takes `1,000` and `2.5k`. Typing every option still posts straight away. Bot only: no addon update.
+- **`/bl wanted` opens a form** as soon as you press Enter: first name, last name, faction (a dropdown, Alliance picked to start) and gold, which takes `1,000` and `2.5k`. Bot only: no addon update.
 
 ## v0.9.4: bounties by name from Discord, /bl hunters
 

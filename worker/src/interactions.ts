@@ -167,9 +167,8 @@ export async function runCommand(
     case "relay":
       return { defer: () => relayCommand(interaction, env, guildId, o.action ?? "status", now, origin) };
     case "wanted":
-      // Everything typed: post it. Otherwise the form, with whatever was typed filled in.
-      if (!o.name || !o.faction || !o.gold) return { reply: { type: ResponseType.MODAL, data: wantedForm(o) } };
-      return { defer: () => wanted(interaction, env, rest, guildId, { name: o.name!, faction: o.faction!, gold: Number(o.gold) }, now) };
+      // No options: Enter opens the form straight away. It is answered in runModal.
+      return { reply: { type: ResponseType.MODAL, data: wantedForm() } };
     case "submit":
       return { defer: () => submit(interaction, env, rest, guildId, o.code ?? "", now, o.image) };
     default:
