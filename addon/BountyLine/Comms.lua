@@ -191,8 +191,10 @@ end
 
 -- A wanted player was spotted: remember it and tell the guild (at most once a minute each).
 function Comms.Seen(bountyId, mapID, now)
-  ns.RecordSeen(bountyId, mapID, now)
+  local me = ns.FullName("player")
+  local newest = ns.RecordSeen(bountyId, mapID, now, me)
   if (BountyLineDB.settings or {}).shareSeen == false then return end
+  if newest and ns.RelayNoteSeen then ns.RelayNoteSeen(bountyId, mapID, now, me) end
   local last = seenSentAt[bountyId]
   if last and GetTime() - last < SEEN_EVERY then return end
   seenSentAt[bountyId] = GetTime()
@@ -345,9 +347,15 @@ function handlers.VER(data, senderName)
   end
 end
 
-function handlers.SEEN(data)
+function handlers.SEEN(data, senderName)
   local id, mapID, t = data:match("^(%d+)\t(%d+)\t(%d+)$")
-  if id then ns.RecordSeen(tonumber(id), tonumber(mapID), tonumber(t)) end
+  if not id then return end
+  id, mapID = tonumber(id), tonumber(mapID)
+  -- Never trust a sender's clock: a sighting can't be from the future.
+  t = math.min(tonumber(t), GetServerTime())
+  -- Sender names are "First" or "First-Surname"; codes and the board use "First Surname".
+  local by = senderName and (senderName:gsub("%-", " ", 1)) or ""
+  if ns.RecordSeen(id, mapID, t, by) and ns.RelayNoteSeen then ns.RelayNoteSeen(id, mapID, t, by) end
 end
 
 function handlers.KILL(data, _, senderId)
@@ -383,7 +391,7 @@ events:SetScript("OnEvent", function(_, event, prefix, text, channel, sender)
     C_Timer.After(8, Comms.Hello) -- after the guild roster settles
     C_Timer.After(10, Comms.Version)
     -- The relay program's data, if its addon folder is installed (globals from BountyLine_Relay).
-    if ns.RelayStart then ns.RelayStart(BountyLine_RelayAlive, BountyLine_RelayPack, GetServerTime()) end
+    if ns.RelayStart then ns.RelayStart(BountyLine_RelayAlive, BountyLine_RelayPack, GetServerTime(), BountyLine_RelaySightings) end
   elseif prefix == PREFIX then
     Comms.Receive(text, channel, sender)
   end

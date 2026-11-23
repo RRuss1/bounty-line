@@ -64,7 +64,9 @@ local function bountyTooltip(tip, b)
     tip:AddLine(L.TIP_PENDING, 0.9, 0.9, 0.9, true)
   else
     local seen = ns.LastSeen(b.id)
-    tip:AddLine(seen and L.TIP_SEEN:format(zoneName(seen.map), ns.Ago(seen.t)) or L.NOT_SEEN, 0.9, 0.9, 0.9)
+    local text = seen and L.TIP_SEEN:format(zoneName(seen.map), ns.Ago(seen.t)) or L.NOT_SEEN
+    if seen and seen.by and seen.by ~= "" then text = text .. L.TIP_SEEN_BY:format(seen.by) end
+    tip:AddLine(text, 0.9, 0.9, 0.9)
     tip:AddLine(L.TIP_EXPIRES:format(date("%b %d", b.expires)), 0.9, 0.9, 0.9)
     tip:AddLine(b.claimed and L.CLAIMED or L.TIP_ADD, 0.6, 0.6, 0.6)
   end

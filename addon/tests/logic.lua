@@ -586,6 +586,9 @@ do
   BountyLineDB.settings.relay = true
   ns.RelayStart(serverTime - 30, nil, serverTime)
   check("a fresh stamp: this client is a relay", ns.RelayActive())
+  from("Grey-Warden", "SEEN", ("7\t1437\t%d"):format(serverTime - 900))
+  check("an older relay program isn't sent sightings", not ns.RelayFlushSeen(clock, serverTime))
+  ns.RelayStart(serverTime - 30, nil, serverTime, true)
 
   from("Evil", "BCODE", bcode)
   check("a code sent by someone other than its poster is dropped", #shown == 0 and #sent == 0)
@@ -605,6 +608,52 @@ do
 
   check("a relay carries its own bounties itself", ns.RelayQueue(mine) == true)
   runTimers()
+  runTimers()
+
+  -- Sightings (spec 5.10): collected from guild sync, sent as one W code every 5 minutes.
+  shown = {}
+  BountyLineDB.settings.shareSeen = nil
+  from("Grey-Warden", "SEEN", ("7\t1437\t%d"):format(serverTime - 120))
+  eq("a guildie's sighting is recorded with who saw it", ns.LastSeen(7).by, "Grey Warden")
+  from("Grey-Warden", "SEEN", ("8\t1429\t%d"):format(serverTime + 9999))
+  eq("a sighting from the future is dated now", ns.LastSeen(8).t, serverTime)
+  ns.Comms.Seen(9, 1411, serverTime - 60)
+  eq("my own sighting is mine", ns.LastSeen(9).by, "Slac Jaw")
+  from("Grey-Warden", "SEEN", ("7\t1411\t%d"):format(serverTime - 600))
+  eq("an older sighting doesn't replace a newer one", ns.LastSeen(7).map, 1437)
+  combat = true
+  check("not sent in combat", not ns.RelayFlushSeen(clock, serverTime) and #shown == 0)
+  combat = false
+  check("sent out of combat", ns.RelayFlushSeen(clock, serverTime) and #shown == 1)
+  local w = Codec.Decode(shown[1])
+  check("as one W code", w and w.type == "W" and #w.fields.sightings == 3, shown[1])
+  if w then
+    eq("newest first", w.fields.sightings[1].bountyId, 8)
+    eq("with the spotter", w.fields.sightings[3].spotterName, "Grey Warden")
+    eq("and the zone", w.fields.sightings[3].mapID, 1437)
+  end
+  runTimers()
+  check("nothing new: nothing sent", not ns.RelayFlushSeen(clock + 600, serverTime))
+  from("Grey-Warden", "SEEN", ("7\t1437\t%d"):format(serverTime))
+  check("a new sighting waits out the 5 minutes", not ns.RelayFlushSeen(clock + 60, serverTime))
+  check("then goes", ns.RelayFlushSeen(clock + 301, serverTime) and #shown == 2)
+  runTimers()
+  for i = 1, 12 do from("Someone-With-A-Long-Surname", "SEEN", ("%d\t1437\t%d"):format(100 + i, serverTime - i)) end
+  check("many sightings: the first report", ns.RelayFlushSeen(clock + 700, serverTime))
+  local first = Codec.Decode(shown[#shown])
+  check("stays a QR code that reads", #shown[#shown] <= 170 and first and #first.fields.sightings >= 2, shown[#shown])
+  runTimers()
+  check("the rest go in the next report", ns.RelayFlushSeen(clock + 1100, serverTime))
+  local second = Codec.Decode(shown[#shown])
+  check("with the older ones", second and second.fields.sightings[1].seenAt < first.fields.sightings[#first.fields.sightings].seenAt)
+  runTimers()
+  local later = clock + 1100
+  repeat later = later + 301 until not ns.RelayFlushSeen(later, serverTime) -- send whatever is left
+  runTimers()
+  BountyLineDB.settings.shareSeen = false
+  ns.Comms.Seen(9, 1411, serverTime + 1)
+  check("sightings I don't share aren't relayed", not ns.RelayFlushSeen(later + 301, serverTime + 1))
+  BountyLineDB.settings.shareSeen = nil
   runTimers()
 
   -- The pack the program left in its data file is loaded and shared.
