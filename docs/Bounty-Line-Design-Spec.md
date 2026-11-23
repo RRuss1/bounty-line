@@ -459,7 +459,7 @@ An **Open Season** puts a price on every member of one enemy guild. Many hunters
 
 For a guildie who has only the enemy's name: no addon, or never met them in game. Decided with Rich on 2026-11-23.
 
-- **Setting it.** `/bl wanted name: faction: gold: note:` in Discord. The name is the character's full name as the game shows it ("First Surname"); it is matched without regard to case or extra spaces. The usual rules apply: the reward limits, the owing block, the open-bounty cap, and the poster pays. There can't be two open bounties on one name, and gold can't be added until it is locked.
+- **Setting it.** `/bl wanted` in Discord opens a form: **first name**, **last name** (empty if they have none), **faction** (a dropdown) and **gold** (`50`, `1,000` or `2.5k`). Typing all three options (`/bl wanted name: faction: gold:`) skips the form; typing some fills them into it. The name is the character's full name as the game shows it ("First Surname"); it is matched without regard to case or extra spaces. The usual rules apply: the reward limits, the owing block, the open-bounty cap, and the poster pays. There can't be two open bounties on one name, and gold can't be added until it is locked.
 - **Not confirmed yet.** The wanted poster says "Set by name in Discord: not confirmed in game yet" and shows no class, race or level. It travels in the Bounty Pack (P schema 4) as a name, not a GUID.
 - **Locking in game.** Every addon with the pack watches enemy players on nameplates, targets and mouseover (open world only). A player of the named faction, opposite yours, whose full name matches exactly is taken to be the target: the addon remembers their GUID (saved, per account) and from then on marks them like any bounty (skull, tooltip, alert). A kill on a player of that name is matched the same way. Nothing is sent: each addon locks it for itself.
 - **Kills.** A kill on it makes a K code (schema 3) carrying the victim's name. The Bounty Board checks that the name matches, and the claim **always goes to officer review**, whatever the auto-approve setting: the officer checks the name on the screenshot. **Approving locks the bounty to that player's GUID**; a denied claim leaves it name-only.
@@ -588,7 +588,7 @@ on MESSAGE_CREATE (channel == tenant.bountyLineChannel, author not a bot):
 | `/bl setup` | Server admin | Pick #bounty-line channel, #bounty-board forum, officer role, link in-game guild name |
 | `/bl pack` | Anyone | Post and pin a fresh Bounty Pack in `#bounty-line` and remove the old one (at most once a minute; otherwise the pinned one is updated in place) |
 | `/bl submit code: image:` | Anyone | **Fallback** if pasting doesn't work (same pipeline as chat paste) |
-| `/bl wanted name: faction: gold: note:` | Anyone | Put a bounty on an enemy known only by name (Section 5.12) |
+| `/bl wanted` | Anyone | Put a bounty on an enemy known only by name: opens a form (Section 5.12) |
 | `/bl cancel id:` | Poster or officer | Cancel an open bounty |
 | `/bl extend id: days:` | Poster, a contributor or officer | Give an open bounty more days (at most 60 days from now) |
 | `/bl hunters` | Anyone | Take or drop the hunter role (`hunter_role`), which is pinged on new big bounties |

@@ -5,7 +5,7 @@ import { decodePack, encode, type BountyPost, type KillClaim } from "../src/code
 import type { Env } from "../src/env";
 import { codeLimiter } from "../src/ratelimit";
 import { DiscordRest } from "../src/rest";
-import { checkName, nameKey } from "../src/wanted";
+import { checkName, nameKey, parseGold } from "../src/wanted";
 import { TestD1 } from "./helpers/d1";
 import { call, command, GUILD_A, ids, makeEnv, setupOptions } from "./helpers/env";
 import { FakeDiscord } from "./helpers/fakes";
@@ -147,6 +147,64 @@ describe("/bl wanted", () => {
     setConfig("allow_stacking", true);
     await say(encode("B", bounty({ mode: 1, existingBountyId: 1 })), [], "700000000000000002");
     expect(replies().at(-1)).toContain("was set by name in Discord, so gold can't be added");
+  });
+});
+
+describe("the /bl wanted form", () => {
+  const bare = (options: { name: string; type: number; value: string }[] = []) => ({
+    ...command(GUILD_A, "wanted", options, "0"),
+    member: { user: { id: POSTER_USER, username: "buddy" }, nick: "Bud", permissions: "0", roles: [] },
+  });
+  type Form = { custom_id: string; components: { label: string; component: { custom_id: string; value?: string; options?: { value: string; default?: boolean }[] } }[] };
+  const submit = (values: { first: string; last: string; faction: string; gold: string }) =>
+    call(env, {
+      type: 5, id: "1", token: "tok", guild_id: GUILD_A, application_id: "400000000000000000",
+      member: { user: { id: POSTER_USER, username: "buddy" }, nick: "Bud", permissions: "0", roles: [] },
+      data: {
+        custom_id: "wanted",
+        components: [
+          { type: 18, component: { type: 4, custom_id: "first", value: values.first } },
+          { type: 18, component: { type: 4, custom_id: "last", value: values.last } },
+          { type: 18, component: { type: 3, custom_id: "faction", values: [values.faction] } },
+          { type: 18, component: { type: 4, custom_id: "gold", value: values.gold } },
+        ],
+      },
+    });
+
+  it("/bl wanted on its own opens the form: first name, last name, faction, gold", async () => {
+    const r = await call(env, bare());
+    expect(r.body.type).toBe(9);
+    const form = r.body.data as unknown as Form;
+    expect(form.custom_id).toBe("wanted");
+    expect(form.components.map((c) => c.label)).toEqual(["First name", "Last name", "Faction", "Gold"]);
+    expect(form.components[2]!.component.options!.map((o) => o.value)).toEqual(["Alliance", "Horde"]);
+    expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM bounties").get()).toEqual({ n: 0 });
+  });
+
+  it("fills in whatever was typed in the command", async () => {
+    const r = await call(env, bare([{ name: "name", type: 3, value: "Grimlok Ashveil" }, { name: "faction", type: 3, value: "Horde" }]));
+    const form = r.body.data as unknown as Form;
+    expect(form.components[0]!.component.value).toBe("Grimlok");
+    expect(form.components[1]!.component.value).toBe("Ashveil");
+    expect(form.components[2]!.component.options!.find((o) => o.default)?.value).toBe("Horde");
+  });
+
+  it("submitting the form posts the bounty", async () => {
+    await submit({ first: " Grimlok ", last: "Ashveil", faction: "Alliance", gold: "1,000" });
+    expect(discord.followups().at(-1)).toContain("Bounty #1 on **Grimlok Ashveil** for **1,000g** is up");
+    expect(row()).toMatchObject({ target_guid: "name:grimlok ashveil", faction: "Alliance", reward_gold: 1000, poster_name: "Bud" });
+  });
+
+  it("a character with no last name, and gold that isn't a number", async () => {
+    await submit({ first: "Zoë", last: "", faction: "Horde", gold: "lots" });
+    expect(discord.followups().at(-1)).toContain("Type the gold as a whole number");
+    await submit({ first: "Zoë", last: "", faction: "Horde", gold: "2.5k" });
+    expect(row()).toMatchObject({ target_name: "Zoë", faction: "Horde", reward_gold: 2500 });
+  });
+
+  it("reads gold the way players type it", () => {
+    expect([parseGold("50"), parseGold("1,000"), parseGold("75g"), parseGold("2.5k"), parseGold("1K")]).toEqual([50, 1000, 75, 2500, 1000]);
+    expect([parseGold(""), parseGold("1.5"), parseGold("-5"), parseGold("ten")].every(Number.isNaN)).toBe(true);
   });
 });
 

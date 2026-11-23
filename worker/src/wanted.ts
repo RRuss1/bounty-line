@@ -38,6 +38,68 @@ export function checkName(raw: string): string | null {
   return name;
 }
 
+// ---------------------------------------------------------------- the form
+
+export const WANTED_FORM = "wanted";
+
+/** "50", "1,000", "2.5k", "75g" -> whole gold; NaN if it isn't one. */
+export function parseGold(text: string): number {
+  const s = text.toLowerCase().replace(/[\s,]/g, "").replace(/g$/, "");
+  const m = /^(\d{1,9})(?:\.(\d{1,3}))?(k?)$/.exec(s);
+  if (!m) return Number.NaN;
+  if (!m[3]) return m[2] && /[1-9]/.test(m[2]) ? Number.NaN : Number(m[1]);
+  return Number(m[1]) * 1000 + Number((m[2] ?? "").padEnd(3, "0"));
+}
+
+/**
+ * /bl wanted with nothing typed opens this form: first name, last name, faction, gold. Whatever
+ * was typed in the command is filled in. Labels (type 18) hold one field each; the faction is a
+ * dropdown (type 3), the rest text inputs (type 4).
+ */
+export function wantedForm(prefill: { name?: string; faction?: string; gold?: string }) {
+  const [first = "", ...rest] = (prefill.name ?? "").trim().split(/\s+/);
+  const last = rest.join(" ");
+  const text = (id: string, opts: Record<string, unknown>) => ({ type: 4, custom_id: id, style: 1, ...opts });
+  return {
+    custom_id: WANTED_FORM,
+    title: "Bounty by name",
+    components: [
+      { type: 18, label: "First name", component: text("first", { min_length: 2, max_length: 24, required: true, placeholder: "Grimlok", ...(first ? { value: first } : {}) }) },
+      {
+        type: 18,
+        label: "Last name",
+        description: "Exactly as the game shows it. Leave it empty if they have none.",
+        component: text("last", { max_length: 24, required: false, placeholder: "Ashveil", ...(last ? { value: last } : {}) }),
+      },
+      {
+        type: 18,
+        label: "Faction",
+        component: {
+          type: 3,
+          custom_id: "faction",
+          required: true,
+          options: ["Alliance", "Horde"].map((f) => ({ label: f, value: f, ...(prefill.faction === f ? { default: true } : {}) })),
+        },
+      },
+      {
+        type: 18,
+        label: "Gold",
+        description: "The reward. You pay it to the hunter in game.",
+        component: text("gold", { max_length: 12, required: true, placeholder: "50", ...(prefill.gold ? { value: prefill.gold } : {}) }),
+      },
+    ],
+  };
+}
+
+/** The form's answers, ready for postWanted. */
+export function wantedFromForm(values: Record<string, string>) {
+  return {
+    name: `${values.first ?? ""} ${values.last ?? ""}`.trim(),
+    faction: values.faction ?? "",
+    gold: parseGold(values.gold ?? ""),
+  };
+}
+
 /** /bl wanted: a bounty on an enemy known only by name. Returns the reply. */
 export async function postWanted(
   env: Env,
@@ -53,7 +115,8 @@ export async function postWanted(
   const faction = input.faction === "Alliance" ? FACTION.Alliance : input.faction === "Horde" ? FACTION.Horde : 0;
   if (!faction) return "❌ Pick the enemy's faction: Alliance or Horde.";
   const { reward_min, reward_max, expiry_days } = tenant.config;
-  if (!Number.isInteger(input.gold) || input.gold < reward_min || input.gold > reward_max) return `❌ Reward must be between ${gold(reward_min)} and ${gold(reward_max)}.`;
+  if (!Number.isInteger(input.gold)) return "❌ Type the gold as a whole number, like `50` or `1,000`.";
+  if (input.gold < reward_min || input.gold > reward_max) return `❌ Reward must be between ${gold(reward_min)} and ${gold(reward_max)}.`;
   const limited = await posterChecks(env, tenant, authorId, now, { newBounty: true });
   if (limited) return `❌ ${limited.message}`;
 

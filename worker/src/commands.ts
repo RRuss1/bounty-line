@@ -149,20 +149,20 @@ export const COMMANDS = [
       {
         type: OptionType.SUB_COMMAND,
         name: "wanted",
-        description: "Put a bounty on an enemy you only know by name (no addon needed)",
+        description: "Put a bounty on an enemy you only know by name (no addon needed): opens a form",
         options: [
-          { type: OptionType.STRING, name: "name", description: "Their full name as the game shows it, like Grimlok Ashveil", required: true, max_length: 40 },
+          { type: OptionType.STRING, name: "name", description: "Their full name as the game shows it, like Grimlok Ashveil", required: false, max_length: 40 },
           {
             type: OptionType.STRING,
             name: "faction",
             description: "Their faction",
-            required: true,
+            required: false,
             choices: [
               { name: "Alliance", value: "Alliance" },
               { name: "Horde", value: "Horde" },
             ],
           },
-          { type: OptionType.INTEGER, name: "gold", description: "The reward in gold (you pay it in game)", required: true, min_value: 1 },
+          { type: OptionType.INTEGER, name: "gold", description: "The reward in gold (you pay it in game)", required: false, min_value: 1 },
         ],
       },
       {

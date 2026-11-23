@@ -13,7 +13,7 @@
 5. **Prove it.** Drop that **screenshot** into `#bounty-line`. The bot reads the kill from the QR code on the stamp: nothing to paste. Your officers approve the claim (trusted hunters can be approved automatically).
 6. **Get paid.** The poster pays you in game. Both of you click **Paid / Received** and the poster gets its **PAID** stamp.
 
-**Only have a name?** Anyone in your Discord can type `/bl wanted name: faction: gold:` with no addon at all. Bounty Line marks that player the first time a guildie sees them in game, and kills on it go to your officers.
+**Only have a name?** Anyone in your Discord can type `/bl wanted` and fill in a short form (name, faction, gold) with no addon at all. Bounty Line marks that player the first time a guildie sees them in game, and kills on it go to your officers.
 
 ## Open Season: a bounty on a whole guild
 

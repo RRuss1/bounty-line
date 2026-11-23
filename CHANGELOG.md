@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.9.5 (unreleased)
+
+- **`/bl wanted` opens a form**: first name, last name, faction (a dropdown) and gold, which takes `1,000` and `2.5k`. Typing every option still posts straight away. Bot only: no addon update.
+
 ## v0.9.4: bounties by name from Discord, /bl hunters
 
 - **`/bl hunters`**: anyone can turn pings for big new bounties on or off for themselves. It gives or takes the hunter role set with `/bl config hunter_role`.
