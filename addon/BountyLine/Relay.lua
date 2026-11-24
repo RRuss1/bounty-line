@@ -28,6 +28,42 @@ local seenTicker
 
 function ns.RelayActive() return active end
 
+-- ---------------------------------------------------------------- zoning (spec 23 item 31)
+--
+-- No QR frame and no screenshot while a loading screen is up, for SETTLE seconds after it, or
+-- in combat. A relay screenshot taken mid-load is the likely cause of a loading screen into a
+-- dungeon that flashed and never finished (reported 2026-11-23). Two pairs of events, since
+-- which ones Forever fires isn't verified: leaving/entering the world, and the loading screen.
+
+local SETTLE = 5
+local leftWorld, onLoadScreen, readyAt = false, false, 0
+
+function ns.RelayZoneEvent(event, t)
+  if event == "PLAYER_LEAVING_WORLD" then
+    leftWorld = true
+  elseif event == "LOADING_SCREEN_ENABLED" then
+    onLoadScreen = true
+  elseif event == "PLAYER_ENTERING_WORLD" then
+    leftWorld, readyAt = false, math.max(readyAt, t + SETTLE)
+  elseif event == "LOADING_SCREEN_DISABLED" then
+    onLoadScreen, readyAt = false, math.max(readyAt, t + SETTLE)
+  end
+end
+
+-- May a QR frame be shown and a screenshot taken now?
+function ns.RelayReady(t)
+  return not leftWorld and not onLoadScreen and t >= readyAt and not (InCombatLockdown and InCombatLockdown())
+end
+
+local zoning = CreateFrame("Frame")
+for _, e in ipairs({ "PLAYER_LEAVING_WORLD", "LOADING_SCREEN_ENABLED", "PLAYER_ENTERING_WORLD", "LOADING_SCREEN_DISABLED" }) do
+  pcall(zoning.RegisterEvent, zoning, e) -- an event this client doesn't have is skipped
+end
+zoning:SetScript("OnEvent", function(_, event)
+  if BountyLineDB and BountyLineDB.settings and BountyLineDB.settings.debugKills then ns.Print("zoning: " .. event) end
+  ns.RelayZoneEvent(event, GetTime())
+end)
+
 -- Called at login. alive / packText / now are passed in so this can be tested. sightings: the
 -- program says it carries sightings (older ones would leave their screenshots lying around).
 function ns.RelayStart(alive, packText, now, sightingsOk)
@@ -77,8 +113,16 @@ function ns.RelayShow(code)
     frame.caption:SetText(L.RELAY_CAPTION)
   end
   if not ns.DrawQR(frame, code) then return false end
-  -- Give it a frame to draw, then take the shot.
-  C_Timer.After(0.2, function() pcall(Screenshot) end)
+  -- Give it a frame to draw, then take the shot. Zoning started meanwhile: no shot, and the
+  -- code goes back to the front of the queue.
+  C_Timer.After(0.2, function()
+    if ns.RelayReady(GetTime()) then
+      pcall(Screenshot)
+    else
+      ns.RelayHide()
+      ns.RelayRequeue(code)
+    end
+  end)
   return true
 end
 
@@ -86,13 +130,22 @@ function ns.RelayHide()
   if frame then frame:Hide() end
 end
 
-local function pump()
+local pump
+local retrying = false
+local function retryLater()
+  if retrying then return end -- one waiting timer is enough
+  retrying = true
+  C_Timer.After(2, function()
+    retrying = false
+    pump()
+  end)
+end
+
+pump = function()
   if busy or #queue == 0 then return end
-  -- A kill's proof stamp comes first: its screenshot must not carry a second QR code.
-  if ns.KillBusy and ns.KillBusy() then
-    C_Timer.After(2, pump)
-    return
-  end
+  -- A kill's proof stamp comes first: its screenshot must not carry a second QR code. Nothing
+  -- while zoning or fighting either.
+  if (ns.KillBusy and ns.KillBusy()) or not ns.RelayReady(GetTime()) then return retryLater() end
   busy = true
   ns.RelayShow(table.remove(queue, 1))
   C_Timer.After(SHOW_SECONDS, function()
@@ -100,6 +153,11 @@ local function pump()
     busy = false
     C_Timer.After(0.5, pump)
   end)
+end
+
+function ns.RelayRequeue(code)
+  table.insert(queue, 1, code)
+  retryLater()
 end
 
 -- Queues a bounty code for the program. Returns true if this client took it.
@@ -157,7 +215,7 @@ end
 function ns.RelayFlushSeen(t, now)
   if not active or next(sightings) == nil then return false end
   if t - seenSentAt < SEEN_EVERY then return false end
-  if InCombatLockdown and InCombatLockdown() then return false end
+  if not ns.RelayReady(t) then return false end -- zoning or in combat
   local code = ns.SightingCode(now)
   if not code then return false end
   seenSentAt = t

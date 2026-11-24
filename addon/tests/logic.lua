@@ -624,6 +624,16 @@ do
   combat = true
   check("not sent in combat", not ns.RelayFlushSeen(clock, serverTime) and #shown == 0)
   combat = false
+  -- Zoning (spec 23 item 31): nothing while the loading screen is up, nor 5 seconds after.
+  local z = clock - 100 -- a load that finished before now
+  ns.RelayZoneEvent("PLAYER_LEAVING_WORLD", z)
+  check("not sent while leaving the world", not ns.RelayFlushSeen(z, serverTime) and #shown == 0)
+  ns.RelayZoneEvent("LOADING_SCREEN_ENABLED", z)
+  ns.RelayZoneEvent("PLAYER_ENTERING_WORLD", z)
+  check("not sent while the loading screen is still up", not ns.RelayFlushSeen(z, serverTime) and #shown == 0)
+  ns.RelayZoneEvent("LOADING_SCREEN_DISABLED", z)
+  check("not sent just after it", not ns.RelayFlushSeen(z + 4, serverTime) and not ns.RelayReady(z + 4))
+  check("ready 5 seconds later", ns.RelayReady(z + 5))
   check("sent out of combat", ns.RelayFlushSeen(clock, serverTime) and #shown == 1)
   local w = Codec.Decode(shown[1])
   check("as one W code", w and w.type == "W" and #w.fields.sightings == 3, shown[1])

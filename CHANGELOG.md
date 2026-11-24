@@ -3,6 +3,7 @@
 ## v0.9.5 (unreleased)
 
 - **`/bl wanted` opens a form** as soon as you press Enter: first name, last name, faction (a dropdown, Alliance picked to start) and gold, which takes `1,000` and `2.5k`. Bot only: no addon update.
+- **Relay: no screenshots while zoning.** With the relay on, the addon could show its QR code and take a screenshot in the middle of a loading screen. A loading screen into a dungeon that flashed and never finished was reported, and this is the likely cause. Now nothing is shown or shot while the game is loading, or for 5 seconds after; a code caught by it waits its turn. Needs the addon update.
 
 ## v0.9.4: bounties by name from Discord, /bl hunters
 
